@@ -1,0 +1,19 @@
+---
+Language: Cpp
+BasedOnStyle: Google
+
+IndentWidth: 4
+TabWidth: 4
+AccessModifierOffset: -4
+
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+
+IncludeCategories:
+  - Regex:           '^".*"'
+    Priority:        1
+
+  - Regex:           '^<.*>'
+    Priority:        2
+...
+
