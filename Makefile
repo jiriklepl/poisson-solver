@@ -1,39 +1,68 @@
 CPP=g++
+NVCC=nvcc
 STD=-std=c++20
-CFLAGS=-Wall -Wextra -Wno-unused-parameter -O3 $(STD) -Iinclude
+INCLUDE=./include /usr/local/cuda/include
+LIB_DIRS=/usr/local/cuda/lib64
+LIBS=cudart
+
+CFLAGS=-Wall -Wextra -Wno-unused-parameter -O3 $(STD) \
+	$(addprefix -I, $(INCLUDE))
+
+LDFLAGS= $(addprefix -L, $(LIB_DIRS)) \
+	$(addprefix -l, $(LIBS))
+
+NVCCFLAGS=-ccbin $(CPP) $(STD) -O3 \
+	$(addprefix -I, $(INCLUDE)) \
+	-gencode=arch=compute_80,code=sm_80 \
+	-gencode=arch=compute_90,code=sm_90
 
 BUILD_DIR=build
 TARGET=$(BUILD_DIR)/test-runner
 
-LIB_SRC=$(wildcard src/*.cpp)
+# Source lists
+LIB_CPP_SRC=$(wildcard src/*.cpp)
+LIB_CU_SRC=$(wildcard src/kernels/*.cu)
 TEST_SRC=$(wildcard tests/*.cpp)
 
-LIB_OBJS=$(LIB_SRC:src/%.cpp=$(BUILD_DIR)/src/%.o)
+# Object lists
+LIB_CPP_OBJS=$(LIB_CPP_SRC:src/%.cpp=$(BUILD_DIR)/src/%.o)
+LIB_CU_OBJS=$(LIB_CU_SRC:src/kernels/%.cu=$(BUILD_DIR)/src/kernels/%.o)
 TEST_OBJS=$(TEST_SRC:tests/%.cpp=$(BUILD_DIR)/tests/%.o)
 
+# Headers
 HEADERS=$(shell find include -name '*.hpp')
+CU_HEADERS=$(shell find include -name '*.cuh')
 
 .PHONY: all lib tests clear clean
 
 all: tests
 
-lib: $(LIB_OBJS)
+lib: $(LIB_CPP_OBJS) $(LIB_CU_OBJS)
 
 tests: $(TARGET)
 
-$(TARGET): $(LIB_OBJS) $(TEST_OBJS)
+# Link executable
+$(TARGET): $(LIB_CPP_OBJS) $(LIB_CU_OBJS) $(TEST_OBJS)
 	@mkdir -p $(dir $@)
 	@echo "Linking executable: $@"
-	$(CPP) $(CFLAGS) $(LIB_OBJS) $(TEST_OBJS) -o $@
+	$(CPP) $(CFLAGS) $(LIB_CPP_OBJS) $(LIB_CU_OBJS) $(TEST_OBJS) $(LDFLAGS) -o $@
 
-$(BUILD_DIR)/src/%.o: src/%.cpp $(HEADERS)
+# Compile host (C++)
+$(BUILD_DIR)/src/%.o: src/%.cpp $(HEADERS) $(CU_HEADERS)
 	@mkdir -p $(dir $@)
-	@echo "Compiling Lib: $<"
+	@echo "Compiling host: $<"
 	$(CPP) $(CFLAGS) -c $< -o $@
 
+# Compile device (CUDA)
+$(BUILD_DIR)/src/kernels/%.o: src/kernels/%.cu $(CU_HEADERS)
+	@mkdir -p $(dir $@)
+	@echo "Compiling device: $<"
+	$(NVCC) $(NVCCFLAGS) --compile -cudart static $< -o $@
+
+# Compile tests
 $(BUILD_DIR)/tests/%.o: tests/%.cpp $(HEADERS)
 	@mkdir -p $(dir $@)
-	@echo "Compiling Test: $<"
+	@echo "Compiling tests: $<"
 	$(CPP) $(CFLAGS) -c $< -o $@
 
 clear:

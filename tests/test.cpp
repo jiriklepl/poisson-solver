@@ -10,6 +10,8 @@ int main(int argc, char *argv[]) {
         {BoundaryCondition::kPeriodic, BoundaryCondition::kPeriodic,
          BoundaryCondition::kPeriodic, BoundaryCondition::kPeriodic});
 
+    solver.Solve();
+
     std::cout << "Solver creation ... OK!\n";
     return 0;
 }

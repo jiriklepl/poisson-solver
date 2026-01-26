@@ -1,6 +1,7 @@
 #ifndef SOLVER_HPP
 #define SOLVER_HPP
 
+#include "kernel.cuh"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
 
@@ -41,6 +42,8 @@ public:
         denom_y = std::vector<float>();
         norm_factor = 1;
     }
+
+    void Solve();
 };
 
 #endif  // SOLVER_HPP

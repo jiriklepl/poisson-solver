@@ -1,4 +1,3 @@
 #include "poisson-solver/solver.hpp"
 
-#include <optional>
-#include <vector>
+void Solver2D::Solve() { RunVectorAdd(); }
