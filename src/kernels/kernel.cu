@@ -1,7 +1,8 @@
-#include "cuda_runtime.h"
 #include "poisson-solver/kernel.cuh"
+#include "poisson-solver/cuch.hpp"
 
 #include <cmath>
+#include <cuda_runtime.h>
 #include <iostream>
 #include <vector>
 
@@ -38,11 +39,6 @@ void RunVectorAdd() {
 
     VectorAdd<<<blocksPerGrid, threadsPerBlock>>>(cuA, cuB, cuC, size);
 
-    cudaError_t err = cudaGetLastError();
-
-    if (err != cudaSuccess) {
-        std::cout << "CUDA Error: " << cudaGetErrorString(err) << std::endl;
-    }
     cudaMemcpy(c.data(), cuC, size * sizeof(float), cudaMemcpyDeviceToHost);
 
     for (std::size_t i = 0; i < size; ++i) {

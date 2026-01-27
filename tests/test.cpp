@@ -1,6 +1,8 @@
 #include "poisson-solver/solver.hpp"
+#include "poisson-solver/cuch.hpp"
 
 #include <iostream>
+#include <exception>
 
 int main(int argc, char *argv[]) {
     std::cout << "Creating a solver\n";
@@ -10,7 +12,12 @@ int main(int argc, char *argv[]) {
         {BoundaryCondition::kPeriodic, BoundaryCondition::kPeriodic,
          BoundaryCondition::kPeriodic, BoundaryCondition::kPeriodic});
 
-    solver.Solve();
+    try {
+        solver.Solve();
+    } catch (const std::exception &e) {
+        std::cerr << e.what() << "\n";
+        return 1;
+    }
 
     std::cout << "Solver creation ... OK!\n";
     return 0;
