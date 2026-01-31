@@ -1,5 +1,5 @@
-#include "poisson-solver/kernel.cuh"
 #include "poisson-solver/cuch.hpp"
+#include "poisson-solver/kernel.cuh"
 
 #include <cmath>
 #include <cuda_runtime.h>
