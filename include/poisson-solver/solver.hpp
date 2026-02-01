@@ -16,6 +16,7 @@
 #include <numbers>
 #include <vector>
 
+namespace poisson_solver {
 // TODO: Incomplete, doesn't work for all possible scenarios
 class Solver2D {
 private:
@@ -78,5 +79,6 @@ public:
 
     void Execute();
 };
+}  // namespace poisson_solver
 
 #endif  // SOLVER_HPP

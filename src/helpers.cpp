@@ -1,5 +1,6 @@
 #include "poisson-solver/helpers.hpp"
 
+namespace poisson_solver {
 float eig_fn_spectral(float x) { return -4.0 * x * x; }
 
 void CalculateEigenvalues(float grid_len, std::size_t grid_n,
@@ -21,3 +22,4 @@ void CalculateEigenvalues(float grid_len, std::size_t grid_n,
         eigenvalues[i] *= inv_grid_dx_squared;
     }
 }
+}  // namespace poisson_solver

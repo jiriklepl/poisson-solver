@@ -7,9 +7,12 @@
 int main(int argc, char *argv[]) {
     std::cout << "Creating a solver\n";
 
-    Solver2D solver(1.23f, 3.3f, 100, 200,
-                    {BoundaryCondition::kNeumann, BoundaryCondition::kNeumann,
-                     BoundaryCondition::kNeumann, BoundaryCondition::kNeumann});
+    poisson_solver::Solver2D solver(
+        1.23f, 3.3f, 100, 200,
+        {poisson_solver::BoundaryCondition::kNeumann,
+         poisson_solver::BoundaryCondition::kNeumann,
+         poisson_solver::BoundaryCondition::kNeumann,
+         poisson_solver::BoundaryCondition::kNeumann});
 
     try {
         solver.Execute();

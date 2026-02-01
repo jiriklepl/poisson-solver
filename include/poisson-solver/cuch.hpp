@@ -7,6 +7,7 @@
 #include <sstream>
 #include <stdexcept>
 
+namespace poisson_solver {
 /**
  * A stream exception that is base for all runtime errors.
  */
@@ -54,5 +55,6 @@ inline void _cuda_check(cudaError_t status, int line, const char *srcFile,
  * Macro wrapper for CUDA calls checking.
  */
 #define CUCH(status) _cuda_check(status, __LINE__, __FILE__, #status)
+}  // namespace poisson_solver
 
 #endif  // CUCH_HPP

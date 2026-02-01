@@ -6,6 +6,7 @@
 #include <iostream>
 #include <vector>
 
+namespace poisson_solver {
 __global__ void VectorAdd(const float *A, const float *B, float *C,
                           int numElements) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
@@ -48,3 +49,4 @@ void RunVectorAdd() {
         }
     }
 }
+}  // namespace poisson_solver

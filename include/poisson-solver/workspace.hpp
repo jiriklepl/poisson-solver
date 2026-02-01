@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <vector>
 
+namespace poisson_solver {
 template <typename T>
 class Workspace2D {
 private:
@@ -28,5 +29,6 @@ public:
     std::size_t get_cols() const { return cols; }
     std::size_t size() const { return data.size(); }
 };
+}  // namespace poisson_solver
 
 #endif  // WORKSPACE_HPP
