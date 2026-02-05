@@ -8,16 +8,17 @@
 #include "poisson-solver/workspace.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cstddef>
+#include <cuda_runtime.h>
 #include <cufft.h>
 #include <iostream>
 #include <memory>
 #include <numbers>
+#include <stdexcept>
 #include <vector>
 
 namespace poisson_solver {
-// TODO: Incomplete, doesn't work for all possible scenarios
+// TODO: Works only for all bcs == Neumann and approx == Spectral
 class Solver2D {
 private:
     // Grid and geometry
@@ -29,7 +30,7 @@ private:
     const std::size_t cnt;
 
     // Physics and math
-    const std::array<BoundaryCondition, 4> bcs;
+    const BoundaryConditions<2> bcs;
 
     std::vector<float> denom_x;
     std::vector<float> denom_y;
@@ -42,40 +43,13 @@ private:
     cufftHandle forward_plan;
     cufftHandle backward_plan;
 
-    Workspace2D<cufftComplex> complex_workspace;
-    cufftComplex *cu_complex_workspace;
+    Workspace2D<cufftReal> real_workspace;
+    cufftReal *cu_real_workspace;
 
 public:
     Solver2D(float len_x, float len_y, std::size_t n_x, std::size_t n_y,
-             std::array<BoundaryCondition, 4> bcs,
-             Approximation approx = Approximation::kSpectral)
-        : len_x(len_x),
-          len_y(len_y),
-          n_x(n_x),
-          n_y(n_y),
-          cnt(n_x * n_y),
-          bcs(bcs),
-          denom_x(n_x),
-          denom_y(n_y),
-          approx(approx),
-          norm_factor(cnt),
-          complex_workspace(n_x, n_y) {
-        if (std::ranges::any_of(bcs, [](BoundaryCondition bc) {
-                return bc != BoundaryCondition::kNeumann;
-            })) {
-            std::cerr << "Error: Only Neumann BCs are allowed currently!\n";
-            return;
-        }
-
-        if (approx != Approximation::kSpectral) {
-            std::cerr
-                << "Error: Only spectral approximation is allowed currently!\n";
-            return;
-        }
-
-        CalculateEigenvalues(len_x, n_x, denom_x);
-        CalculateEigenvalues(len_y, n_y, denom_y);
-    }
+             BoundaryConditions<2> bcs,
+             Approximation approx = Approximation::kSpectral);
 
     void Execute();
 };
