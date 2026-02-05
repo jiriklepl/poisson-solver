@@ -1,14 +1,20 @@
 #ifndef HELPERS_HPP
 #define HELPERS_HPP
 
+#include "poisson-solver/boundary_conditions.hpp"
+
 #include <cstddef>
 #include <numbers>
+#include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace poisson_solver {
-float eig_fn_spectral(float x);
+std::size_t CalculateNormalizationFactor(
+    std::size_t grid_n, std::pair<BoundaryCondition, BoundaryCondition> bcs);
 
-// TODO: Incomplete, doesn't work for all possible scenarios
+float EigFnSpectral(float x);
+
 void CalculateEigenvalues(float grid_len, std::size_t grid_n,
                           std::vector<float> &eigenvalues);
 }  // namespace poisson_solver
