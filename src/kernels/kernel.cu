@@ -1,10 +1,4 @@
-#include "poisson-solver/cuch.hpp"
 #include "poisson-solver/kernel.cuh"
-
-#include <cmath>
-#include <cuda_runtime.h>
-#include <iostream>
-#include <vector>
 
 namespace poisson_solver {
 __global__ void VectorAdd(const float *A, const float *B, float *C,
