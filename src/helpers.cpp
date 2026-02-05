@@ -31,10 +31,11 @@ std::size_t CalculateNormalizationFactor(
 
 // TODO: Works only for all bcs == Neumann and approximation == Spectral
 void CalculateEigenvalues(float grid_len, std::size_t grid_n,
+                          std::pair<BoundaryCondition, BoundaryCondition> bcs,
                           std::vector<float> &eigenvalues) {
     eigenvalues.resize(grid_n);
 
-    float grid_dx = grid_len / grid_n;
+    float grid_dx = GetGridDx(grid_len, grid_n, bcs);
     float dkx = std::numbers::pi * grid_dx / grid_len;
     float dkx_half = dkx / 2;
 

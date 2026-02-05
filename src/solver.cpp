@@ -28,8 +28,8 @@ Solver2D::Solver2D(float len_x, float len_y, std::size_t n_x, std::size_t n_y,
     norm_factor = CalculateNormalizationFactor(n_x, bcs.x) *
                   CalculateNormalizationFactor(n_y, bcs.y);
 
-    CalculateEigenvalues(len_x, n_x, denom_x);
-    CalculateEigenvalues(len_y, n_y, denom_y);
+    CalculateEigenvalues(len_x, n_x, bcs.x, denom_x);
+    CalculateEigenvalues(len_y, n_y, bcs.y, denom_y);
 }
 
 void Solver2D::Execute() { RunVectorAdd(); }
