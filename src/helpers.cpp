@@ -1,7 +1,7 @@
 #include "poisson-solver/helpers.hpp"
 
 namespace poisson_solver {
-// Valid combinations are:
+// Valid BC combinations are:
 // 1. {P, P}
 // 2. {D, D}
 // 3. {N, N}
