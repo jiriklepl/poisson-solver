@@ -13,7 +13,11 @@ namespace poisson_solver {
 std::size_t CalculateNormalizationFactor(
     std::size_t grid_n, std::pair<BoundaryCondition, BoundaryCondition> bcs);
 
-float EigFnSpectral(float x);
+// f(x) = -(2x)^2
+template <typename T>
+constexpr T EigFnSpectral(T x) {
+    return static_cast<T>(-4.0) * x * x;
+}
 
 void CalculateEigenvalues(float grid_len, std::size_t grid_n,
                           std::vector<float> &eigenvalues);

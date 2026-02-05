@@ -33,8 +33,6 @@ std::size_t CalculateNormalizationFactor(
     throw std::invalid_argument("Invalid boundary conditions.");
 }
 
-float EigFnSpectral(float x) { return -4.0 * x * x; }
-
 // TODO: Works only for all bcs == Neumann and approximation == Spectral
 void CalculateEigenvalues(float grid_len, std::size_t grid_n,
                           std::vector<float> &eigenvalues) {
