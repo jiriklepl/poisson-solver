@@ -13,6 +13,11 @@ enum class BoundaryCondition {
     kNeumannStag
 };
 
+constexpr bool IsStag(BoundaryCondition bc) {
+    return bc == BoundaryCondition::kDirichletStag ||
+           bc == BoundaryCondition::kNeumannStag;
+}
+
 // Stores boundary conditions for specific dimensions.
 // Only specializations should be used as not every dimension is valid.
 template <std::size_t Dim>
