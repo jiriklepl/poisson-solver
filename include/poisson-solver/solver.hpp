@@ -18,7 +18,7 @@
 #include <vector>
 
 namespace poisson_solver {
-// TODO: Works only for all bcs == Neumann and approx == Spectral
+// TODO: Works only for all bcs == Periodic and approx == Spectral
 class Solver2D {
 private:
     // Grid and geometry
@@ -35,6 +35,9 @@ private:
     std::vector<float> denom_x;
     std::vector<float> denom_y;
 
+    cufftReal *cu_denom_x;
+    cufftReal *cu_denom_y;
+
     const Approximation approx;
 
     float norm_factor;
@@ -43,15 +46,15 @@ private:
     cufftHandle forward_plan;
     cufftHandle backward_plan;
 
-    Workspace2D<cufftReal> real_workspace;
-    cufftReal *cu_real_workspace;
+    Workspace2D<cufftComplex> complex_workspace;
+    cufftComplex *cu_complex_workspace;
 
 public:
     Solver2D(float len_x, float len_y, std::size_t n_x, std::size_t n_y,
              BoundaryConditions<2> bcs,
              Approximation approx = Approximation::kSpectral);
 
-    void Execute();
+    void Execute(Workspace2D<float> &phi, const Workspace2D<float> &kRHS);
 };
 }  // namespace poisson_solver
 
