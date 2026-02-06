@@ -3,7 +3,7 @@ NVCC=nvcc
 STD=-std=c++20
 INCLUDE=./include /usr/local/cuda/include
 LIB_DIRS=/usr/local/cuda/lib64
-LIBS=cudart
+LIBS=cudart cufft
 
 CFLAGS=-Wall -Wextra -Wno-unused-parameter -O3 $(STD) \
 	$(addprefix -I, $(INCLUDE))
