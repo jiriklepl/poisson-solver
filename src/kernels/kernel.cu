@@ -1,46 +1,38 @@
 #include "poisson-solver/kernel.cuh"
 
 namespace poisson_solver {
-__global__ void VectorAdd(const float *A, const float *B, float *C,
-                          int numElements) {
-    int i = blockDim.x * blockIdx.x + threadIdx.x;
+__global__ void Solve2DFullPeriodic(cufftComplex *complex_workspace,
+                                    const cufftReal *kDenom_x,
+                                    const cufftReal *kDenom_y, std::size_t n_x,
+                                    std::size_t n_y) {
+    std::size_t x = blockDim.x * blockIdx.x + threadIdx.x;
+    std::size_t y = blockDim.y * blockIdx.y + threadIdx.y;
 
-    if (i < numElements) {
-        C[i] = A[i] + B[i] + 0.0f;
+    if (x >= n_x || y >= n_y) {
+        return;
     }
+
+    std::size_t idx = y * n_x + x;
+
+    if (x == 0 && y == 0) {
+        complex_workspace[idx] = make_cuComplex(0, 0);
+        return;
+    }
+
+    cufftReal denom = (kDenom_x[idx] + kDenom_y[idx]);
+
+    complex_workspace[idx].x = cuCrealf(complex_workspace[idx]) / denom;
+    complex_workspace[idx].y = cuCimagf(complex_workspace[idx]) / denom;
 }
 
-void RunVectorAdd() {
-    constexpr int size = 50000;
-    std::vector<float> a(size, 3.1f);
-    std::vector<float> b(size, 2.0f);
-    std::vector<float> c(size, 0.0f);
+void RunSolver2DFullPeriodic(cufftComplex *complex_workspace,
+                             const cufftReal *kDenom_x,
+                             const cufftReal *kDenom_y, std::size_t n_x,
+                             std::size_t n_y, std::size_t block_size) {
+    const std::size_t kTotalPoints = n_x * n_y;
+    const std::size_t kGridSize = (kTotalPoints + block_size - 1) / block_size;
 
-    float *cuA;
-    float *cuB;
-    float *cuC;
-
-    cudaMalloc(&cuA, size * sizeof(float));
-    cudaMalloc(&cuB, size * sizeof(float));
-    cudaMalloc(&cuC, size * sizeof(float));
-
-    cudaMemcpy(cuA, a.data(), size * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(cuB, b.data(), size * sizeof(float), cudaMemcpyHostToDevice);
-
-    constexpr int threadsPerBlock = 256;
-    int blocksPerGrid = (size + threadsPerBlock - 1) / threadsPerBlock;
-    std::cout << "CUDA kernel launch with " << blocksPerGrid << " blocks of "
-              << threadsPerBlock << " threads\n";
-
-    VectorAdd<<<blocksPerGrid, threadsPerBlock>>>(cuA, cuB, cuC, size);
-
-    cudaMemcpy(c.data(), cuC, size * sizeof(float), cudaMemcpyDeviceToHost);
-
-    for (std::size_t i = 0; i < size; ++i) {
-        if (std::abs(c[i] - (a[i] + b[i])) > 1e-5) {
-            std::cout << "Error: C = " << c[i] << "\n";
-            return;
-        }
-    }
+    Solve2DFullPeriodic<<<kGridSize, block_size>>>(complex_workspace, kDenom_x,
+                                                   kDenom_y, n_x, n_y);
 }
 }  // namespace poisson_solver

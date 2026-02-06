@@ -3,13 +3,13 @@
 
 #include "poisson-solver/cuch.hpp"
 
-#include <cmath>
 #include <cuda_runtime.h>
-#include <iostream>
-#include <vector>
 
 namespace poisson_solver {
-void RunVectorAdd();
+void RunSolver2DFullPeriodic(cufftComplex *complex_workspace,
+                             const cufftReal *kDenom_x,
+                             const cufftReal *kDenom_y, std::size_t n_x,
+                             std::size_t n_y, std::size_t block_size);
 }  // namespace poisson_solver
 
 #endif  // KERNEL_CUH
