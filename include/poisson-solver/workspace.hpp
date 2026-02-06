@@ -19,11 +19,13 @@ public:
         return data[row * cols + col];
     }
 
-    const T& operator()(std::size_t r, std::size_t c) const {
-        return data[r * cols + c];
+    const T& operator()(std::size_t row, std::size_t col) const {
+        return data[row * cols + col];
     }
 
-    T* raw_ptr() { return data.data(); }
+    T* ptr() { return data.data(); }
+
+    const T* ptr() const { return data.data(); }
 
     std::size_t get_rows() const { return rows; }
     std::size_t get_cols() const { return cols; }
