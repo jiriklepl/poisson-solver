@@ -1,8 +1,8 @@
 #ifndef APPROXIMATION_HPP
 #define APPROXIMATION_HPP
 
-#include <concepts>
 #include <cmath>
+#include <concepts>
 
 namespace poisson_solver {
 template <std::floating_point T>

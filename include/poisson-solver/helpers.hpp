@@ -1,8 +1,8 @@
 #ifndef HELPERS_HPP
 #define HELPERS_HPP
 
-#include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/approximations.hpp"
+#include "poisson-solver/boundary_conditions.hpp"
 
 #include <cstddef>
 #include <numbers>

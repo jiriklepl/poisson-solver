@@ -26,9 +26,9 @@ __global__ void Solve2DFullPeriodic(cufftComplex *complex_workspace,
 }
 
 void RunSolver2DFullPeriodic(cufftComplex *complex_workspace,
-                             const cufftReal *denom_x,
-                             const cufftReal *denom_y, std::size_t n_x,
-                             std::size_t n_y, std::size_t block_size) {
+                             const cufftReal *denom_x, const cufftReal *denom_y,
+                             std::size_t n_x, std::size_t n_y,
+                             std::size_t block_size) {
     const std::size_t total_points = n_x * n_y;
     const std::size_t grid_size = (total_points + block_size - 1) / block_size;
 
