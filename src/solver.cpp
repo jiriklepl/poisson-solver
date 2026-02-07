@@ -32,15 +32,14 @@ Solver2D::Solver2D(float len_x, float len_y, std::size_t n_x, std::size_t n_y,
     CalculateEigenvalues(len_y, n_y, bcs.y, denom_y);
 
     CUCH(cudaMalloc(&cu_complex_workspace, cnt * sizeof(cufftComplex)));
-    CUCH(cudaMalloc(&cu_denom_x, cnt * sizeof(cufftReal)));
-    CUCH(cudaMalloc(&cu_denom_y, cnt * sizeof(cufftReal)));
+    CUCH(cudaMalloc(&cu_denom_x, n_x * sizeof(cufftReal)));
+    CUCH(cudaMalloc(&cu_denom_y, n_y * sizeof(cufftReal)));
 
     CUFFTCH(cufftPlan2d(&forward_plan, n_x, n_y, CUFFT_C2C));
     CUFFTCH(cufftPlan2d(&backward_plan, n_x, n_y, CUFFT_C2C));
 }
 
-void Solver2D::Execute(Workspace2D<float> &phi,
-                       const Workspace2D<float> &rhs) {
+void Solver2D::Execute(Workspace2D<float> &phi, const Workspace2D<float> &rhs) {
     if (phi.size() != cnt || rhs.size() != cnt) {
         throw std::runtime_error("Incorrect size of phi or rhs.");
     }
