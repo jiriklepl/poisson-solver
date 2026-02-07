@@ -2,7 +2,8 @@
 
 namespace poisson_solver {
 Solver2D::Solver2D(float len_x, float len_y, std::size_t n_x, std::size_t n_y,
-                   BoundaryConditions<2> bcs, Approximation approx)
+                   BoundaryConditions<2> bcs,
+                   const IApproximation<float> &approximation)
     : len_x(len_x),
       len_y(len_y),
       n_x(n_x),
@@ -11,7 +12,6 @@ Solver2D::Solver2D(float len_x, float len_y, std::size_t n_x, std::size_t n_y,
       bcs(bcs),
       denom_x(n_x),
       denom_y(n_y),
-      approx(approx),
       complex_workspace(n_x, n_y) {
     if (std::ranges::any_of(bcs.Flatten(), [](BoundaryCondition bc) {
             return bc != BoundaryCondition::kPeriodic;
@@ -20,16 +20,11 @@ Solver2D::Solver2D(float len_x, float len_y, std::size_t n_x, std::size_t n_y,
             "Error: Only periodic BCs are allowed currently!\n");
     }
 
-    if (approx != Approximation::kSpectral) {
-        throw std::invalid_argument(
-            "Error: Only spectral approximation is allowed currently!\n");
-    }
-
     norm_factor = CalculateNormalizationFactor(n_x, bcs.x) *
                   CalculateNormalizationFactor(n_y, bcs.y);
 
-    CalculateEigenvalues(len_x, n_x, bcs.x, denom_x);
-    CalculateEigenvalues(len_y, n_y, bcs.y, denom_y);
+    CalculateEigenvalues(len_x, n_x, bcs.x, approximation, denom_x);
+    CalculateEigenvalues(len_y, n_y, bcs.y, approximation, denom_y);
 
     CUCH(cudaMalloc(&cu_complex_workspace, cnt * sizeof(cufftComplex)));
     CUCH(cudaMalloc(&cu_denom_x, n_x * sizeof(cufftReal)));
