@@ -40,8 +40,8 @@ Solver2D::Solver2D(float len_x, float len_y, std::size_t n_x, std::size_t n_y,
 }
 
 void Solver2D::Execute(Workspace2D<float> &phi,
-                       const Workspace2D<float> &kRHS) {
-    if (phi.size() != cnt || kRHS.size() != cnt) {
+                       const Workspace2D<float> &rhs) {
+    if (phi.size() != cnt || rhs.size() != cnt) {
         throw std::runtime_error("Incorrect size of phi or rhs.");
     }
 
@@ -51,7 +51,7 @@ void Solver2D::Execute(Workspace2D<float> &phi,
     // it?)
     for (std::size_t i = 0; i < n_x; ++i) {
         for (std::size_t j = 0; j < n_y; ++j) {
-            complex_workspace(i, j) = make_cuComplex(kRHS(i, j), 0);
+            complex_workspace(i, j) = make_cuComplex(rhs(i, j), 0);
         }
     }
 

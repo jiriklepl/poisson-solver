@@ -62,9 +62,9 @@ struct BoundaryConditions : public BCStorage<Dim> {
     // Flattens the boundary conditions into a 1D array.
     // Could be used for example when working with ranges.
     constexpr auto Flatten() const {
-        constexpr std::size_t kArrSize = Dim * 2;
+        constexpr std::size_t arr_size = Dim * 2;
 
-        std::array<BoundaryCondition, kArrSize> flat_bcs{};
+        std::array<BoundaryCondition, arr_size> flat_bcs{};
 
         flat_bcs[0] = this->x.first;
         flat_bcs[1] = this->x.second;

@@ -54,7 +54,7 @@ public:
              BoundaryConditions<2> bcs,
              Approximation approx = Approximation::kSpectral);
 
-    void Execute(Workspace2D<float> &phi, const Workspace2D<float> &kRHS);
+    void Execute(Workspace2D<float> &phi, const Workspace2D<float> &rhs);
 };
 }  // namespace poisson_solver
 
