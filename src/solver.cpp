@@ -39,7 +39,7 @@ void Solver2D::Execute(Workspace2D<float> &phi, const Workspace2D<float> &rhs) {
         throw std::runtime_error("Incorrect size of phi or rhs.");
     }
 
-    constexpr std::size_t kBlockSize = 256;
+    constexpr dim3 kBlockSize2D = {16, 16};
 
     // TODO - Do this on GPU (this is very small - cuda GRAPHS? Is it even worth
     // it?)
@@ -49,28 +49,26 @@ void Solver2D::Execute(Workspace2D<float> &phi, const Workspace2D<float> &rhs) {
         }
     }
 
-    // Copy workspace to device
     CUCH(cudaMemcpy(cu_complex_workspace, complex_workspace.ptr(),
                     cnt * sizeof(cufftComplex), cudaMemcpyHostToDevice));
 
-    // Forward FFT
     CUFFTCH(cufftExecC2C(forward_plan, cu_complex_workspace,
                          cu_complex_workspace, CUFFT_FORWARD));
 
-    // Copy denominators to device
     CUCH(cudaMemcpy(cu_denom_x, denom_x.data(), n_x * sizeof(cufftReal),
                     cudaMemcpyHostToDevice));
     CUCH(cudaMemcpy(cu_denom_y, denom_y.data(), n_y * sizeof(cufftReal),
                     cudaMemcpyHostToDevice));
 
-    RunSolver2DFullPeriodic(cu_complex_workspace, denom_x.data(),
-                            denom_y.data(), n_x, n_y, kBlockSize);
+    RunSolver2DFullPeriodic(cu_complex_workspace, cu_denom_x, cu_denom_y, n_x,
+                            n_y, kBlockSize2D);
 
-    // Backward FFT
+    // Check kernel launch and execution errors
+    CUCH(cudaDeviceSynchronize());
+
     CUFFTCH(cufftExecC2C(backward_plan, cu_complex_workspace,
                          cu_complex_workspace, CUFFT_INVERSE));
 
-    // Copy workspace back to host
     CUCH(cudaMemcpy(complex_workspace.ptr(), cu_complex_workspace,
                     cnt * sizeof(cufftComplex), cudaMemcpyDeviceToHost));
 
