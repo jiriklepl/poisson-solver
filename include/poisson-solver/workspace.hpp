@@ -11,6 +11,10 @@ public:
     Workspace2D(std::size_t r, std::size_t c)
         : rows_(r), cols_(c), data_(r * c) {}
 
+    // Initializes the workspace with value `value` for all elements
+    Workspace2D(std::size_t r, std::size_t c, const T& value)
+        : rows_(r), cols_(c), data_(r * c, value) {}
+
     T& operator()(std::size_t r, std::size_t c) { return data_[r * cols_ + c]; }
     const T& operator()(std::size_t r, std::size_t c) const {
         return data_[r * cols_ + c];
