@@ -104,6 +104,13 @@ void CalculateEigenvalues(T grid_len, std::size_t grid_n,
         eigenvalues[i] *= inv_grid_dx_squared;
     }
 }
+
+template <std::floating_point T>
+bool IsBelowThreshold(T residuum, std::size_t n_x, std::size_t n_y) {
+    constexpr T fudge_factor = static_cast<T>(100.0);
+    return residuum <
+           n_x * n_y * fudge_factor * std::numeric_limits<T>::epsilon();
+}
 }  // namespace poisson_solver
 
 #endif  // HELPERS_HPP
