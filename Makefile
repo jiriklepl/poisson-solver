@@ -19,6 +19,11 @@ NVCCFLAGS=-ccbin $(CPP) $(STD) -O3 \
 BUILD_DIR=build
 TARGET=$(BUILD_DIR)/test-runner
 
+# Simulation config
+SIM_TARGET=$(BUILD_DIR)/sim
+SIM_SRC=simulation/simulation.cpp
+SIM_OBJ=$(BUILD_DIR)/simulation/simulation.o
+
 # Source lists
 LIB_CPP_SRC=$(wildcard src/*.cpp)
 LIB_CU_SRC=$(wildcard src/kernels/*.cu)
@@ -33,11 +38,13 @@ TEST_OBJS=$(TEST_SRC:tests/%.cpp=$(BUILD_DIR)/tests/%.o)
 HEADERS=$(shell find include -name '*.hpp')
 CU_HEADERS=$(shell find include -name '*.cuh')
 
-.PHONY: all lib tests clear clean
+.PHONY: all lib tests sim clear clean
 
 all: tests
 
 lib: $(LIB_CPP_OBJS) $(LIB_CU_OBJS)
+
+sim: $(SIM_TARGET)
 
 tests: $(TARGET)
 
@@ -46,6 +53,12 @@ $(TARGET): $(LIB_CPP_OBJS) $(LIB_CU_OBJS) $(TEST_OBJS)
 	@mkdir -p $(dir $@)
 	@echo "Linking executable: $@"
 	$(CPP) $(CFLAGS) $(LIB_CPP_OBJS) $(LIB_CU_OBJS) $(TEST_OBJS) $(LDFLAGS) -o $@
+
+# Link simulation
+$(SIM_TARGET): $(LIB_CPP_OBJS) $(LIB_CU_OBJS) $(SIM_OBJ)
+	@mkdir -p $(dir $@)
+	@echo "Linking simulation: $@"
+	$(CPP) $(CFLAGS) $(LIB_CPP_OBJS) $(LIB_CU_OBJS) $(SIM_OBJ) $(LDFLAGS) -o $@
 
 # Compile host (C++)
 $(BUILD_DIR)/src/%.o: src/%.cpp $(HEADERS) $(CU_HEADERS)
@@ -63,6 +76,12 @@ $(BUILD_DIR)/src/kernels/%.o: src/kernels/%.cu $(CU_HEADERS)
 $(BUILD_DIR)/tests/%.o: tests/%.cpp $(HEADERS)
 	@mkdir -p $(dir $@)
 	@echo "Compiling tests: $<"
+	$(CPP) $(CFLAGS) -c $< -o $@
+
+# Compile simulation
+$(SIM_OBJ): $(SIM_SRC) $(HEADERS)
+	@mkdir -p $(dir $@)
+	@echo "Compiling simulation: $<"
 	$(CPP) $(CFLAGS) -c $< -o $@
 
 clear:
