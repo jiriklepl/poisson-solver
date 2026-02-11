@@ -59,7 +59,7 @@ void CalculateEigenvalues(T grid_len, std::size_t grid_n,
     T dkx = std::numbers::pi_v<T> * grid_dx / grid_len;
     T dkx_half = dkx / 2;
 
-    T inv_grid_dx_squared = 1.0 / (grid_dx * grid_dx);
+    T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
 
     if (bc1 == BC::kPeriodic && bc2 == BC::kPeriodic) {
         std::size_t grid_n_half = grid_n / 2;
