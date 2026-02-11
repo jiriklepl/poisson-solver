@@ -7,29 +7,27 @@
 namespace poisson_solver {
 template <typename T>
 class Workspace2D {
-private:
-    std::size_t rows;
-    std::size_t cols;
-    std::vector<T> data;
-
 public:
-    Workspace2D(std::size_t r, std::size_t c) : rows(r), cols(c), data(r * c) {}
+    Workspace2D(std::size_t r, std::size_t c)
+        : rows_(r), cols_(c), data_(r * c) {}
 
-    T& operator()(std::size_t row, std::size_t col) {
-        return data[row * cols + col];
+    T& operator()(std::size_t r, std::size_t c) { return data_[r * cols_ + c]; }
+    const T& operator()(std::size_t r, std::size_t c) const {
+        return data_[r * cols_ + c];
     }
 
-    const T& operator()(std::size_t row, std::size_t col) const {
-        return data[row * cols + col];
-    }
+    T* Ptr() { return data_.data(); }
+    const T* Ptr() const { return data_.data(); }
 
-    T* ptr() { return data.data(); }
+    std::size_t Rows() const { return rows_; }
+    std::size_t Cols() const { return cols_; }
 
-    const T* ptr() const { return data.data(); }
+    std::size_t Size() const { return data_.size(); }
 
-    std::size_t get_rows() const { return rows; }
-    std::size_t get_cols() const { return cols; }
-    std::size_t size() const { return data.size(); }
+private:
+    std::size_t rows_;
+    std::size_t cols_;
+    std::vector<T> data_;
 };
 }  // namespace poisson_solver
 

@@ -4,6 +4,7 @@
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
 
+#include <concepts>
 #include <cstddef>
 #include <numbers>
 #include <stdexcept>
@@ -12,7 +13,7 @@
 
 namespace poisson_solver {
 std::size_t CalculateNormalizationFactor(
-    std::size_t grid_n, std::pair<BoundaryCondition, BoundaryCondition> bcs);
+    std::size_t n, std::pair<BoundaryCondition, BoundaryCondition> bcs);
 
 // Returns the space between two grid points on one axis.
 // Valid BC combinations are:
@@ -21,95 +22,91 @@ std::size_t CalculateNormalizationFactor(
 // 3. {N, N}
 // 4. {*S, *S}
 // 5. {D, N}
-template <typename T>
-T GetGridDx(T grid_len, std::size_t grid_n,
+template <std::floating_point T>
+T GetGridDx(T len, std::size_t n,
             std::pair<BoundaryCondition, BoundaryCondition> bcs) {
     using BC = BoundaryCondition;
 
     auto [bc1, bc2] = bcs;
 
     if (bc1 == BC::kPeriodic && bc2 == BC::kPeriodic) {
-        return grid_len / grid_n;
+        return len / n;
     } else if (bc1 == BC::kDirichlet && bc2 == BC::kDirichlet) {
-        return grid_len / (grid_n + 1);
+        return len / (n + 1);
     } else if (bc1 == BC::kNeumann && bc2 == BC::kNeumann) {
-        return grid_len / (grid_n - 1);
+        return len / (n - 1);
     } else if (IsStag(bc1) && IsStag(bc2)) {
-        return grid_len / grid_n;
+        return len / n;
     } else if ((bc1 == BC::kDirichlet && bc2 == BC::kNeumann) ||
                (bc1 == BC::kNeumann && bc2 == BC::kDirichlet)) {
-        return grid_len / grid_n;
+        return len / n;
     }
 
     throw std::invalid_argument("Invalid boundary conditions.");
 }
 
-template <typename T>
-void CalculateEigenvalues(T grid_len, std::size_t grid_n,
+template <std::floating_point T>
+void CalculateEigenvalues(T len, std::size_t n,
                           std::pair<BoundaryCondition, BoundaryCondition> bcs,
-                          const IApproximation<T> &approximation,
-                          std::vector<T> &eigenvalues) {
+                          const IApproximation<T> &approx,
+                          std::vector<T> &eigenvals) {
     using BC = BoundaryCondition;
 
     auto [bc1, bc2] = bcs;
 
-    eigenvalues.resize(grid_n);
+    eigenvals.resize(n);
 
-    T grid_dx = GetGridDx(grid_len, grid_n, bcs);
-    T dkx = std::numbers::pi_v<T> * grid_dx / grid_len;
-    T dkx_half = dkx / 2;
+    T grid_dx = GetGridDx(len, n, bcs);
+    T dkx = std::numbers::pi_v<T> * grid_dx / len;
 
     T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
 
     if (bc1 == BC::kPeriodic && bc2 == BC::kPeriodic) {
-        std::size_t grid_n_half = grid_n / 2;
-        for (std::size_t i = 0; i < grid_n; ++i) {
-            if (i < grid_n_half) {
-                eigenvalues[i] = approximation(i * dkx);
+        for (std::size_t i = 0; i < n; ++i) {
+            if (i < (n / 2)) {
+                eigenvals[i] = approx(i * dkx);
             } else {
-                eigenvalues[i] = approximation((grid_n - i) * dkx);
+                eigenvals[i] = approx((n - i) * dkx);
             }
         }
     } else if (bc1 == BC::kDirichlet && bc2 == BC::kDirichlet) {
-        for (std::size_t i = 0; i < grid_n; ++i) {
-            eigenvalues[i] = approximation((i + 1) * dkx_half);
+        for (std::size_t i = 0; i < n; ++i) {
+            eigenvals[i] = approx((i + 1) * (dkx / 2));
         }
     } else if (bc1 == BC::kDirichletStag && bc2 == BC::kDirichletStag) {
-        for (std::size_t i = 0; i < grid_n; ++i) {
-            eigenvalues[i] = approximation((i + 1) * dkx_half);
+        for (std::size_t i = 0; i < n; ++i) {
+            eigenvals[i] = approx((i + 1) * (dkx / 2));
         }
     } else if (bc1 == BC::kNeumann && bc2 == BC::kNeumann) {
-        for (std::size_t i = 0; i < grid_n; ++i) {
-            eigenvalues[i] = approximation(i * dkx_half);
+        for (std::size_t i = 0; i < n; ++i) {
+            eigenvals[i] = approx(i * (dkx / 2));
         }
     } else if (bc1 == BC::kNeumannStag && bc2 == BC::kNeumannStag) {
-        for (std::size_t i = 0; i < grid_n; ++i) {
-            eigenvalues[i] = approximation(i * dkx_half);
+        for (std::size_t i = 0; i < n; ++i) {
+            eigenvals[i] = approx(i * (dkx / 2));
         }
     } else if ((bc1 == BC::kDirichletStag && bc2 == BC::kNeumannStag) ||
                (bc1 == BC::kNeumannStag && bc2 == BC::kDirichletStag)) {
-        for (std::size_t i = 0; i < grid_n; ++i) {
-            eigenvalues[i] =
-                approximation((i + 1 - static_cast<T>(0.5)) * dkx_half);
+        for (std::size_t i = 0; i < n; ++i) {
+            eigenvals[i] = approx((i + 1 - static_cast<T>(0.5)) * (dkx / 2));
         }
     } else if ((bc1 == BC::kDirichlet && bc2 == BC::kNeumann) ||
                (bc1 == BC::kNeumann && bc2 == BC::kDirichlet)) {
-        for (std::size_t i = 0; i < grid_n; ++i) {
-            eigenvalues[i] =
-                approximation((i + 1 - static_cast<T>(0.5)) * dkx_half);
+        for (std::size_t i = 0; i < n; ++i) {
+            eigenvals[i] = approx((i + 1 - static_cast<T>(0.5)) * (dkx / 2));
         }
     }
 
-    for (std::size_t i = 0; i < grid_n; ++i) {
-        eigenvalues[i] *= inv_grid_dx_squared;
+    for (std::size_t i = 0; i < n; ++i) {
+        eigenvals[i] *= inv_grid_dx_squared;
     }
 }
 
 template <std::floating_point T>
-bool IsBelowThreshold(T residuum, std::size_t n_x, std::size_t n_y) {
+bool IsBelowThreshold(T residuum, std::size_t nx, std::size_t ny) {
     constexpr T fudge_factor = static_cast<T>(100.0);
     return residuum <
-           n_x * n_y * fudge_factor * std::numeric_limits<T>::epsilon();
+           nx * ny * fudge_factor * std::numeric_limits<T>::epsilon();
 }
 }  // namespace poisson_solver
 

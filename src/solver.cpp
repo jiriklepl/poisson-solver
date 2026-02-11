@@ -1,18 +1,16 @@
 #include "poisson-solver/solver.hpp"
 
 namespace poisson_solver {
-Solver2D::Solver2D(float len_x, float len_y, std::size_t n_x, std::size_t n_y,
+Solver2D::Solver2D(float lenx, float leny, std::size_t nx, std::size_t ny,
                    BoundaryConditions<2> bcs,
-                   const IApproximation<float> &approximation)
-    : len_x(len_x),
-      len_y(len_y),
-      n_x(n_x),
-      n_y(n_y),
-      cnt(n_x * n_y),
-      bcs(bcs),
-      denom_x(n_x),
-      denom_y(n_y),
-      complex_workspace(n_x, n_y) {
+                   const IApproximation<float> &approx)
+    : nx_(nx),
+      ny_(ny),
+      cnt_(nx * ny),
+      bcs_(bcs),
+      denomx_(nx),
+      denomy_(ny),
+      cmplx_workspace_(nx, ny) {
     if (std::ranges::any_of(bcs.Flatten(), [](BoundaryCondition bc) {
             return bc != BoundaryCondition::kPeriodic;
         })) {
@@ -20,22 +18,22 @@ Solver2D::Solver2D(float len_x, float len_y, std::size_t n_x, std::size_t n_y,
             "Error: Only periodic BCs are allowed currently!\n");
     }
 
-    norm_factor = CalculateNormalizationFactor(n_x, bcs.x) *
-                  CalculateNormalizationFactor(n_y, bcs.y);
+    norm_factor_ = CalculateNormalizationFactor(nx_, bcs_.x) *
+                   CalculateNormalizationFactor(ny_, bcs_.y);
 
-    CalculateEigenvalues(len_x, n_x, bcs.x, approximation, denom_x);
-    CalculateEigenvalues(len_y, n_y, bcs.y, approximation, denom_y);
+    CalculateEigenvalues(lenx, nx_, bcs_.x, approx, denomx_);
+    CalculateEigenvalues(leny, ny_, bcs_.y, approx, denomy_);
 
-    CUCH(cudaMalloc(&cu_complex_workspace, cnt * sizeof(cufftComplex)));
-    CUCH(cudaMalloc(&cu_denom_x, n_x * sizeof(cufftReal)));
-    CUCH(cudaMalloc(&cu_denom_y, n_y * sizeof(cufftReal)));
+    CUCH(cudaMalloc(&cu_cmplx_workspace_, cnt_ * sizeof(cufftComplex)));
+    CUCH(cudaMalloc(&cu_denomx_, nx_ * sizeof(cufftReal)));
+    CUCH(cudaMalloc(&cu_denomy_, ny_ * sizeof(cufftReal)));
 
-    CUFFTCH(cufftPlan2d(&forward_plan, n_x, n_y, CUFFT_C2C));
-    CUFFTCH(cufftPlan2d(&backward_plan, n_x, n_y, CUFFT_C2C));
+    CUFFTCH(cufftPlan2d(&forward_plan_, nx_, ny_, CUFFT_C2C));
+    CUFFTCH(cufftPlan2d(&backward_plan_, nx_, ny_, CUFFT_C2C));
 }
 
 void Solver2D::Execute(Workspace2D<float> &phi, const Workspace2D<float> &rhs) {
-    if (phi.size() != cnt || rhs.size() != cnt) {
+    if (phi.Size() != cnt_ || rhs.Size() != cnt_) {
         throw std::runtime_error("Incorrect size of phi or rhs.");
     }
 
@@ -43,40 +41,40 @@ void Solver2D::Execute(Workspace2D<float> &phi, const Workspace2D<float> &rhs) {
 
     // TODO - Do this on GPU (this is very small - cuda GRAPHS? Is it even worth
     // it?)
-    for (std::size_t i = 0; i < n_x; ++i) {
-        for (std::size_t j = 0; j < n_y; ++j) {
-            complex_workspace(i, j) = make_cuComplex(rhs(i, j), 0);
+    for (std::size_t i = 0; i < nx_; ++i) {
+        for (std::size_t j = 0; j < ny_; ++j) {
+            cmplx_workspace_(i, j) = make_cuComplex(rhs(i, j), 0);
         }
     }
 
-    CUCH(cudaMemcpy(cu_complex_workspace, complex_workspace.ptr(),
-                    cnt * sizeof(cufftComplex), cudaMemcpyHostToDevice));
+    CUCH(cudaMemcpy(cu_cmplx_workspace_, cmplx_workspace_.Ptr(),
+                    cnt_ * sizeof(cufftComplex), cudaMemcpyHostToDevice));
 
-    CUFFTCH(cufftExecC2C(forward_plan, cu_complex_workspace,
-                         cu_complex_workspace, CUFFT_FORWARD));
+    CUFFTCH(cufftExecC2C(forward_plan_, cu_cmplx_workspace_,
+                         cu_cmplx_workspace_, CUFFT_FORWARD));
 
-    CUCH(cudaMemcpy(cu_denom_x, denom_x.data(), n_x * sizeof(cufftReal),
+    CUCH(cudaMemcpy(cu_denomx_, denomx_.data(), nx_ * sizeof(cufftReal),
                     cudaMemcpyHostToDevice));
-    CUCH(cudaMemcpy(cu_denom_y, denom_y.data(), n_y * sizeof(cufftReal),
+    CUCH(cudaMemcpy(cu_denomy_, denomy_.data(), ny_ * sizeof(cufftReal),
                     cudaMemcpyHostToDevice));
 
-    RunSolver2DFullPeriodic(cu_complex_workspace, cu_denom_x, cu_denom_y, n_x,
-                            n_y, kBlockSize2D);
+    RunSolver2DFullPeriodic(cu_cmplx_workspace_, cu_denomx_, cu_denomy_, nx_,
+                            ny_, kBlockSize2D);
 
     // Check kernel launch and execution errors
     CUCH(cudaDeviceSynchronize());
 
-    CUFFTCH(cufftExecC2C(backward_plan, cu_complex_workspace,
-                         cu_complex_workspace, CUFFT_INVERSE));
+    CUFFTCH(cufftExecC2C(backward_plan_, cu_cmplx_workspace_,
+                         cu_cmplx_workspace_, CUFFT_INVERSE));
 
-    CUCH(cudaMemcpy(complex_workspace.ptr(), cu_complex_workspace,
-                    cnt * sizeof(cufftComplex), cudaMemcpyDeviceToHost));
+    CUCH(cudaMemcpy(cmplx_workspace_.Ptr(), cu_cmplx_workspace_,
+                    cnt_ * sizeof(cufftComplex), cudaMemcpyDeviceToHost));
 
     // TODO - Do this on GPU (this is very small - cuda GRAPHS? Is it even worth
     // it?)
-    for (std::size_t i = 0; i < n_x; ++i) {
-        for (std::size_t j = 0; j < n_y; ++j) {
-            phi(i, j) = cuCrealf(complex_workspace(i, j)) / norm_factor;
+    for (std::size_t i = 0; i < nx_; ++i) {
+        for (std::size_t j = 0; j < ny_; ++j) {
+            phi(i, j) = cmplx_workspace_(i, j).x / norm_factor_;
         }
     }
 }
