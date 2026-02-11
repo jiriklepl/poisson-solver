@@ -108,6 +108,11 @@ bool IsBelowThreshold(T residuum, std::size_t nx, std::size_t ny) {
     return residuum <
            nx * ny * fudge_factor * std::numeric_limits<T>::epsilon();
 }
+
+constexpr bool IsStag(BoundaryCondition bc) {
+    return bc == BoundaryCondition::kDirichletStag ||
+           bc == BoundaryCondition::kNeumannStag;
+}
 }  // namespace poisson_solver
 
 #endif  // HELPERS_HPP
