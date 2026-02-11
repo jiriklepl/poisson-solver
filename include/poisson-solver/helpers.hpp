@@ -15,6 +15,11 @@ namespace poisson_solver {
 std::size_t CalculateNormalizationFactor(
     std::size_t n, std::pair<BoundaryCondition, BoundaryCondition> bcs);
 
+constexpr bool IsStag(BoundaryCondition bc) {
+    return bc == BoundaryCondition::kDirichletStag ||
+           bc == BoundaryCondition::kNeumannStag;
+}
+
 // Returns the space between two grid points on one axis.
 // Valid BC combinations are:
 // 1. {P, P}
@@ -107,11 +112,6 @@ bool IsBelowThreshold(T residuum, std::size_t nx, std::size_t ny) {
     constexpr T fudge_factor = static_cast<T>(100.0);
     return residuum <
            nx * ny * fudge_factor * std::numeric_limits<T>::epsilon();
-}
-
-constexpr bool IsStag(BoundaryCondition bc) {
-    return bc == BoundaryCondition::kDirichletStag ||
-           bc == BoundaryCondition::kNeumannStag;
 }
 }  // namespace poisson_solver
 
