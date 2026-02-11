@@ -17,7 +17,7 @@ __global__ void Solve2DFullPeriodic(cufftComplex *cmplx_workspace,
         return;
     }
 
-    cufftReal denom = (denomx[i] + denomy[j]);
+    const cufftReal denom = (denomx[i] + denomy[j]);
     cmplx_workspace[idx].x /= denom;
     cmplx_workspace[idx].y /= denom;
 }
