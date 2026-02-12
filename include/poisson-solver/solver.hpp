@@ -24,7 +24,8 @@ public:
     Solver2D(
         float lenx, float leny, std::size_t nx, std::size_t ny,
         BoundaryConditions<2> bcs,
-        const IApproximation<float> &approx = SpectralApproximation<float>{});
+        const IApproximation<float> &approx = SpectralApproximation<float>{},
+        dim3 cuda_block_size_2d = {16, 16});
 
     void Execute(Workspace2D<float> &phi, const Workspace2D<float> &rhs);
 
@@ -48,8 +49,13 @@ private:
     cufftHandle forward_plan_;
     cufftHandle backward_plan_;
 
-    Workspace2D<cufftComplex> cmplx_workspace_;
+    cufftReal *cu_rhs_;
+    cufftReal *cu_phi_;
     cufftComplex *cu_cmplx_workspace_;
+
+    // Device settings
+    const dim3 block_size_2d_;
+    const dim3 grid_size_2d_;
 };
 }  // namespace poisson_solver
 

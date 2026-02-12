@@ -1,10 +1,23 @@
 #include "poisson-solver/kernel.cuh"
 
 namespace poisson_solver {
-__global__ void Solve2DFullPeriodic(cufftComplex *cmplx_workspace,
-                                    const cufftReal *denomx,
-                                    const cufftReal *denomy, std::size_t nx,
-                                    std::size_t ny) {
+__global__ void InitCmplxWorkspace(cufftComplex *cmplx_workspace,
+                                   const cufftReal *rhs, std::size_t nx,
+                                   std::size_t ny) {
+    const std::size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    const std::size_t j = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (i >= nx || j >= ny) return;
+
+    const std::size_t idx = i * ny + j;
+
+    cmplx_workspace[idx] = make_cuComplex(rhs[idx], 0);
+}
+
+__global__ void DivideCmplxWorkspaceByDenoms(cufftComplex *cmplx_workspace,
+                                             std::size_t nx, std::size_t ny,
+                                             const cufftReal *denomx,
+                                             const cufftReal *denomy) {
     const std::size_t i = blockDim.x * blockIdx.x + threadIdx.x;
     const std::size_t j = blockDim.y * blockIdx.y + threadIdx.y;
 
@@ -22,19 +35,39 @@ __global__ void Solve2DFullPeriodic(cufftComplex *cmplx_workspace,
     cmplx_workspace[idx].y /= denom;
 }
 
-void RunSolver2DFullPeriodic(cufftComplex *cmplx_workspace,
-                             const cufftReal *denomx, const cufftReal *denomy,
-                             std::size_t nx, std::size_t ny,
-                             dim3 block_size_2d) {
-    const std::size_t grid_size_x =
-        (nx + block_size_2d.x - 1) / block_size_2d.x;
-    const std::size_t grid_size_y =
-        (ny + block_size_2d.y - 1) / block_size_2d.y;
+__global__ void NormalizeCmplxWorkspaceToPhi(
+    cufftReal *phi, const cufftComplex *cmplx_workspace, std::size_t nx,
+    std::size_t ny, std::size_t norm_factor) {
+    const std::size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    const std::size_t j = blockDim.y * blockIdx.y + threadIdx.y;
 
-    const dim3 grid_size{static_cast<unsigned>(grid_size_x),
-                         static_cast<unsigned>(grid_size_y)};
+    if (i >= nx || j >= ny) return;
 
-    Solve2DFullPeriodic<<<grid_size, block_size_2d>>>(cmplx_workspace, denomx,
-                                                      denomy, nx, ny);
+    const std::size_t idx = i * ny + j;
+
+    phi[idx] = cmplx_workspace[idx].x / norm_factor;
+}
+
+void RunInitCmplxWorkspace(cufftComplex *cmplx_workspace, const cufftReal *rhs,
+                           std::size_t nx, std::size_t ny, dim3 grid_size_2d,
+                           dim3 block_size_2d) {
+    InitCmplxWorkspace<<<grid_size_2d, block_size_2d>>>(cmplx_workspace, rhs,
+                                                        nx, ny);
+}
+
+void RunDivideCmplxWorkspaceByDenoms(cufftComplex *cmplx_workspace,
+                                     std::size_t nx, std::size_t ny,
+                                     const cufftReal *denomx,
+                                     const cufftReal *denomy, dim3 grid_size_2d,
+                                     dim3 block_size_2d) {
+    DivideCmplxWorkspaceByDenoms<<<grid_size_2d, block_size_2d>>>(
+        cmplx_workspace, nx, ny, denomx, denomy);
+}
+
+void RunNormalization(cufftReal *phi, const cufftComplex *cmplx_workspace,
+                      std::size_t nx, std::size_t ny, std::size_t norm_factor,
+                      dim3 grid_size_2d, dim3 block_size_2d) {
+    NormalizeCmplxWorkspaceToPhi<<<grid_size_2d, block_size_2d>>>(
+        phi, cmplx_workspace, nx, ny, norm_factor);
 }
 }  // namespace poisson_solver
