@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
         phi, rhs, n_x, n_y, inv_dx_squared, inv_dx_squared, inv_dy_squared,
         inv_dy_squared);
 
-    if (poisson_solver::IsBelowThreshold(residuum, n_x, n_y)) {
+    if (poisson_solver::ResiduumBelowThreshold(residuum, n_x, n_y)) {
         std::cout << "Residuum FD2 OK: " << residuum << "\n";
     } else {
         std::cout << "Residuum FD2 FAIL: " << residuum << "\n";

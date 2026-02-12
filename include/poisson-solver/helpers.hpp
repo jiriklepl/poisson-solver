@@ -108,7 +108,7 @@ void CalculateEigenvalues(T len, std::size_t n,
 }
 
 template <std::floating_point T>
-bool IsBelowThreshold(T residuum, std::size_t nx, std::size_t ny) {
+bool ResiduumBelowThreshold(T residuum, std::size_t nx, std::size_t ny) {
     constexpr T fudge_factor = static_cast<T>(100.0);
     return residuum <
            nx * ny * fudge_factor * std::numeric_limits<T>::epsilon();
