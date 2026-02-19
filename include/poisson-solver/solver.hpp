@@ -30,25 +30,22 @@ public:
     void Execute(Workspace2D<float> &phi, const Workspace2D<float> &rhs);
 
 private:
+    // Grid sizes
     const std::size_t nx_;
     const std::size_t ny_;
     const std::size_t cnt_;
 
     // Physics and math
     const BoundaryConditions<2> bcs_;
-
     std::vector<float> denomx_;
     std::vector<float> denomy_;
-
     cufftReal *cu_denomx_;
     cufftReal *cu_denomy_;
-
     float norm_factor_;
 
     // FFT
     cufftHandle forward_plan_;
     cufftHandle backward_plan_;
-
     cufftReal *cu_rhs_;
     cufftReal *cu_phi_;
     cufftComplex *cu_cmplx_workspace_;
