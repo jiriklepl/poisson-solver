@@ -1,7 +1,7 @@
 CPP=g++
 NVCC=nvcc
 STD=-std=c++20
-INCLUDE=./include /usr/local/cuda/include
+INCLUDE=./include /usr/local/cuda/include ./vendor
 LIB_DIRS=/usr/local/cuda/lib64
 LIBS=cudart cufft
 
@@ -35,7 +35,7 @@ LIB_CU_OBJS=$(LIB_CU_SRC:src/kernels/%.cu=$(BUILD_DIR)/src/kernels/%.o)
 TEST_OBJS=$(TEST_SRC:tests/%.cpp=$(BUILD_DIR)/tests/%.o)
 
 # Headers
-HEADERS=$(shell find include -name '*.hpp')
+HEADERS=$(shell find include -name '*.hpp' -o -name '*.h')
 CU_HEADERS=$(shell find include -name '*.cuh')
 
 .PHONY: all lib tests sim clear clean
