@@ -51,9 +51,7 @@ Solver2D::Solver2D(float lenx, float leny, std::size_t nx, std::size_t ny,
     CUFFTCH(cufftPlan2d(&plan_, nx_, ny_, CUFFT_C2C));
 }
 
-Solver2D::~Solver2D() {
-    CUFFTCH(cufftDestroy(plan_));
-}
+Solver2D::~Solver2D() { CUFFTCH(cufftDestroy(plan_)); }
 
 void Solver2D::Execute(Workspace2D<float> &phi, const Workspace2D<float> &rhs) {
     if (phi.Size() != cnt_ || rhs.Size() != cnt_) {
