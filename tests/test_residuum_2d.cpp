@@ -1,7 +1,6 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 #include "poisson-solver/approximations.hpp"
-#include "poisson-solver/helpers.hpp"
 #include "poisson-solver/solver.hpp"
 #include "poisson-solver/workspace.hpp"
 
@@ -77,6 +76,13 @@ float GetMaxResiduum2DFullPeriodic(poisson_solver::Workspace2D<float> &phi,
 
     return max_residuum;
 }
+
+template <std::floating_point T>
+bool ResiduumBelowThreshold(T residuum, std::size_t nx, std::size_t ny) {
+    constexpr T fudge_factor = static_cast<T>(100.0);
+    return residuum <
+           nx * ny * fudge_factor * std::numeric_limits<T>::epsilon();
+}
 }  // namespace
 
 TEST_CASE("Poisson Solver Residuum Suite") {
@@ -130,8 +136,8 @@ TEST_CASE("Poisson Solver Residuum Suite") {
         // Runs for every leaf in the 2D SUBCASE
         solver->Execute(phi, rhs);
         float residuum = residuum_calculation_strategy();
-        CHECK_MESSAGE(poisson_solver::ResiduumBelowThreshold(residuum, nx, ny),
-                      "Residuum is ", residuum);
+        CHECK_MESSAGE(ResiduumBelowThreshold(residuum, nx, ny), "Residuum is ",
+                      residuum);
     }
 
     // TODO: Tests for other BCs
