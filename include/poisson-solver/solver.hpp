@@ -27,6 +27,15 @@ public:
         const IApproximation<float> &approx = SpectralApproximation<float>{},
         dim3 cuda_block_size_2d = {16, 16});
 
+    // TODO: Define moves, for now they're deleted
+    // (either create plan unique wrapper, similar to device ptrs, and then
+    // default them, or manually define the moves)
+    Solver2D(const Solver2D &) = delete;
+    Solver2D &operator=(const Solver2D &) = delete;
+    Solver2D(Solver2D &&) = delete;
+    Solver2D operator=(Solver2D &&) = delete;
+    virtual ~Solver2D();
+
     void Execute(Workspace2D<float> &phi, const Workspace2D<float> &rhs);
 
 private:
@@ -39,16 +48,17 @@ private:
     const BoundaryConditions<2> bcs_;
     std::vector<float> denomx_;
     std::vector<float> denomy_;
-    cufftReal *cu_denomx_;
-    cufftReal *cu_denomy_;
+    CudaUniquePtr<cufftReal> cu_denomx_;
+    CudaUniquePtr<cufftReal> cu_denomy_;
     float norm_factor_;
 
     // FFT
-    cufftHandle forward_plan_;
-    cufftHandle backward_plan_;
-    cufftReal *cu_rhs_;
-    cufftReal *cu_phi_;
-    cufftComplex *cu_cmplx_workspace_;
+    // Cufft defined forward/backward during execution.
+    // Initialization requires only the domain size, thus only one plan needed.
+    cufftHandle plan_;
+    CudaUniquePtr<cufftReal> cu_rhs_;
+    CudaUniquePtr<cufftReal> cu_phi_;
+    CudaUniquePtr<cufftComplex> cu_cmplx_workspace_;
 
     // Device settings
     const dim3 block_size_2d_;

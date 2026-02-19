@@ -3,15 +3,25 @@
 
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
+#include "poisson-solver/cuch.hpp"
 
 #include <concepts>
 #include <cstddef>
+#include <cuda_runtime.h>
+#include <memory>
 #include <numbers>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
 namespace poisson_solver {
+// Forward declarations
+struct CudaFreeDeleter;
+
+// Usings
+template <typename T>
+using CudaUniquePtr = std::unique_ptr<T, CudaFreeDeleter>;
+
 std::size_t CalculateNormalizationFactor(
     std::size_t n, std::pair<BoundaryCondition, BoundaryCondition> bcs);
 
@@ -105,6 +115,19 @@ void CalculateEigenvalues(T len, std::size_t n,
     for (std::size_t i = 0; i < n; ++i) {
         eigenvals[i] *= inv_grid_dx_squared;
     }
+}
+
+struct CudaFreeDeleter {
+    void operator()(void *ptr) { cudaFree(ptr); }
+};
+
+// Creates a unique pointer to memory such that it can hold `size` elements of
+// type `T`
+template <typename T>
+CudaUniquePtr<T> make_cuda_unique(std::size_t size) {
+    T *ptr;
+    CUCH(cudaMalloc(&ptr, size * sizeof(T)));
+    return CudaUniquePtr<T>(ptr);
 }
 }  // namespace poisson_solver
 
