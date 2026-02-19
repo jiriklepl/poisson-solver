@@ -4,48 +4,56 @@ namespace poisson_solver {
 __global__ void InitCmplxWorkspace(cufftComplex *cmplx_workspace,
                                    const cufftReal *rhs, std::size_t nx,
                                    std::size_t ny) {
-    const std::size_t i = blockDim.x * blockIdx.x + threadIdx.x;
-    const std::size_t j = blockDim.y * blockIdx.y + threadIdx.y;
+    const std::size_t stride_x = gridDim.x * blockDim.x;
+    const std::size_t stride_y = gridDim.y * blockDim.y;
 
-    if (i >= nx || j >= ny) return;
-
-    const std::size_t idx = i * ny + j;
-
-    cmplx_workspace[idx] = make_cuComplex(rhs[idx], 0);
+    std::size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    for (; i < nx; i += stride_x) {
+        std::size_t j = blockDim.y * blockIdx.y + threadIdx.y;
+        for (; j < ny; j += stride_y) {
+            const std::size_t idx = i * ny + j;
+            cmplx_workspace[idx] = make_cuComplex(rhs[idx], 0);
+        }
+    }
 }
 
 __global__ void DivideCmplxWorkspaceByDenoms(cufftComplex *cmplx_workspace,
                                              std::size_t nx, std::size_t ny,
                                              const cufftReal *denomx,
                                              const cufftReal *denomy) {
-    const std::size_t i = blockDim.x * blockIdx.x + threadIdx.x;
-    const std::size_t j = blockDim.y * blockIdx.y + threadIdx.y;
+    const std::size_t stride_x = gridDim.x * blockDim.x;
+    const std::size_t stride_y = gridDim.y * blockDim.y;
 
-    if (i >= nx || j >= ny) return;
-
-    const std::size_t idx = i * ny + j;
-
-    if (i == 0 && j == 0) {
-        cmplx_workspace[idx] = make_cuComplex(0, 0);
-        return;
+    std::size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    for (; i < nx; i += stride_x) {
+        std::size_t j = blockDim.y * blockIdx.y + threadIdx.y;
+        for (; j < ny; j += stride_y) {
+            const std::size_t idx = i * ny + j;
+            if (i == 0 && j == 0) {
+                cmplx_workspace[idx] = make_cuComplex(0, 0);
+                continue;
+            }
+            const cufftReal denom = (denomx[i] + denomy[j]);
+            cmplx_workspace[idx].x /= denom;
+            cmplx_workspace[idx].y /= denom;
+        }
     }
-
-    const cufftReal denom = (denomx[i] + denomy[j]);
-    cmplx_workspace[idx].x /= denom;
-    cmplx_workspace[idx].y /= denom;
 }
 
 __global__ void NormalizeCmplxWorkspaceToPhi(
     cufftReal *phi, const cufftComplex *cmplx_workspace, std::size_t nx,
     std::size_t ny, std::size_t norm_factor) {
-    const std::size_t i = blockDim.x * blockIdx.x + threadIdx.x;
-    const std::size_t j = blockDim.y * blockIdx.y + threadIdx.y;
+    const std::size_t stride_x = gridDim.x * blockDim.x;
+    const std::size_t stride_y = gridDim.y * blockDim.y;
 
-    if (i >= nx || j >= ny) return;
-
-    const std::size_t idx = i * ny + j;
-
-    phi[idx] = cmplx_workspace[idx].x / norm_factor;
+    std::size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    for (; i < nx; i += stride_x) {
+        std::size_t j = blockDim.y * blockIdx.y + threadIdx.y;
+        for (; j < ny; j += stride_y) {
+            const std::size_t idx = i * ny + j;
+            phi[idx] = cmplx_workspace[idx].x / norm_factor;
+        }
+    }
 }
 
 void RunInitCmplxWorkspace(cufftComplex *cmplx_workspace, const cufftReal *rhs,
