@@ -42,7 +42,7 @@ __global__ void DivideCmplxWorkspaceByDenoms(cufftComplex *cmplx_workspace,
 
 __global__ void NormalizeCmplxWorkspaceToPhi(
     cufftReal *phi, const cufftComplex *cmplx_workspace, std::size_t nx,
-    std::size_t ny, std::size_t norm_factor) {
+    std::size_t ny,  float norm_factor) {
     const std::size_t stride_x = gridDim.x * blockDim.x;
     const std::size_t stride_y = gridDim.y * blockDim.y;
 
@@ -73,7 +73,7 @@ void RunDivideCmplxWorkspaceByDenoms(cufftComplex *cmplx_workspace,
 }
 
 void RunNormalization(cufftReal *phi, const cufftComplex *cmplx_workspace,
-                      std::size_t nx, std::size_t ny, std::size_t norm_factor,
+                      std::size_t nx, std::size_t ny, float norm_factor,
                       dim3 grid_size_2d, dim3 block_size_2d) {
     NormalizeCmplxWorkspaceToPhi<<<grid_size_2d, block_size_2d>>>(
         phi, cmplx_workspace, nx, ny, norm_factor);

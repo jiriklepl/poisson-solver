@@ -32,17 +32,16 @@ public:
           denomx_(nx_),
           denomy_(ny_),
           block_size_2d_{cuda_block_size_2d},
-          grid_size_2d_{(static_cast<unsigned>(nx_) * block_size_2d_.x - 1) /
+          grid_size_2d_{(static_cast<unsigned>(nx_) + block_size_2d_.x - 1) /
                             block_size_2d_.x,
-                        (static_cast<unsigned>(ny_) * block_size_2d_.y - 1) /
+                        (static_cast<unsigned>(ny_) + block_size_2d_.y - 1) /
                             block_size_2d_.y} {
-        if constexpr (std::ranges::any_of(
-                          BCs.Flatten(), [](BoundaryCondition bc) {
-                              return bc != BoundaryCondition::kPeriodic;
-                          })) {
-            throw std::invalid_argument(
-                "Error: Only periodic BCs are allowed currently!\n");
-        }
+        static_assert(
+            !std::ranges::any_of(BCs.Flatten(),
+                                 [](BoundaryCondition bc) {
+                                     return bc != BoundaryCondition::kPeriodic;
+                                 }),
+            "Only periodic BCs are allowed currently.");
 
         using XPolicy = AxisPolicy<BCs.x, float>;
         using YPolicy = AxisPolicy<BCs.y, float>;

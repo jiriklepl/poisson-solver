@@ -20,7 +20,7 @@ void RunDivideCmplxWorkspaceByDenoms(cufftComplex *cmplx_workspace,
 
 // Fill `phi` with normalized values of `cmplx_workspace`
 void RunNormalization(cufftReal *phi, const cufftComplex *cmplx_workspace,
-                      std::size_t nx, std::size_t ny, std::size_t norm_factor,
+                      std::size_t nx, std::size_t ny, float norm_factor,
                       dim3 grid_size_2d, dim3 block_size_2d);
 }  // namespace poisson_solver
 
