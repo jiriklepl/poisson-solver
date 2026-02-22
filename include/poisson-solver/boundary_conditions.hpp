@@ -13,6 +13,11 @@ enum class BoundaryCondition {
     kNeumannStag
 };
 
+struct BCPair {
+    BoundaryCondition first;
+    BoundaryCondition second;
+};
+
 // Stores boundary conditions for specific dimensions.
 // Only specializations should be used as not every dimension is valid.
 template <std::size_t Dim>
@@ -24,27 +29,20 @@ struct BCStorage {
 
 template <>
 struct BCStorage<1> {
-    const std::pair<BoundaryCondition, BoundaryCondition> x;
-
-    BCStorage(std::pair<BoundaryCondition, BoundaryCondition> x) : x(x) {}
+    BCPair x;
+    constexpr BCStorage(BCPair x) : x(x) {}
 };
 
 template <>
 struct BCStorage<2> : public BCStorage<1> {
-    const std::pair<BoundaryCondition, BoundaryCondition> y;
-
-    BCStorage(std::pair<BoundaryCondition, BoundaryCondition> x,
-              std::pair<BoundaryCondition, BoundaryCondition> y)
-        : BCStorage<1>(x), y(y) {}
+    BCPair y;
+    constexpr BCStorage(BCPair x, BCPair y) : BCStorage<1>(x), y(y) {}
 };
 
 template <>
 struct BCStorage<3> : public BCStorage<2> {
-    const std::pair<BoundaryCondition, BoundaryCondition> z;
-
-    BCStorage(std::pair<BoundaryCondition, BoundaryCondition> x,
-              std::pair<BoundaryCondition, BoundaryCondition> y,
-              std::pair<BoundaryCondition, BoundaryCondition> z)
+    BCPair z;
+    constexpr BCStorage(BCPair x, BCPair y, BCPair z)
         : BCStorage<2>(x, y), z(z) {}
 };
 

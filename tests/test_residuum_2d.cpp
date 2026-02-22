@@ -106,15 +106,16 @@ TEST_CASE("Poisson Solver Residuum Suite") {
         Initialize2D(phi, rhs, nx, ny, seed);
 
         // Variables to be configured by inner subcases
-        std::unique_ptr<poisson_solver::Solver2D> solver;
         std::function<float()> residuum_calculation_strategy;
 
         SUBCASE("Boundary: Periodic | Periodic | Periodic | Periodic") {
-            poisson_solver::BoundaryConditions<2> bcs = {
+            constexpr poisson_solver::BoundaryConditions<2> kBcs = {
                 {poisson_solver::BoundaryCondition::kPeriodic,
                  poisson_solver::BoundaryCondition::kPeriodic},
                 {poisson_solver::BoundaryCondition::kPeriodic,
                  poisson_solver::BoundaryCondition::kPeriodic}};
+
+            std::unique_ptr<poisson_solver::Solver2D<kBcs>> solver;
 
             // TODO: Test for Spectral approx
 
@@ -125,19 +126,18 @@ TEST_CASE("Poisson Solver Residuum Suite") {
                         inv_dy_squared, inv_dy_squared);
                 };
 
-                solver = std::make_unique<poisson_solver::Solver2D>(
-                    lenx, leny, nx, ny, bcs,
+                solver = std::make_unique<poisson_solver::Solver2D<kBcs>>(
+                    lenx, leny, nx, ny,
                     poisson_solver::FiniteDifference2Approximation<float>{});
             }
 
             // TODO: Test for FD4
-        }
 
-        // Runs for every leaf in the 2D SUBCASE
-        solver->Execute(phi, rhs);
-        float residuum = residuum_calculation_strategy();
-        CHECK_MESSAGE(ResiduumBelowThreshold(residuum, nx, ny), "Residuum is ",
-                      residuum);
+            solver->Execute(phi, rhs);
+            float residuum = residuum_calculation_strategy();
+            CHECK_MESSAGE(ResiduumBelowThreshold(residuum, nx, ny),
+                          "Residuum is ", residuum);
+        }
     }
 
     // TODO: Tests for other BCs
