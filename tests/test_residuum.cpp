@@ -4,6 +4,7 @@
 #include "poisson-solver/solver.hpp"
 #include "poisson-solver/workspace.hpp"
 
+#include <array>
 #include <cmath>
 #include <functional>
 #include <numbers>
@@ -109,13 +110,13 @@ TEST_CASE("Poisson Solver Residuum Suite") {
         std::function<float()> residuum_calculation_strategy;
 
         SUBCASE("Boundary: Periodic | Periodic | Periodic | Periodic") {
-            constexpr poisson_solver::BoundaryConditions<2> kBcs = {
-                {poisson_solver::BoundaryCondition::kPeriodic,
-                 poisson_solver::BoundaryCondition::kPeriodic},
-                {poisson_solver::BoundaryCondition::kPeriodic,
-                 poisson_solver::BoundaryCondition::kPeriodic}};
+            constexpr std::array<poisson_solver::BCPair, 2> kBcs = {
+                poisson_solver::BoundaryCondition::kPeriodic,
+                poisson_solver::BoundaryCondition::kPeriodic,
+                poisson_solver::BoundaryCondition::kPeriodic,
+                poisson_solver::BoundaryCondition::kPeriodic};
 
-            std::unique_ptr<poisson_solver::Solver2D<kBcs>> solver;
+            std::unique_ptr<poisson_solver::Solver<2, kBcs>> solver;
 
             // TODO: Test for Spectral approx
 
@@ -126,7 +127,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
                         inv_dy_squared, inv_dy_squared);
                 };
 
-                solver = std::make_unique<poisson_solver::Solver2D<kBcs>>(
+                solver = std::make_unique<poisson_solver::Solver<2, kBcs>>(
                     lenx, leny, nx, ny,
                     poisson_solver::FiniteDifference2Approximation<float>{});
             }

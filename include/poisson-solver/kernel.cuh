@@ -3,25 +3,126 @@
 
 #include "poisson-solver/cuch.hpp"
 
+#include <array>
+#include <cstddef>
 #include <cuda_runtime.h>
+#include <cufft.h>
 
 namespace poisson_solver {
-// Initialize the complex workspace `cmplx_workspace` of size `nx * ny` with
-// values from `rhs`
-void RunInitCmplxWorkspace(cufftComplex *cmplx_workspace, const cufftReal *rhs,
-                           std::size_t nx, std::size_t ny, dim3 grid_size_2d,
-                           dim3 block_size_2d);
+// Returns indices of the current thread
+template <std::size_t Dim>
+__device__ std::array<std::size_t, Dim> GetIdxs() {
+    if constexpr (Dim == 1) {
+        return {blockIdx.x * blockDim.x + threadIdx.x};
+    } else if (Dim == 2) {
+        return {blockIdx.x * blockDim.x + threadIdx.x,
+                blockIdx.y + blockDim.y + threadIdx.y};
+    } else if (Dim == 3) {
+        return {blockIdx.x * blockDim.x + threadIdx.x,
+                blockIdx.y + blockDim.y + threadIdx.y,
+                blockIdx.z + blockDim.z + threadIdx.z};
+    }
+}
 
-void RunDivideCmplxWorkspaceByDenoms(cufftComplex *cmplx_workspace,
-                                     std::size_t nx, std::size_t ny,
-                                     const cufftReal *denomx,
-                                     const cufftReal *denomy, dim3 grid_size_2d,
-                                     dim3 block_size_2d);
+// Returns strides for each dimension
+template <std::size_t Dim>
+__device__ std::array<std::size_t, Dim> GetStrides() {
+    if constexpr (Dim == 1) {
+        return {gridDim.x * blockDim.x};
+    } else if (Dim == 2) {
+        return {gridDim.x * blockDim.x, gridDim.y * blockDim.y};
+    } else if (Dim == 3) {
+        return {gridDim.x * blockDim.x, gridDim.y * blockDim.y,
+                gridDim.z * blockDim.z};
+    }
+}
 
-// Fill `phi` with normalized values of `cmplx_workspace`
-void RunNormalization(cufftReal *phi, const cufftComplex *cmplx_workspace,
-                      std::size_t nx, std::size_t ny, float norm_factor,
-                      dim3 grid_size_2d, dim3 block_size_2d);
+template <std::size_t Dim>
+__device__ std::size_t FlatIndex(std::array<std::size_t, Dim> indices,
+                                 std::array<std::size_t, Dim> ns) {
+    std::size_t idx = 0;
+    std::size_t stride = 1;
+
+    for (std::size_t i = Dim - 1; i > 0; --i) {
+        idx += indices[i] * stride;
+        stride *= ns[i];
+    }
+
+    return idx;
+}
+
+// Applies the function `f` to indices in `Dim` nested loops.
+// Each dimensions has:
+// 1. A starting index in `starts`.
+// 2. Size in `ns`.
+// 3. A stride (in cast there are too few threads overall) in `strides`.
+//
+// This function is wrapped by the following overload.
+template <std::size_t Dim, std::size_t CurDim, typename Func>
+void ApplyStrideLoop(std::array<std::size_t, Dim> &indices,
+                     std::array<std::size_t, Dim> starts,
+                     std::array<std::size_t, Dim> ns,
+                     std::array<std::size_t, Dim> strides, Func f) {
+    for (indices[CurDim] = starts[CurDim]; indices[CurDim] < ns[CurDim];
+         indices[CurDim] += strides[CurDim]) {
+        if constexpr (CurDim + 1 < Dim) {
+            NestedGridStride<Dim, CurDim + 1>(indices, starts, ns, f);
+        } else {
+            f(indices);
+        }
+    }
+}
+
+// Applies the function `f` to indices in `Dim` nested loops where each
+// dimension has the size according to `ns`.
+template <std::size_t Dim, typename Func>
+__device__ void ApplyStrideLoop(std::array<std::size_t, Dim> ns, Func f) {
+    std::array<std::size_t, Dim> indices{};
+    auto starts = GetIdxs<Dim>();
+    auto strides = GetStrides<Dim>();
+    NestedGridStridImpl<Dim, 0>(indices, starts, strides, ns, f);
+}
+
+template <std::size_t Dim>
+__global__ void InitCmplxWorkspace(cufftComplex *cmplx_workspace,
+                                   const cufftReal *rhs,
+                                   std::array<std::size_t, Dim> ns) {
+    ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
+        const std::size_t idx = FlatIndex(idxs, ns);
+        cmplx_workspace[idx] = make_cuComplex(rhs[idx], 0);
+    });
+}
+
+template <std::size_t Dim>
+__global__ void DivideCmplxWorkspaceByDenoms(
+    cufftComplex *cmplx_workspace, std::array<std::size_t, Dim> ns,
+    std::array<const cufftReal *, Dim> denoms) {
+    ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
+        const std::size_t idx = FlatIndex(idxs, ns);
+
+        if (idx == 0) {
+            cmplx_workspace[idx] = make_cuComplex(0, 0);
+            return;
+        }
+
+        cufftReal denom = 0;
+        for (std::size_t i = 0; i < Dim; ++i) {
+            denom += denoms[i][idxs[i]];
+        }
+        cmplx_workspace[idx].x /= denom;
+        cmplx_workspace[idx].y /= denom;
+    });
+}
+
+template <std::size_t Dim>
+__global__ void NormalizeCmplxWorkspaceToPhi(
+    cufftReal *phi, const cufftComplex *cmplx_workspace,
+    std::array<std::size_t, Dim> ns, float norm_factor) {
+    ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
+        const std::size_t idx = FlatIndex(idxs, ns);
+        phi[idx] = cmplx_workspace[idx].x / norm_factor;
+    });
+}
 }  // namespace poisson_solver
 
 #endif  // KERNEL_CUH
