@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 #include <cufft.h>
+#include <stdio.h>
 
 namespace poisson_solver {
 // Returns indices of the current thread
@@ -14,13 +15,13 @@ template <std::size_t Dim>
 __device__ std::array<std::size_t, Dim> GetIdxs() {
     if constexpr (Dim == 1) {
         return {blockIdx.x * blockDim.x + threadIdx.x};
-    } else if (Dim == 2) {
+    } else if constexpr (Dim == 2) {
         return {blockIdx.x * blockDim.x + threadIdx.x,
-                blockIdx.y + blockDim.y + threadIdx.y};
-    } else if (Dim == 3) {
+                blockIdx.y * blockDim.y + threadIdx.y};
+    } else if constexpr (Dim == 3) {
         return {blockIdx.x * blockDim.x + threadIdx.x,
-                blockIdx.y + blockDim.y + threadIdx.y,
-                blockIdx.z + blockDim.z + threadIdx.z};
+                blockIdx.y * blockDim.y + threadIdx.y,
+                blockIdx.z * blockDim.z + threadIdx.z};
     }
 }
 
@@ -29,9 +30,9 @@ template <std::size_t Dim>
 __device__ std::array<std::size_t, Dim> GetStrides() {
     if constexpr (Dim == 1) {
         return {gridDim.x * blockDim.x};
-    } else if (Dim == 2) {
+    } else if constexpr (Dim == 2) {
         return {gridDim.x * blockDim.x, gridDim.y * blockDim.y};
-    } else if (Dim == 3) {
+    } else if constexpr (Dim == 3) {
         return {gridDim.x * blockDim.x, gridDim.y * blockDim.y,
                 gridDim.z * blockDim.z};
     }
@@ -43,9 +44,9 @@ __device__ std::size_t FlatIndex(std::array<std::size_t, Dim> indices,
     std::size_t idx = 0;
     std::size_t stride = 1;
 
-    for (std::size_t i = Dim - 1; i > 0; --i) {
-        idx += indices[i] * stride;
-        stride *= ns[i];
+    for (std::size_t i = Dim; i > 0; --i) {
+        idx += indices[i - 1] * stride;
+        stride *= ns[i - 1];
     }
 
     return idx;
@@ -56,17 +57,17 @@ __device__ std::size_t FlatIndex(std::array<std::size_t, Dim> indices,
 // 1. A starting index in `starts`.
 // 2. Size in `ns`.
 // 3. A stride (in cast there are too few threads overall) in `strides`.
-//
-// This function is wrapped by the following overload.
 template <std::size_t Dim, std::size_t CurDim, typename Func>
-void ApplyStrideLoop(std::array<std::size_t, Dim> &indices,
-                     std::array<std::size_t, Dim> starts,
-                     std::array<std::size_t, Dim> ns,
-                     std::array<std::size_t, Dim> strides, Func f) {
+__device__ void ApplyStrideLoopImpl(std::array<std::size_t, Dim> &indices,
+                                    std::array<std::size_t, Dim> starts,
+                                    std::array<std::size_t, Dim> ns,
+                                    std::array<std::size_t, Dim> strides,
+                                    Func f) {
     for (indices[CurDim] = starts[CurDim]; indices[CurDim] < ns[CurDim];
          indices[CurDim] += strides[CurDim]) {
         if constexpr (CurDim + 1 < Dim) {
-            NestedGridStride<Dim, CurDim + 1>(indices, starts, ns, f);
+            ApplyStrideLoopImpl<Dim, CurDim + 1>(indices, starts, ns, strides,
+                                                 f);
         } else {
             f(indices);
         }
@@ -80,7 +81,7 @@ __device__ void ApplyStrideLoop(std::array<std::size_t, Dim> ns, Func f) {
     std::array<std::size_t, Dim> indices{};
     auto starts = GetIdxs<Dim>();
     auto strides = GetStrides<Dim>();
-    NestedGridStridImpl<Dim, 0>(indices, starts, strides, ns, f);
+    ApplyStrideLoopImpl<Dim, 0>(indices, starts, ns, strides, f);
 }
 
 template <std::size_t Dim>

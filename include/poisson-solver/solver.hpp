@@ -25,10 +25,12 @@ namespace poisson_solver {
 // TODO: Works only for all bcs == Periodic
 template <std::size_t Dim, std::array<BCPair, Dim> BCs>
     requires((Dim <= 3 && Dim >= 1) &&
-             std::ranges::none_of(BCs,
-                                  [](BoundaryCondition bc) {
-                                      return bc != BoundaryCondition::kPeriodic;
-                                  }))
+             std::ranges::none_of(
+                 BCs,
+                 [](BCPair bcp) {
+                     return bcp.first != BoundaryCondition::kPeriodic &&
+                            bcp.second != BoundaryCondition::kPeriodic;
+                 }))
 class Solver {
 public:
     Solver(std::array<float, Dim> lens, std::array<std::size_t, Dim> ns,
@@ -66,9 +68,9 @@ public:
 
         if constexpr (Dim == 1) {
             CUFFTCH(cufftPlan1d(&plan_, ns_[0], CUFFT_C2C, 1));
-        } else if (Dim == 2) {
+        } else if constexpr (Dim == 2) {
             CUFFTCH(cufftPlan2d(&plan_, ns_[0], ns_[1], CUFFT_C2C));
-        } else if (Dim == 3) {
+        } else if constexpr (Dim == 3) {
             CUFFTCH(cufftPlan3d(&plan_, ns_[0], ns_[1], ns_[2], CUFFT_C2C));
         }
     }

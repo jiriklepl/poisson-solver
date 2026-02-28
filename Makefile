@@ -11,7 +11,7 @@ CFLAGS=-Wall -Wextra -Wno-unused-parameter -O3 $(STD) \
 LDFLAGS= $(addprefix -L, $(LIB_DIRS)) \
 	$(addprefix -l, $(LIBS))
 
-NVCCFLAGS=-ccbin $(CPP) $(STD) -O3 \
+NVCCFLAGS=-ccbin $(CPP) $(STD) -O3 --expt-relaxed-constexpr \
 	$(addprefix -I, $(INCLUDE)) \
 	-gencode=arch=compute_80,code=sm_80 \
 	-gencode=arch=compute_90,code=sm_90

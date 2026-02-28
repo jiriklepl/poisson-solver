@@ -92,29 +92,28 @@ TEST_CASE("Poisson Solver Residuum Suite") {
     INFO("Initialized with seed ", seed);
 
     SUBCASE("2D") {
-        constexpr std::size_t nx = 21;
-        constexpr std::size_t ny = 32;
+        constexpr std::array<std::size_t, 2> ns{21, 32};
         constexpr float lenx = 2 * std::numbers::pi_v<float>;
-        constexpr float leny = lenx * 1.1f;
-        constexpr float dx = lenx / nx;
-        constexpr float dy = leny / ny;
+        constexpr std::array<float, 2> lens{lenx, lenx * 1.1f};
+        constexpr float dx = lens[0] / ns[0];
+        constexpr float dy = lens[1] / ns[1];
         constexpr float inv_dx_squared = 1.0f / (dx * dx);
         constexpr float inv_dy_squared = 1.0f / (dy * dy);
 
-        poisson_solver::Workspace2D<float> phi{nx, ny};
-        poisson_solver::Workspace2D<float> rhs{nx, ny};
+        poisson_solver::Workspace2D<float> phi{ns[0], ns[1]};
+        poisson_solver::Workspace2D<float> rhs{ns[0], ns[1]};
 
-        Initialize2D(phi, rhs, nx, ny, seed);
+        Initialize2D(phi, rhs, ns[0], ns[1], seed);
 
         // Variables to be configured by inner subcases
         std::function<float()> residuum_calculation_strategy;
 
         SUBCASE("Boundary: Periodic | Periodic | Periodic | Periodic") {
             constexpr std::array<poisson_solver::BCPair, 2> kBcs = {
-                poisson_solver::BoundaryCondition::kPeriodic,
-                poisson_solver::BoundaryCondition::kPeriodic,
-                poisson_solver::BoundaryCondition::kPeriodic,
-                poisson_solver::BoundaryCondition::kPeriodic};
+                {{poisson_solver::BoundaryCondition::kPeriodic,
+                  poisson_solver::BoundaryCondition::kPeriodic},
+                 {poisson_solver::BoundaryCondition::kPeriodic,
+                  poisson_solver::BoundaryCondition::kPeriodic}}};
 
             std::unique_ptr<poisson_solver::Solver<2, kBcs>> solver;
 
@@ -123,20 +122,20 @@ TEST_CASE("Poisson Solver Residuum Suite") {
             SUBCASE("Approximation: FD2") {
                 residuum_calculation_strategy = [&]() {
                     return GetMaxResiduum2DFullPeriodic(
-                        phi, rhs, nx, ny, inv_dx_squared, inv_dx_squared,
+                        phi, rhs, ns[0], ns[1], inv_dx_squared, inv_dx_squared,
                         inv_dy_squared, inv_dy_squared);
                 };
 
                 solver = std::make_unique<poisson_solver::Solver<2, kBcs>>(
-                    lenx, leny, nx, ny,
+                    lens, ns,
                     poisson_solver::FiniteDifference2Approximation<float>{});
             }
 
             // TODO: Test for FD4
 
-            solver->Execute(phi, rhs);
+            solver->Execute({phi.Ptr(), phi.Size()}, {rhs.Ptr(), rhs.Size()});
             float residuum = residuum_calculation_strategy();
-            CHECK_MESSAGE(ResiduumBelowThreshold(residuum, nx, ny),
+            CHECK_MESSAGE(ResiduumBelowThreshold(residuum, ns[0], ns[1]),
                           "Residuum is ", residuum);
         }
     }

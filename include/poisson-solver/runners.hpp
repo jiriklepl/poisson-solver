@@ -1,6 +1,7 @@
 #ifndef RUNNERS_HPP
 #define RUNNERS_HPP
 
+#include <array>
 #include <cuda_runtime.h>
 #include <cufft.h>
 

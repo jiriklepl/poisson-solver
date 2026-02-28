@@ -27,16 +27,40 @@ void RunNormalization(cufftReal *phi, const cufftComplex *cmplx_workspace,
 }
 
 // Explicit instantiations
-void RunInitCmplxWorkspace(cufftComplex *cmplx_workspace, const cufftReal *rhs,
-                           std::array<std::size_t, 2> ns, dim3 grid_size,
-                           dim3 block_size);
-
-void RunDivideCmplxWorkspaceByDenoms(cufftComplex *cmplx_workspace,
-                                     std::array<std::size_t, 2> ns,
-                                     std::array<const cufftReal *, 2> denoms,
-                                     dim3 grid_size, dim3 block_size);
-
-void RunNormalization(cufftReal *phi, const cufftComplex *cmplx_workspace,
-                      std::array<std::size_t, 2> ns, float norm_factor,
-                      dim3 grid_size, dim3 block_size);
+template void RunInitCmplxWorkspace<1>(cufftComplex *cmplx_workspace,
+                                       const cufftReal *rhs,
+                                       std::array<std::size_t, 1> ns,
+                                       dim3 grid_size, dim3 block_size);
+template void RunInitCmplxWorkspace<2>(cufftComplex *cmplx_workspace,
+                                       const cufftReal *rhs,
+                                       std::array<std::size_t, 2> ns,
+                                       dim3 grid_size, dim3 block_size);
+template void RunInitCmplxWorkspace<3>(cufftComplex *cmplx_workspace,
+                                       const cufftReal *rhs,
+                                       std::array<std::size_t, 3> ns,
+                                       dim3 grid_size, dim3 block_size);
+template void RunDivideCmplxWorkspaceByDenoms<1>(
+    cufftComplex *cmplx_workspace, std::array<std::size_t, 1> ns,
+    std::array<const cufftReal *, 1> denoms, dim3 grid_size, dim3 block_size);
+template void RunDivideCmplxWorkspaceByDenoms<2>(
+    cufftComplex *cmplx_workspace, std::array<std::size_t, 2> ns,
+    std::array<const cufftReal *, 2> denoms, dim3 grid_size, dim3 block_size);
+template void RunDivideCmplxWorkspaceByDenoms<3>(
+    cufftComplex *cmplx_workspace, std::array<std::size_t, 3> ns,
+    std::array<const cufftReal *, 3> denoms, dim3 grid_size, dim3 block_size);
+template void RunNormalization<1>(cufftReal *phi,
+                                  const cufftComplex *cmplx_workspace,
+                                  std::array<std::size_t, 1> ns,
+                                  float norm_factor, dim3 grid_size,
+                                  dim3 block_size);
+template void RunNormalization<2>(cufftReal *phi,
+                                  const cufftComplex *cmplx_workspace,
+                                  std::array<std::size_t, 2> ns,
+                                  float norm_factor, dim3 grid_size,
+                                  dim3 block_size);
+template void RunNormalization<3>(cufftReal *phi,
+                                  const cufftComplex *cmplx_workspace,
+                                  std::array<std::size_t, 3> ns,
+                                  float norm_factor, dim3 grid_size,
+                                  dim3 block_size);
 }  // namespace poisson_solver
