@@ -2,7 +2,6 @@
 #define HELPERS_HPP
 
 #include "poisson-solver/approximations.hpp"
-#include "poisson-solver/axis_policies.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/cuch.hpp"
 
@@ -23,22 +22,21 @@ struct CudaFreeDeleter;
 template <typename T>
 using CudaUniquePtr = std::unique_ptr<T, CudaFreeDeleter>;
 
-template <BCPair BCs, std::floating_point T>
-void CalculateEigenvalues(T len, std::size_t n, const IApproximation<T> &approx,
-                          std::vector<T> &eigenvals) {
-    using Policy = AxisPolicy<BCs, T>;
+template <typename T>
+inline constexpr bool always_false = false;
 
-    eigenvals.resize(n);
+template <std::size_t Dim>
+constexpr std::size_t FlatIndex(std::array<std::size_t, Dim> indices,
+                                std::array<std::size_t, Dim> ns) {
+    std::size_t idx = 0;
+    std::size_t stride = 1;
 
-    const T grid_dx = Policy::GetGridDx(len, n);
-    const T dkx = std::numbers::pi_v<T> * grid_dx / len;
-
-    const T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
-
-    for (std::size_t i = 0; i < n; ++i) {
-        eigenvals[i] = approx(Policy::GetApproximationInput(i, n, dkx)) *
-                       inv_grid_dx_squared;
+    for (std::size_t i = Dim; i > 0; --i) {
+        idx += indices[i - 1] * stride;
+        stride *= ns[i - 1];
     }
+
+    return idx;
 }
 
 struct CudaFreeDeleter {

@@ -2,6 +2,7 @@
 #define AXIS_POLICIES_HPP
 
 #include "poisson-solver/boundary_conditions.hpp"
+#include "poisson-solver/helpers.hpp"
 
 #include <concepts>
 #include <cstddef>
@@ -15,7 +16,7 @@ template <BCPair BCs, std::floating_point T>
 class AxisPolicy {
     // Static assert needs to depend on template parameter (so cannot just use
     // `false`). Otherwise will be called even when not instantiated.
-    static_assert(sizeof(T) == -1, "Unsupported pair of boundary conditions.");
+    static_assert(always_false<T>, "Unsupported pair of boundary conditions.");
 };
 
 template <BCPair BCs, std::floating_point T>

@@ -2,6 +2,7 @@
 #define SOLVER_HPP
 
 #include "poisson-solver/approximations.hpp"
+#include "poisson-solver/axis_policies.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/helpers.hpp"
 #include "poisson-solver/runners.hpp"
@@ -45,12 +46,12 @@ public:
           block_size_(cuda_block_size),
           grid_size_(CalculateGridSize(ns, block_size_)) {
         // TODO: We can calculate them directly on the GPU, no?
-        CalculateEigenvalues<BCs[0]>(lens[0], ns_[0], approx, denoms_[0]);
+        CalculateEigenvalues<0>(lens[0], ns_[0], approx, denoms_[0]);
         if constexpr (Dim >= 2) {
-            CalculateEigenvalues<BCs[1]>(lens[1], ns_[1], approx, denoms_[1]);
+            CalculateEigenvalues<1>(lens[1], ns_[1], approx, denoms_[1]);
         }
         if constexpr (Dim >= 3) {
-            CalculateEigenvalues<BCs[2]>(lens[2], ns_[2], approx, denoms_[2]);
+            CalculateEigenvalues<2>(lens[2], ns_[2], approx, denoms_[2]);
         }
 
         cu_rhs_ = make_cuda_unique<cufftReal>(cnt_);
@@ -171,6 +172,25 @@ private:
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x,
                     (static_cast<unsigned>(ns[1]) + block.y - 1) / block.y,
                     (static_cast<unsigned>(ns[2]) + block.z - 1) / block.z};
+        }
+    }
+
+    template <std::size_t Axis, std::floating_point T>
+    static void CalculateEigenvalues(T len, std::size_t n,
+                                     const IApproximation<T> &approx,
+                                     std::vector<T> &eigenvals) {
+        using Policy = AxisPolicy<BCs[Axis], T>;
+
+        eigenvals.resize(n);
+
+        const T grid_dx = Policy::GetGridDx(len, n);
+        const T dkx = std::numbers::pi_v<T> * grid_dx / len;
+
+        const T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
+
+        for (std::size_t i = 0; i < n; ++i) {
+            eigenvals[i] = approx(Policy::GetApproximationInput(i, n, dkx)) *
+                           inv_grid_dx_squared;
         }
     }
 };

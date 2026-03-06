@@ -2,6 +2,7 @@
 #define KERNEL_CUH
 
 #include "poisson-solver/cuch.hpp"
+#include "poisson-solver/helpers.hpp"
 
 #include <array>
 #include <cstddef>
@@ -36,20 +37,6 @@ __device__ std::array<std::size_t, Dim> GetStrides() {
         return {gridDim.x * blockDim.x, gridDim.y * blockDim.y,
                 gridDim.z * blockDim.z};
     }
-}
-
-template <std::size_t Dim>
-__device__ std::size_t FlatIndex(std::array<std::size_t, Dim> indices,
-                                 std::array<std::size_t, Dim> ns) {
-    std::size_t idx = 0;
-    std::size_t stride = 1;
-
-    for (std::size_t i = Dim; i > 0; --i) {
-        idx += indices[i - 1] * stride;
-        stride *= ns[i - 1];
-    }
-
-    return idx;
 }
 
 // Applies the function `f` to indices in `Dim` nested loops.

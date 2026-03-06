@@ -5,7 +5,7 @@ INCLUDE=./include /usr/local/cuda/include ./vendor
 LIB_DIRS=/usr/local/cuda/lib64
 LIBS=cudart cufft
 
-CFLAGS=-Wall -Wextra -Wno-unused-parameter -O3 $(STD) \
+CFLAGS=-Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -O3 $(STD) \
 	$(addprefix -I, $(INCLUDE))
 
 LDFLAGS= $(addprefix -L, $(LIB_DIRS)) \
@@ -19,12 +19,12 @@ NVCCFLAGS=-ccbin $(CPP) $(STD) -O3 --expt-relaxed-constexpr \
 BUILD_DIR=build
 TARGET=$(BUILD_DIR)/test-runner
 
-# Simulation config
+#Simulation config
 SIM_TARGET=$(BUILD_DIR)/sim
 SIM_SRC=simulation/simulation.cpp
 SIM_OBJ=$(BUILD_DIR)/simulation/simulation.o
 
-# Source lists
+#Source lists
 LIB_CPP_SRC=$(wildcard src/*.cpp)
 LIB_CU_SRC=$(wildcard src/kernels/*.cu)
 TEST_SRC=$(wildcard tests/*.cpp)
