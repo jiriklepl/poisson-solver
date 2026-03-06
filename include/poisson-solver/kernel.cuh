@@ -72,28 +72,28 @@ __device__ void ApplyStrideLoop(std::array<std::size_t, Dim> ns, Func f) {
 }
 
 template <std::size_t Dim>
-__global__ void InitCmplxWorkspace(cufftComplex *cmplx_workspace,
-                                   const cufftReal *rhs,
+__global__ void InitCmplxWorkspace(cufftDoubleComplex *cmplx_workspace,
+                                   const cufftDoubleReal *rhs,
                                    std::array<std::size_t, Dim> ns) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
-        cmplx_workspace[idx] = make_cuComplex(rhs[idx], 0);
+        cmplx_workspace[idx] = make_cuDoubleComplex(rhs[idx], 0);
     });
 }
 
 template <std::size_t Dim>
 __global__ void DivideCmplxWorkspaceByDenoms(
-    cufftComplex *cmplx_workspace, std::array<std::size_t, Dim> ns,
-    std::array<const cufftReal *, Dim> denoms) {
+    cufftDoubleComplex *cmplx_workspace, std::array<std::size_t, Dim> ns,
+    std::array<const cufftDoubleReal *, Dim> denoms) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
 
         if (idx == 0) {
-            cmplx_workspace[idx] = make_cuComplex(0, 0);
+            cmplx_workspace[idx] = make_cuDoubleComplex(0, 0);
             return;
         }
 
-        cufftReal denom = 0;
+        cufftDoubleReal denom = 0;
         for (std::size_t i = 0; i < Dim; ++i) {
             denom += denoms[i][idxs[i]];
         }
@@ -104,8 +104,8 @@ __global__ void DivideCmplxWorkspaceByDenoms(
 
 template <std::size_t Dim>
 __global__ void NormalizeCmplxWorkspaceToPhi(
-    cufftReal *phi, const cufftComplex *cmplx_workspace,
-    std::array<std::size_t, Dim> ns, float norm_factor) {
+    cufftDoubleReal *phi, const cufftDoubleComplex *cmplx_workspace,
+    std::array<std::size_t, Dim> ns, double norm_factor) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
         phi[idx] = cmplx_workspace[idx].x / norm_factor;

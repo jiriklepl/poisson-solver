@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <concepts>
 #include <functional>
 #include <numbers>
 #include <numeric>
@@ -15,24 +16,30 @@
 namespace ps = poisson_solver;
 
 namespace {
-void Initialize(std::span<float> phi, std::span<float> rhs, unsigned seed) {
+template <std::floating_point T>
+struct ResiduumResult {
+    bool success;
+    T max_residuum;
+};
+
+void Initialize(std::span<double> phi, std::span<double> rhs, unsigned seed) {
     if (rhs.size() != phi.size()) {
         throw std::runtime_error("Incorrect size of phi or rhs.");
     }
 
     const std::size_t size = rhs.size();
     std::mt19937 rng(seed);
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
 
-    float rhs_sum = 0.0f;
+    double rhs_sum = 0.0;
     for (std::size_t i = 0; i < size; ++i) {
         phi[i] = dist(rng);
-        float rhs_val = dist(rng);
+        double rhs_val = dist(rng);
         rhs[i] = rhs_val;
         rhs_sum += rhs_val;
     }
 
-    float avg = rhs_sum / (size);
+    double avg = rhs_sum / (size);
     for (std::size_t i = 0; i < size; ++i) {
         rhs[i] -= avg;
     }
@@ -41,9 +48,9 @@ void Initialize(std::span<float> phi, std::span<float> rhs, unsigned seed) {
 // Coeffs order: [west, east, south, north, bottom, top]
 template <std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
-float GetMaxResiduumFullPeriodic(std::span<float> phi, std::span<float> rhs,
-                                 std::array<std::size_t, Dim> ns,
-                                 std::array<float, 2 * Dim> coeffs) {
+double GetMaxResiduumFullPeriodic(std::span<double> phi, std::span<double> rhs,
+                                  std::array<std::size_t, Dim> ns,
+                                  std::array<double, 2 * Dim> coeffs) {
     if (rhs.size() != phi.size()) {
         throw std::runtime_error("Incorrect size of phi or rhs.");
     }
@@ -84,12 +91,12 @@ float GetMaxResiduumFullPeriodic(std::span<float> phi, std::span<float> rhs,
         return neighbor_idxs;
     };
 
-    float max_residuum = 0.0f;
-    const float coeff_center =
-        std::accumulate(coeffs.begin(), coeffs.end(), 0.0f);
+    double max_residuum = 0.0;
+    const double coeff_center =
+        std::accumulate(coeffs.begin(), coeffs.end(), 0.0);
 
     for (std::size_t i = 0; i < size; ++i) {
-        float neighbor_sum = 0.0f;
+        double neighbor_sum = 0.0;
         auto multidim_idx = flat_to_multidim_idx(i);
         auto neighbor_idxs = get_neighbor_idxs(multidim_idx);
 
@@ -102,7 +109,7 @@ float GetMaxResiduumFullPeriodic(std::span<float> phi, std::span<float> rhs,
         }
 
         neighbor_sum -= rhs[i];
-        const float local_residuum =
+        const double local_residuum =
             std::abs(coeff_center * phi[i] - neighbor_sum);
         max_residuum = std::max(max_residuum, local_residuum);
     }
@@ -111,11 +118,14 @@ float GetMaxResiduumFullPeriodic(std::span<float> phi, std::span<float> rhs,
 }
 
 template <std::floating_point T, std::size_t Dim>
-bool ResiduumBelowThreshold(T residuum, std::array<std::size_t, Dim> ns) {
+ResiduumResult<T> ResiduumBelowThreshold(T residuum,
+                                         std::array<std::size_t, Dim> ns) {
     constexpr T fudge_factor = static_cast<T>(100.0);
-    return residuum <
-           std::accumulate(ns.begin(), ns.end(), 1, std::multiplies<>()) *
-               fudge_factor * std::numeric_limits<T>::epsilon();
+    T max_residuum = std::accumulate(ns.begin(), ns.end(), std::size_t{1},
+                                     std::multiplies<>()) *
+                     fudge_factor * std::numeric_limits<T>::epsilon();
+    bool success = residuum < max_residuum;
+    return {.success = success, .max_residuum = max_residuum};
 }
 }  // namespace
 
@@ -125,17 +135,17 @@ TEST_CASE("Poisson Solver Residuum Suite") {
     INFO("Initialized with seed ", seed);
 
     constexpr std::size_t nx = 21, ny = 32, nz = 25;
-    constexpr float lenx = 2 * std::numbers::pi_v<float>;
-    constexpr float leny = lenx * 1.1f, lenz = lenx / 1.1f;
-    constexpr float dx = lenx / nx, dy = leny / ny, dz = lenz / nz;
-    constexpr float inv_dx_squared = 1.0f / (dx * dx);
-    constexpr float inv_dy_squared = 1.0f / (dy * dy);
-    constexpr float inv_dz_squared = 1.0f / (dz * dz);
-    std::function<float()> residuum_calculation_strategy;
+    constexpr double lenx = 2 * std::numbers::pi_v<double>;
+    constexpr double leny = lenx * 1.1, lenz = lenx / 1.1;
+    constexpr double dx = lenx / nx, dy = leny / ny, dz = lenz / nz;
+    constexpr double inv_dx_squared = 1.0 / (dx * dx);
+    constexpr double inv_dy_squared = 1.0 / (dy * dy);
+    constexpr double inv_dz_squared = 1.0 / (dz * dz);
+    std::function<double()> residuum_calculation_strategy;
 
     SUBCASE("1D") {
-        std::array<float, nx> phi{};
-        std::array<float, nx> rhs{};
+        std::array<double, nx> phi{};
+        std::array<double, nx> rhs{};
         Initialize(phi, rhs, seed);
 
         SUBCASE("Boundary: Periodic | Periodic") {
@@ -156,23 +166,25 @@ TEST_CASE("Poisson Solver Residuum Suite") {
 
                 solver = std::make_unique<ps::Solver<1, kBcs>>(
                     std::array{lenx}, std::array{nx},
-                    ps::FiniteDifference2Approximation<float>{});
+                    ps::FiniteDifference2Approximation<double>{});
             }
 
             // TODO: Test for FD4
 
             solver->Execute({phi.data(), phi.size()}, {rhs.data(), rhs.size()});
-            float residuum = residuum_calculation_strategy();
-            CHECK_MESSAGE(ResiduumBelowThreshold(residuum, std::array{nx}),
-                          "Residuum is ", residuum);
+            double residuum = residuum_calculation_strategy();
+            ResiduumResult<double> result =
+                ResiduumBelowThreshold(residuum, std::array{nx});
+            CHECK_MESSAGE(result.success, "Residuum is ", residuum,
+                          " and max allowed is ", result.max_residuum);
         }
 
         // TODO: Test for other BCs
     }
 
     SUBCASE("2D") {
-        std::array<float, nx * ny> phi{};
-        std::array<float, nx * ny> rhs{};
+        std::array<double, nx * ny> phi{};
+        std::array<double, nx * ny> rhs{};
         Initialize(phi, rhs, seed);
 
         SUBCASE("Boundary: Periodic | Periodic | Periodic | Periodic") {
@@ -196,26 +208,30 @@ TEST_CASE("Poisson Solver Residuum Suite") {
 
                 solver = std::make_unique<ps::Solver<2, kBcs>>(
                     std::array{lenx, leny}, std::array{nx, ny},
-                    ps::FiniteDifference2Approximation<float>{});
+                    ps::FiniteDifference2Approximation<double>{});
             }
 
             // TODO: Test for FD4
 
             solver->Execute({phi.data(), phi.size()}, {rhs.data(), rhs.size()});
-            float residuum = residuum_calculation_strategy();
-            CHECK_MESSAGE(ResiduumBelowThreshold(residuum, std::array{nx, ny}),
-                          "Residuum is ", residuum);
+            double residuum = residuum_calculation_strategy();
+            ResiduumResult<double> result =
+                ResiduumBelowThreshold(residuum, std::array{nx, ny});
+            CHECK_MESSAGE(result.success, "Residuum is ", residuum,
+                          " and max allowed is ", result.max_residuum);
         }
 
         // TODO: Tests for other BCs
     }
 
     SUBCASE("3D") {
-        std::array<float, nx * ny * nz> phi{};
-        std::array<float, nx * ny * nz> rhs{};
+        std::array<double, nx * ny * nz> phi{};
+        std::array<double, nx * ny * nz> rhs{};
         Initialize(phi, rhs, seed);
 
-        SUBCASE("Boundary: Periodic | Periodic | Periodic | Periodic | Periodic | Periodic") {
+        SUBCASE(
+            "Boundary: Periodic | Periodic | Periodic | Periodic | Periodic | "
+            "Periodic") {
             constexpr std::array<ps::BCPair, 3> kBcs = {
                 {{ps::BoundaryCondition::kPeriodic,
                   ps::BoundaryCondition::kPeriodic},
@@ -239,14 +255,15 @@ TEST_CASE("Poisson Solver Residuum Suite") {
 
                 solver = std::make_unique<ps::Solver<3, kBcs>>(
                     std::array{lenx, leny, lenz}, std::array{nx, ny, nz},
-                    ps::FiniteDifference2Approximation<float>{});
+                    ps::FiniteDifference2Approximation<double>{});
             }
 
             solver->Execute({phi.data(), phi.size()}, {rhs.data(), rhs.size()});
-            float residuum = residuum_calculation_strategy();
-            CHECK_MESSAGE(
-                ResiduumBelowThreshold(residuum, std::array{nx, ny, nz}),
-                "Residuum is ", residuum);
+            double residuum = residuum_calculation_strategy();
+            ResiduumResult<double> result =
+                ResiduumBelowThreshold(residuum, std::array{nx, ny, nz});
+            CHECK_MESSAGE(result.success, "Residuum is ", residuum,
+                          " and max allowed is ", result.max_residuum);
         }
 
         // TODO: Test for other BCs
