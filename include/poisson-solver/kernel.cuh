@@ -6,9 +6,9 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdio>
 #include <cuda_runtime.h>
 #include <cufft.h>
-#include <stdio.h>
 
 namespace poisson_solver {
 // Returns indices of the current thread

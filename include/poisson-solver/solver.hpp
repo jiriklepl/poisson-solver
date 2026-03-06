@@ -6,7 +6,6 @@
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/helpers.hpp"
 #include "poisson-solver/runners.hpp"
-#include "poisson-solver/workspace.hpp"
 
 #include <algorithm>
 #include <array>
@@ -29,7 +28,7 @@ template <std::size_t Dim, std::array<BCPair, Dim> BCs>
              std::ranges::none_of(
                  BCs,
                  [](BCPair bcp) {
-                     return bcp.first != BoundaryCondition::kPeriodic &&
+                     return bcp.first != BoundaryCondition::kPeriodic ||
                             bcp.second != BoundaryCondition::kPeriodic;
                  }))
 class Solver {
@@ -46,12 +45,12 @@ public:
           block_size_(cuda_block_size),
           grid_size_(CalculateGridSize(ns, block_size_)) {
         // TODO: We can calculate them directly on the GPU, no?
-        CalculateEigenvalues<0>(lens[0], ns_[0], approx, denoms_[0]);
+        CalculateEigenvalues<0>(denoms_[0], lens[0], ns_[0], approx);
         if constexpr (Dim >= 2) {
-            CalculateEigenvalues<1>(lens[1], ns_[1], approx, denoms_[1]);
+            CalculateEigenvalues<1>(denoms_[1], lens[1], ns_[1], approx);
         }
         if constexpr (Dim >= 3) {
-            CalculateEigenvalues<2>(lens[2], ns_[2], approx, denoms_[2]);
+            CalculateEigenvalues<2>(denoms_[2], lens[2], ns_[2], approx);
         }
 
         cu_rhs_ = make_cuda_unique<cufftReal>(cnt_);
@@ -85,7 +84,7 @@ public:
     Solver operator=(Solver &&) = delete;
     virtual ~Solver() { CUFFTCH(cufftDestroy(plan_)); }
 
-    void Execute(std::span<float> phi, std::span<float> rhs) {
+    void Execute(std::span<float> phi, std::span<const float> rhs) {
         // TODO: Don't check this in release builds
         if (phi.size() != cnt_ || rhs.size() != cnt_) {
             throw std::runtime_error("Incorrect size of phi or rhs.");
@@ -154,9 +153,9 @@ private:
     static constexpr dim3 DefaultBlockSize() {
         if constexpr (Dim == 1) {
             return {256};
-        } else if (Dim == 2) {
+        } else if constexpr (Dim == 2) {
             return {16, 16};
-        } else if (Dim == 3) {
+        } else if constexpr (Dim == 3) {
             return {8, 8, 4};
         }
     }
@@ -165,10 +164,10 @@ private:
                                   dim3 block) {
         if constexpr (Dim == 1) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x};
-        } else if (Dim == 2) {
+        } else if constexpr (Dim == 2) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x,
                     (static_cast<unsigned>(ns[1]) + block.y - 1) / block.y};
-        } else if (Dim == 3) {
+        } else if constexpr (Dim == 3) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x,
                     (static_cast<unsigned>(ns[1]) + block.y - 1) / block.y,
                     (static_cast<unsigned>(ns[2]) + block.z - 1) / block.z};
@@ -176,9 +175,9 @@ private:
     }
 
     template <std::size_t Axis, std::floating_point T>
-    static void CalculateEigenvalues(T len, std::size_t n,
-                                     const IApproximation<T> &approx,
-                                     std::vector<T> &eigenvals) {
+    static void CalculateEigenvalues(std::vector<T> &eigenvals, T len,
+                                     std::size_t n,
+                                     const IApproximation<T> &approx) {
         using Policy = AxisPolicy<BCs[Axis], T>;
 
         eigenvals.resize(n);

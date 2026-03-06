@@ -3,7 +3,6 @@
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/helpers.hpp"
 #include "poisson-solver/solver.hpp"
-#include "poisson-solver/workspace.hpp"
 
 #include <algorithm>
 #include <array>
