@@ -9,7 +9,6 @@ extern "C" {
 typedef struct PoissonSolver {
     void *handle;
     uint64_t grid_size;
-    unsigned dim;
 } PoissonSolver;
 
 typedef enum {
@@ -22,13 +21,14 @@ typedef enum {
 
 typedef enum { kSpectral, kFD2, kFD4 } Approximation;
 
-PoissonSolver PoissonSolverNew(int dims, const int *ns, const double *lens,
-                               const BoundaryCondition *bcs,
-                               Approximation approx);
+void PoissonSolverNew(PoissonSolver *solver_out, int dims, const int *ns,
+                      const double *lens, const BoundaryCondition *bcs,
+                      Approximation approx);
 
-void PoissonSolverExecute(PoissonSolver solver, double *phi, const double *rhs);
+void PoissonSolverExecute(PoissonSolver *solver, double *phi,
+                          const double *rhs);
 
-void PoissonSolverFinalize(PoissonSolver solver);
+void PoissonSolverFinalize(PoissonSolver *solver);
 #ifdef __cplusplus
 }
 #endif
