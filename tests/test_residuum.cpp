@@ -149,11 +149,11 @@ TEST_CASE("Poisson Solver Residuum Suite") {
         Initialize(phi, rhs, seed);
 
         SUBCASE("Boundary: Periodic | Periodic") {
-            constexpr std::array<ps::BCPair, 1> kBcs = {
+            constexpr std::array<ps::BCPair, 1> kBCs = {
                 {{ps::BoundaryCondition::kPeriodic,
                   ps::BoundaryCondition::kPeriodic}}};
 
-            std::unique_ptr<ps::Solver<1, kBcs>> solver;
+            std::unique_ptr<ps::Solver<1, kBCs>> solver;
 
             // TODO: Test for Spectral approx
 
@@ -164,7 +164,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
                         std::array{inv_dx_squared, inv_dx_squared});
                 };
 
-                solver = std::make_unique<ps::Solver<1, kBcs>>(
+                solver = std::make_unique<ps::Solver<1, kBCs>>(
                     std::array{lenx}, std::array{nx},
                     ps::FiniteDifference2Approximation<double>{});
             }
@@ -188,13 +188,13 @@ TEST_CASE("Poisson Solver Residuum Suite") {
         Initialize(phi, rhs, seed);
 
         SUBCASE("Boundary: Periodic | Periodic | Periodic | Periodic") {
-            constexpr std::array<ps::BCPair, 2> kBcs = {
+            constexpr std::array<ps::BCPair, 2> kBCs = {
                 {{ps::BoundaryCondition::kPeriodic,
                   ps::BoundaryCondition::kPeriodic},
                  {ps::BoundaryCondition::kPeriodic,
                   ps::BoundaryCondition::kPeriodic}}};
 
-            std::unique_ptr<ps::Solver<2, kBcs>> solver;
+            std::unique_ptr<ps::Solver<2, kBCs>> solver;
 
             // TODO: Test for Spectral approx
 
@@ -206,7 +206,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
                                    inv_dy_squared, inv_dy_squared});
                 };
 
-                solver = std::make_unique<ps::Solver<2, kBcs>>(
+                solver = std::make_unique<ps::Solver<2, kBCs>>(
                     std::array{lenx, leny}, std::array{nx, ny},
                     ps::FiniteDifference2Approximation<double>{});
             }
@@ -232,7 +232,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
         SUBCASE(
             "Boundary: Periodic | Periodic | Periodic | Periodic | Periodic | "
             "Periodic") {
-            constexpr std::array<ps::BCPair, 3> kBcs = {
+            constexpr std::array<ps::BCPair, 3> kBCs = {
                 {{ps::BoundaryCondition::kPeriodic,
                   ps::BoundaryCondition::kPeriodic},
                  {ps::BoundaryCondition::kPeriodic,
@@ -240,7 +240,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
                  {ps::BoundaryCondition::kPeriodic,
                   ps::BoundaryCondition::kPeriodic}}};
 
-            std::unique_ptr<ps::Solver<3, kBcs>> solver;
+            std::unique_ptr<ps::Solver<3, kBCs>> solver;
 
             // TODO: Test for Spectral approx
 
@@ -253,7 +253,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
                                    inv_dz_squared, inv_dz_squared});
                 };
 
-                solver = std::make_unique<ps::Solver<3, kBcs>>(
+                solver = std::make_unique<ps::Solver<3, kBCs>>(
                     std::array{lenx, leny, lenz}, std::array{nx, ny, nz},
                     ps::FiniteDifference2Approximation<double>{});
             }
