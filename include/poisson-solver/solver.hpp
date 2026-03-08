@@ -83,7 +83,7 @@ public:
     Solver &operator=(const Solver &) = delete;
     Solver(Solver &&) = delete;
     Solver operator=(Solver &&) = delete;
-    virtual ~Solver() { CUFFTCH(cufftDestroy(plan_)); }
+    ~Solver() { CUFFTCH(cufftDestroy(plan_)); }
 
     void Execute(std::span<double> phi, std::span<const double> rhs) {
         // TODO: Don't check this in release builds
@@ -116,6 +116,8 @@ public:
                         cnt_ * sizeof(cufftDoubleReal),
                         cudaMemcpyDeviceToHost));
     }
+
+    std::size_t GetTotalGridSize() { return cnt_; }
 
 private:
     // Grid sizes
