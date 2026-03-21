@@ -2,13 +2,14 @@
 #define C_BINDING_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 typedef struct PoissonSolver {
     void *handle;
-    uint64_t grid_size;
+    size_t grid_size;
 } PoissonSolver;
 
 typedef enum {
