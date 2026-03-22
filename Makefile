@@ -58,49 +58,49 @@ simulation: $(SIMULATION_TARGET)
 $(RESIDUUM_TESTS_TARGET): $(CXX_OBJS) $(CU_OBJS) $(RESIDUUM_TESTS_OBJS)
 	@mkdir -p $(dir $@)
 	@echo "Linking residuum tests: $@"
-	$(CXX) $(CXXFLAGS) $(CXX_OBJS) $(CU_OBJS) $(RESIDUUM_TESTS_OBJS) $(LDFLAGS) -o $@
+	@$(CXX) $(CXXFLAGS) $(CXX_OBJS) $(CU_OBJS) $(RESIDUUM_TESTS_OBJS) $(LDFLAGS) -o $@
 
 # Link benchmarks
 $(BENCHMARKS_TARGET): $(CXX_OBJS) $(CU_OBJS) $(BENCHMARKS_OBJS)
 	@mkdir -p $(dir $@)
 	@echo "Linking benchmarks: $@"
-	$(CXX) $(CXXFLAGS) $(CXX_OBJS) $(CU_OBJS) $(BENCHMARKS_OBJS) $(LDFLAGS) -o $@
+	@$(CXX) $(CXXFLAGS) $(CXX_OBJS) $(CU_OBJS) $(BENCHMARKS_OBJS) $(LDFLAGS) -o $@
 
 # Link simulation
 $(SIMULATION_TARGET): $(CXX_OBJS) $(CU_OBJS) $(SIMULATION_OBJS)
 	@mkdir -p $(dir $@)
 	@echo "Linking simulation: $@"
-	$(CXX) $(CXXFLAGS) $(CXX_OBJS) $(LIB_CU_OBJS) $(SIMULATION_OBJS) $(LDFLAGS) -o $@
+	@$(CXX) $(CXXFLAGS) $(CXX_OBJS) $(LIB_CU_OBJS) $(SIMULATION_OBJS) $(LDFLAGS) -o $@
 
 # Compile residuum tests
 $(BUILD_DIR)/tests/residuum/%.o: tests/residuum/%.cpp $(CXX_HEADERS) $(TEST_HEADERS)
 	@mkdir -p $(dir $@)
 	@echo "Compiling residuum tests: $<"
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Compile benchmarks
 $(BUILD_DIR)/tests/benchmarks/%.o: tests/benchmarks/%.cpp $(CXX_HEADERS) $(TEST_HEADERS)
 	@mkdir -p $(dir $@)
 	@echo "Compiling benchmarks: $<"
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Compile simulation
 $(SIMULATION_OBJS): $(SIMULATION_SRC) $(CXX_HEADERS)
 	@mkdir -p $(dir $@)
 	@echo "Compiling simulation: $<"
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Compile host (C++)
 $(BUILD_DIR)/src/%.o: src/%.cpp $(CXX_HEADERS) $(CU_HEADERS)
 	@mkdir -p $(dir $@)
 	@echo "Compiling host: $<"
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Compile device (CUDA)
 $(BUILD_DIR)/src/kernels/%.o: src/kernels/%.cu $(CU_HEADERS)
 	@mkdir -p $(dir $@)
 	@echo "Compiling device: $<"
-	$(NVCC) $(NVCCFLAGS) --compile -cudart static $< -o $@
+	@$(NVCC) $(NVCCFLAGS) --compile -cudart static $< -o $@
 
 clear:
 	@echo "Removing build directory..."
