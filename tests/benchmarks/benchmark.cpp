@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
     std::size_t grid_size = std::stol(argv[3]);
     const std::size_t grid_size_end = std::stol(argv[4]);
     const std::size_t grid_size_step = std::stol(argv[5]);
-    std::string out_filename = argv[6];
+    const std::string out_filename = argv[6];
 
     std::ofstream out_file(out_filename);
     if (!out_file.is_open()) {
@@ -37,34 +37,35 @@ int main(int argc, char *argv[]) {
 
     std::random_device dev;
     unsigned seed = dev();
-    std::size_t nx = 32, ny = 32, nz = 32;
     constexpr double lenx = 2 * std::numbers::pi_v<double>;
     constexpr double leny = lenx * 1.1, lenz = lenx / 1.1;
-    std::vector<double> phi(nx * ny * nz);
-    std::vector<double> rhs(nx * ny * nz);
-    Initialize(phi, rhs, seed);
 
     constexpr std::array<ps::BCPair, 3> kBCs = {
         {{ps::BoundaryCondition::kPeriodic, ps::BoundaryCondition::kPeriodic},
          {ps::BoundaryCondition::kPeriodic, ps::BoundaryCondition::kPeriodic},
          {ps::BoundaryCondition::kPeriodic, ps::BoundaryCondition::kPeriodic}}};
 
-    ps::Solver<3, kBCs> solver{std::array{lenx, leny, lenz},
-                               std::array{nx, ny, nz},
-                               ps::FiniteDifference2Approximation<double>{}};
-
-    // Warmup
-    for (std::size_t i = 0; i < warmup_iters; ++i) {
-        solver.Execute({phi.data(), phi.size()}, {rhs.data(), rhs.size()});
-        seed = dev();
-        Initialize(phi, rhs, seed);
-    }
-
     std::vector<std::chrono::steady_clock::duration> times(measurement_iters);
     out_file << "grid_size,index,time_ns" << "\n";
 
     // Measurements
     for (; grid_size <= grid_size_end; grid_size += grid_size_step) {
+        std::vector<double> phi(grid_size * grid_size * grid_size);
+        std::vector<double> rhs(grid_size * grid_size * grid_size);
+        Initialize(phi, rhs, seed);
+
+        ps::Solver<3, kBCs> solver{std::array{lenx, leny, lenz},
+                                   std::array{grid_size, grid_size, grid_size},
+                                   ps::FiniteDifference2Approximation<double>{}};
+
+        // Warmup
+        for (std::size_t i = 0; i < warmup_iters; ++i) {
+            solver.Execute({phi.data(), phi.size()}, {rhs.data(), rhs.size()});
+            seed = dev();
+            Initialize(phi, rhs, seed);
+        }
+
+
         for (std::size_t i = 0; i < measurement_iters; ++i) {
             auto start = std::chrono::steady_clock::now();
             solver.Execute({phi.data(), phi.size()}, {rhs.data(), rhs.size()});
