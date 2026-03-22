@@ -1,8 +1,9 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest.h"
+#include "vendor/doctest.h"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/helpers.hpp"
 #include "poisson-solver/solver.hpp"
+#include "initialization.hpp"
 
 #include <algorithm>
 #include <array>
@@ -14,6 +15,7 @@
 #include <random>
 
 namespace ps = poisson_solver;
+using namespace tests;
 
 namespace {
 template <std::floating_point T>
@@ -21,29 +23,6 @@ struct ResiduumResult {
     bool success;
     T max_residuum;
 };
-
-void Initialize(std::span<double> phi, std::span<double> rhs, unsigned seed) {
-    if (rhs.size() != phi.size()) {
-        throw std::runtime_error("Incorrect size of phi or rhs.");
-    }
-
-    const std::size_t size = rhs.size();
-    std::mt19937 rng(seed);
-    std::uniform_real_distribution<double> dist(0.0, 1.0);
-
-    double rhs_sum = 0.0;
-    for (std::size_t i = 0; i < size; ++i) {
-        phi[i] = dist(rng);
-        double rhs_val = dist(rng);
-        rhs[i] = rhs_val;
-        rhs_sum += rhs_val;
-    }
-
-    double avg = rhs_sum / (size);
-    for (std::size_t i = 0; i < size; ++i) {
-        rhs[i] -= avg;
-    }
-}
 
 // Coeffs order: [west, east, south, north, bottom, top]
 template <std::size_t Dim>
