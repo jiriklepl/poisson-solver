@@ -83,6 +83,8 @@ static const char *cufftGetErrorString(cufftResult status) {
             return "CUFFT_NOT_IMPLEMENTED";
         case CUFFT_NOT_SUPPORTED:
             return "CUFFT_NOT_SUPPORTED";
+// Err codes introduced in 13.0
+#if __CUDACC_VER_MAJOR__ >= 13
         case CUFFT_MISSING_DEPENDENCY:
             return "CUFFT_MISSING_DEPENDENCY";
         case CUFFT_NVRTC_FAILURE:
@@ -91,6 +93,15 @@ static const char *cufftGetErrorString(cufftResult status) {
             return "CUFFT_NVJITLINK_FAILURE";
         case CUFFT_NVSHMEM_FAILURE:
             return "CUFFT_NVSHMEM_FAILURE";
+// Err codes deprecated in 13.0
+#else
+        case CUFFT_INCOMPLETE_PARAMETER_LIST:
+            return "CUFFT_INCOMPLETE_PARAMETER_LIST";
+        case CUFFT_PARSE_ERROR:
+            return "CUFFT_PARSE_ERROR";
+        case CUFFT_LICENSE_ERROR:
+            return "CUFFT_LICENSE_ERROR";
+#endif
     }
     return "Unknown cufftResult";
 }

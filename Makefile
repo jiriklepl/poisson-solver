@@ -1,8 +1,10 @@
 CXX=g++
-NVCC=nvcc
+# Use older CUDA to be compatible with Voltas (for development purposes)
+CUDA_PATH=/usr/local/cuda-12.9/
+NVCC=$(CUDA_PATH)/bin/nvcc
 STD=-std=c++20
-INCLUDE=./include /usr/local/cuda/include ./tests/include
-LIB_DIRS=/usr/local/cuda/lib64
+INCLUDE=./include $(CUDA_PATH)/include ./tests/include
+LIB_DIRS=$(CUDA_PATH)/lib64
 LIBS=cudart cufft
 
 CXXFLAGS=-Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -O3 $(STD) \
@@ -13,6 +15,7 @@ LDFLAGS= $(addprefix -L, $(LIB_DIRS)) \
 
 NVCCFLAGS=-ccbin $(CXX) $(STD) -O3 --expt-relaxed-constexpr \
 	$(addprefix -I, $(INCLUDE)) \
+	-gencode=arch=compute_70,code=sm_70 \
 	-gencode=arch=compute_80,code=sm_80 \
 	-gencode=arch=compute_90,code=sm_90
 
