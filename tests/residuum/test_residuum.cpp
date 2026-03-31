@@ -243,7 +243,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
                                   " and max allowed is ", result.max_residuum);
                 }
 
-                SUBCASE("C API") {
+                SUBCASE("C Binding") {
                     // From "c_binding.h"
                     constexpr auto P_c = kPeriodic;
                     const int ns[] = {static_cast<int>(nx),
