@@ -1,24 +1,3 @@
-! test_residuum.f90
-!
-! Residuum tests for the Poisson solver Fortran binding.
-! Structure mirrors test_residuum.cpp and is inspired by testpoisson.f90
-! from the PoisFFT repository.
-!
-! For each dimensionality we:
-!   1. Fill phi with random values and rhs with random values whose mean
-!      is subtracted (periodic BCs require a zero-sum RHS for a solution
-!      to exist).
-!   2. Solve via the Fortran binding.
-!   3. Compute the maximum pointwise residuum of the discrete Laplacian,
-!      i.e. max |L*phi - rhs| over all grid points, where L is the
-!      second-order finite difference stencil.
-!   4. Check that the residuum is below 100 * N * epsilon, where N is
-!      the total number of grid points.
-!
-! Build (adjust paths to match your CMake install):
-!   gfortran -o test_residuum test_residuum.f90 poisson_solver_binding.f90 \
-!       -L<solver_lib_dir> -lpoisson_solver -lcufft -lcudart
-
 module Kinds
   use iso_c_binding
   use iso_fortran_env
@@ -33,31 +12,31 @@ module Globals
   implicit none
 
   real(rp), parameter :: pi = 3.141592653589793238462_rp!pi = 4*atan(1._rp)!
-  real(rp), parameter :: Lx = 2*pi, Ly = Lx*1.1, Lz = Lx/1.1
+  real(rp), parameter :: lenx = 2*pi, leny = lenx*1.1, lenz = lenx/1.1
   integer :: nx = 21, ny = 32, nz = 25
   real(rp) :: dx,dy,dz
   real(rp), dimension(:,:,:), allocatable :: Phi3D, RHS3D
   real(rp), dimension(:,:), allocatable :: Phi2D, RHS2D
   real(rp), dimension(:), allocatable :: Phi1D, RHS1D
-
 end module
 
 module Residues
-    use Kinds
-    use Globals
-    use PoisSolver
-
-    implicit none
-
+  use Kinds
+  use Globals
+  use PoisSolver
+    
+  implicit none
+  
+  integer, parameter :: We = 1,Ea = 2,So = 3,No = 4,Bo = 5,To = 6
 
 contains
-    
+
   subroutine Res1D(Phi,RHS,&
                    Aw,Ae,&
                    Btype,R)
     !2nd order finite difference residuum
 
-    real(rp), intent(inout) :: Phi(0:)
+    real(rp), intent(inout) :: Phi(:)
     real(rp), intent(in) :: RHS(:)
     real(rp),intent(in) :: Aw,Ae
     integer,intent(in) :: Btype(2)
@@ -113,7 +92,7 @@ contains
                    Btype,R)
     !2nd order finite difference residuum
 
-    real(rp), intent(inout) :: Phi(0:,0:)
+    real(rp), intent(inout) :: Phi(:,:)
     real(rp), intent(in) :: RHS(:,:)
     real(rp),intent(in) :: Aw,Ae
     real(rp),intent(in) :: As,An
@@ -202,7 +181,7 @@ contains
                    Btype,R)
     !2nd order finite difference residuum
 
-    real(rp), intent(inout) :: Phi(0:,0:,0:)
+    real(rp), intent(inout) :: Phi(:,:,:)
     real(rp), intent(in) :: RHS(:,:,:)
     real(rp),intent(in) :: Aw,Ae
     real(rp),intent(in) :: As,An
@@ -321,74 +300,184 @@ contains
 end module
 
 module Tests
-    use Kinds
-    use Globals
-    use Residues
-    use PoisSolver
+  use Kinds
+  use Globals
+  use Residues
+  use PoisSolver
 
-    implicit none
+  implicit none
+  
+  character(20), parameter :: char_BCs(0:4) = ["Periodic            ", &
+                                             "Dirichlet regular   ", &
+                                             "Neumann regular     ", &
+                                             "Dirichlet staggered ", &
+                                             "Neumann staggered   "]
+ 
+contains
+  
+  subroutine Test1D(BCs)
+    integer, intent(in) :: BCs(2)
+    integer :: i
+    
+    write(*,*) "----"
+    write(*,'(1x,"1D  |",*(a,"|"))') (trim(char_BCs(BCs(i))), i=1,size(BCs))
+    
+    call TestFD2_1D(BCs)
+    write(*,*)
+  end subroutine
+  
+  subroutine TestFD2_1D(BCs)
+    integer, intent(in) :: BCs(2)
+    real(rp) :: R
+    
+    call RunFD2_1D(BCs)
+    
+    call Res1D(Phi1D, RHS1D, &
+               dx**(-2), dx**(-2), &
+               BCs, R)
+    
+    if (R < nx * 100 * epsilon(1._rp)) then
+      write(*,*) "FD2 OK", R
+    else
+      write(*,*) "FD2 FAIL"
+      write(*,*) "FD2 residuum:",R
+    end if
+  end subroutine
+  
+  subroutine RunFD2_1D(BCs)
+    type(PoissonSolver) :: Solver
+    integer, intent(in) :: BCs(2)
+    
+    call poisson_solver_new(Solver, 1, [nx], [lenx], BCs, &
+        approx=PoisSolver_FiniteDifference2)
+    call poisson_solver_execute(Solver, Phi1D, RHS1D)
+    call poisson_solver_finalize(Solver)
+  end subroutine
 
-    character(20), parameter :: char_BCs(0:4) = ["Periodic            ", &
-                                                "Dirichlet regular   ", &
-                                                "Neumann regular     ", &
-                                                "Dirichlet staggered ", &
-                                                "Neumann staggered   "]
-    subroutine TestFD2_2D(BCs)
-        integer, intent(in) :: BCs(4)
-        real(rp) :: R
+  subroutine Test2D(BCs)!, test_pro
+    integer, intent(in) :: BCs(4)
+    integer :: i
+!     interface
+!       subroutine  test_proc(Phi, R)
+!         import
+!         real(rp),intent(in) :: Phi(:,:)
+!         real(rp), intent(out) :: R
+!       end subroutine
+!     end interface
+    
+    write(*,*) "----"
+    write(*,'(1x,"2D  |",*(a,"|"))') (trim(char_BCs(BCs(i))), i=1,size(BCs))
+    
+    call TestFD2_2D(BCs)
+    write(*,*)
+  end subroutine
 
-        call RunFD2_2D(BCs)
+  subroutine TestFD2_2D(BCs)
+    integer, intent(in) :: BCs(4)
+    real(rp) :: R
+    
+    call RunFD2_2D(BCs)
+    
+    call Res2D(Phi2D, RHS2D, &
+               dx**(-2), dx**(-2), dy**(-2), dy**(-2), &
+               BCs, R)
+    if (R < int(nx, int64) * int(ny, int64) * 100 * epsilon(1._rp)) then
+      write(*,*) "FD2 OK", R
+    else
+      write(*,*) "FD2 FAIL"
+      write(*,*) "FD2 residuum:",R
+    end if
+  end subroutine
+  
+  subroutine RunFD2_2D(BCs)
+    type(PoissonSolver) :: Solver
+    integer, intent(in) :: BCs(4)
+    
+    call poisson_solver_new(Solver, 2, [nx, ny], [lenx, leny], BCs, &
+        approx=PoisSolver_FiniteDifference2)
+    call poisson_solver_execute(Solver, Phi2D, RHS2D)
+    call poisson_solver_finalize(Solver)
+  end subroutine
+  
+  subroutine Test3D(BCs)
+    integer, intent(in) :: BCs(6)
+    integer :: i
+    
+    write(*,*) "----"
+    write(*,'(1x,"3D  |",*(a,"|"))') (trim(char_BCs(BCs(i))), i=1,size(BCs))
+    
+    call TestFD2_3D(BCs)
+    write(*,*)
+  end subroutine
+  
+  subroutine TestFD2_3D(BCs)
+    integer, intent(in) :: BCs(6)
+    real(rp) :: R
 
-        call Res2D(Phi2D, RHS2D, &
-                   dx**(-2), dx**(-2), dy**(-2), dy**(-2), &
-                   BCs, R)
-        if (R < int(nx, int64) * int(ny, int64) * 100 * epsilon(1._rp)) then
-          write(*,*) "FD2 OK", R
-        else
-          write(*,*) "FD2 FAIL"
-          write(*,*) "FD2 residuum:",R
-        end if
-    end subroutine
-
-    subroutine RunFD2_2D(BCs)
-        type(PoissonSolver) :: Solver
-        integer, intent(in) :: BCs(4)
-
-        call poisson_solver_new(Solver, 2, [nx, ny], [Lx, Ly], BCs, 2)
-
-        call poisson_solver_execute(Solver, Phi2D, RHS2D)
-
-        call poisson_solver_finalize(Solver)
-    end subroutine
+    call RunFD2_3D(BCs)
+   
+    call Res3D(Phi3D, RHS3D, &
+               dx**(-2), dx**(-2), dy**(-2), dy**(-2), dz**(-2), dz**(-2), &
+               BCs, R)
+    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 100 * epsilon(1._rp)) then
+      write(*,*) "FD2 OK", R
+    else
+      write(*,*) "FD2 FAIL"
+      write(*,*) "FD2 residuum:",R
+    end if
+  end subroutine
+  
+  subroutine RunFD2_3D(BCs)
+    type(PoissonSolver) :: Solver
+    integer, intent(in) :: BCs(6)
+    
+    call poisson_solver_new(Solver, 3, [nx, ny, nz], [lenx, leny, lenz], &
+        BCs, approx=PoisSolver_FiniteDifference2)
+    call poisson_solver_execute(Solver, Phi3D, RHS3D)
+    call poisson_solver_finalize(Solver)
+  end subroutine
+  
 end module
 
-program test_residuum
-    use Kinds
-    use Globals
-    use Residues
-    use Tests
-    use PoisSolver
-
+program testpoisson
+  use Kinds
+  use Globals
+  use Residues
+  use Tests
+  use PoisSolver
   
-    dx = Lx/nx;dy = Lx/ny;dz = Lx/nz
+  implicit none
 
-    real(c_double), parameter :: inv_dx_sq    = 1.0d0 / (dx * dx)
-    real(c_double), parameter :: inv_dy_sq    = 1.0d0 / (dy * dy)
-    real(c_double), parameter :: inv_dz_sq    = 1.0d0 / (dz * dz)
+  integer i,j,k
+  real(rp) :: x,y,z
+  character(len = 12) :: arg
+  
+  if (command_argument_count()>=3) then
+    call get_command_argument(1,value = arg)
+    read(arg,'(i12)') nx
+    call get_command_argument(2,value = arg)
+    read(arg,'(i12)') ny
+    call get_command_argument(3,value = arg)
+    read(arg,'(i12)') nz
+  end if
+  
+  write(*,*) "nx",nx
+  write(*,*) "ny",ny
+  write(*,*) "nz",nz
+ 
+  dx = lenx/nx;dy = lenx/ny;dz = lenx/nz
 
-    allocate(RHS3D(nx,ny,nz))
-    allocate(Phi3D(0:nx+1,0:ny+1,0:nz+1))
+  allocate(RHS3D(nx,ny,nz))
+  allocate(Phi3D(nx,ny,nz))
 
-    allocate(RHS2D(nx,ny))
-    allocate(Phi2D(0:nx+1,0:ny+1))
+  allocate(RHS2D(nx,ny))
+  allocate(Phi2D(nx,ny))
 
-    allocate(RHS1D(nx))
-    allocate(Phi1D(0:nx+1))
+  allocate(RHS1D(nx))
+  allocate(Phi1D(nx))
 
-
-
-    do k = 1,nz
-    do j = 1,ny
+  do k = 1,nz
+   do j = 1,ny
     do i = 1,nx
      x=(i-1._rp/2)*dx
      y=(j-1._rp/2)*dy
@@ -396,14 +485,11 @@ program test_residuum
      call random_number(RHS3D(i,j,k))
      call random_number(Phi3D(i,j,k))
     end do
-    end do
-    end do
-    RHS3D = RHS3D-sum(RHS3D)/size(RHS3D)
+   end do
+  end do
+  RHS3D = RHS3D-sum(RHS3D)/size(RHS3D)
 
-
-
-
-    do j = 1,ny
+  do j = 1,ny
     do i = 1,nx
      x=(i-1._rp/2)*dx
      y=(j-1._rp/2)*dy
@@ -411,16 +497,26 @@ program test_residuum
      call random_number(RHS2D(i,j))
      call random_number(Phi2D(i,j))
     end do
-    end do
-    RHS2D = RHS2D-sum(RHS2D)/size(RHS2D)
+  end do
+  RHS2D = RHS2D-sum(RHS2D)/size(RHS2D)
 
-
-
-    do i = 1,nx
+  do i = 1,nx
     x=(i-1._rp/2)*dx
     call random_number(RHS1D(i))
     call random_number(Phi1D(i))
-    end do
-    RHS1D = RHS1D-sum(RHS1D)/size(RHS1D)
+  end do
+  RHS1D = RHS1D-sum(RHS1D)/size(RHS1D)
 
-end program test_residuum
+  dx = lenx / nx
+  call Test1D([(PoisSolver_Periodic, i = 1,3)])
+
+  dx = lenx / nx
+  dy = leny / ny
+  call Test2D([(PoisSolver_Periodic, i = 1,4)])
+
+  dx = lenx / nx
+  dy = leny / ny
+  dz = lenz / nz
+  call Test3D([(PoisSolver_Periodic, i = 1,6)])
+
+end program testpoisson
