@@ -1,9 +1,10 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "vendor/doctest.h"
+#include "initialization.hpp"
 #include "poisson-solver/approximations.hpp"
+#include "poisson-solver/c_binding.h"
 #include "poisson-solver/helpers.hpp"
 #include "poisson-solver/solver.hpp"
-#include "initialization.hpp"
+#include "vendor/doctest.h"
 
 #include <algorithm>
 #include <array>
@@ -15,9 +16,16 @@
 #include <random>
 
 namespace ps = poisson_solver;
+using BC = ps::BoundaryCondition;
 using namespace tests;
 
 namespace {
+constexpr auto P = BC::kPeriodic;
+constexpr auto D = BC::kDirichlet;
+constexpr auto N = BC::kNeumann;
+constexpr auto DS = BC::kDirichletStag;
+constexpr auto NS = BC::kNeumannStag;
+
 template <std::floating_point T>
 struct ResiduumResult {
     bool success;
@@ -128,9 +136,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
         Initialize(phi, rhs, seed);
 
         SUBCASE("Boundary: Periodic | Periodic") {
-            constexpr std::array<ps::BCPair, 1> kBCs = {
-                {{ps::BoundaryCondition::kPeriodic,
-                  ps::BoundaryCondition::kPeriodic}}};
+            constexpr std::array<ps::BCPair, 1> kBCs = {{{P, P}}};
 
             std::unique_ptr<ps::Solver<1, kBCs>> solver;
 
@@ -167,11 +173,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
         Initialize(phi, rhs, seed);
 
         SUBCASE("Boundary: Periodic | Periodic | Periodic | Periodic") {
-            constexpr std::array<ps::BCPair, 2> kBCs = {
-                {{ps::BoundaryCondition::kPeriodic,
-                  ps::BoundaryCondition::kPeriodic},
-                 {ps::BoundaryCondition::kPeriodic,
-                  ps::BoundaryCondition::kPeriodic}}};
+            constexpr std::array<ps::BCPair, 2> kBCs = {{{P, P}, {P, P}}};
 
             std::unique_ptr<ps::Solver<2, kBCs>> solver;
 
@@ -212,12 +214,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
             "Boundary: Periodic | Periodic | Periodic | Periodic | Periodic | "
             "Periodic") {
             constexpr std::array<ps::BCPair, 3> kBCs = {
-                {{ps::BoundaryCondition::kPeriodic,
-                  ps::BoundaryCondition::kPeriodic},
-                 {ps::BoundaryCondition::kPeriodic,
-                  ps::BoundaryCondition::kPeriodic},
-                 {ps::BoundaryCondition::kPeriodic,
-                  ps::BoundaryCondition::kPeriodic}}};
+                {{P, P}, {P, P}, {P, P}}};
 
             std::unique_ptr<ps::Solver<3, kBCs>> solver;
 
@@ -232,17 +229,45 @@ TEST_CASE("Poisson Solver Residuum Suite") {
                                    inv_dz_squared, inv_dz_squared});
                 };
 
-                solver = std::make_unique<ps::Solver<3, kBCs>>(
-                    std::array{lenx, leny, lenz}, std::array{nx, ny, nz},
-                    ps::FiniteDifference2Approximation<double>{});
-            }
+                SUBCASE("C++") {
+                    solver = std::make_unique<ps::Solver<3, kBCs>>(
+                        std::array{lenx, leny, lenz}, std::array{nx, ny, nz},
+                        ps::FiniteDifference2Approximation<double>{});
 
-            solver->Execute({phi.data(), phi.size()}, {rhs.data(), rhs.size()});
-            double residuum = residuum_calculation_strategy();
-            ResiduumResult<double> result =
-                ResiduumBelowThreshold(residuum, std::array{nx, ny, nz});
-            CHECK_MESSAGE(result.success, "Residuum is ", residuum,
-                          " and max allowed is ", result.max_residuum);
+                    solver->Execute({phi.data(), phi.size()},
+                                    {rhs.data(), rhs.size()});
+                    double residuum = residuum_calculation_strategy();
+                    ResiduumResult<double> result = ResiduumBelowThreshold(
+                        residuum, std::array{nx, ny, nz});
+                    CHECK_MESSAGE(result.success, "Residuum is ", residuum,
+                                  " and max allowed is ", result.max_residuum);
+                }
+
+                SUBCASE("C API") {
+                    // From "c_binding.h"
+                    constexpr auto P_c = kPeriodic;
+                    const int ns[] = {static_cast<int>(nx),
+                                      static_cast<int>(ny),
+                                      static_cast<int>(nz)};
+                    const double lens[] = {lenx, leny, lenz};
+                    const BoundaryCondition bcs[] = {P_c, P_c, P_c,
+                                                     P_c, P_c, P_c};
+                    const Approximation approx = kFD2;
+
+                    PoissonSolver solver;
+                    PoissonSolverNew(&solver, 3, ns, lens, bcs, approx);
+
+                    PoissonSolverExecute(&solver, phi.data(), rhs.data());
+
+                    double residuum = residuum_calculation_strategy();
+                    ResiduumResult<double> result = ResiduumBelowThreshold(
+                        residuum, std::array{nx, ny, nz});
+                    CHECK_MESSAGE(result.success, "Residuum is ", residuum,
+                                  " and max allowed is ", result.max_residuum);
+
+                    PoissonSolverFinalize(&solver);
+                }
+            }
         }
 
         // TODO: Test for other BCs
