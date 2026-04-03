@@ -2,7 +2,12 @@
 
 set -ueo pipefail
 
-srun -p gpu-short-teach make residuum-tests
+if [[ ! -f "build-debug/Makefile" ]]; then
+    >&2 echo "Generate the 'Makefile' using 'cmake -B build-debug/' before running this script."
+    exit 1
+fi
+
+srun -p gpu-short-teach make -C build-debug/ residuum-tests
 
 echo "Running residuum tests..."
-srun -p gpu-short-teach --gpus=1 ./build/residuum-tests
+srun -p gpu-short-teach --gpus=1 ./build-debug/tests/residuum/residuum-tests

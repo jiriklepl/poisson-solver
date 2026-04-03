@@ -2,8 +2,12 @@
 
 set -ueo pipefail
 
-# `gfortran` is not on head nodes, thus the need for `srun`
-srun -p gpu-short-teach make fortran-residuum-tests
+if [[ ! -f "build-debug/Makefile" ]]; then
+    >&2 echo "Generate the 'Makefile' using 'cmake -B build-debug/' before running this script."
+    exit 1
+fi
+
+srun -p gpu-short-teach make -C build-debug/ fortran-residuum-tests
 
 echo "Running residuum tests..."
-srun -p gpu-short-teach --gpus=1 ./build/fortran-residuum-tests
+srun -p gpu-short-teach --gpus=1 ./build-debug/tests/residuum/fortran-residuum-tests
