@@ -11,7 +11,7 @@ cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=<Yes|No> -B build-release/
 ```
 You can choose between shared and static libraries with `DBUILD_SHARED_LIBS`.
 
-It is possible to also generate a debug build by omitting `-DCMAKE_BUILD_TYPE=Release`.
+It is possible to also generate a debug build by changing `Release` to `Debug` in `-DCMAKE_BUILD_TYPE`.
 In that case, it may be a good idea to rename the target directory to `build-debug/`.
 
 ## Make
@@ -20,7 +20,7 @@ After generating the `Makefile`s, you can make the target
 make -C build-release/
 ```
 (replace `build-release` with `build-debug` if you decided to generate a debug build).
-This creates a shared/static library inside the `lib/` directory.
+This creates a shared/static library inside the `lib/` directory (the debug library has a `_debug` suffix).
 
 ## Other Targets
 Apart from the default `poisson-solver` library target (generated in previous steps), there are other targets for development purposes.

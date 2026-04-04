@@ -3,6 +3,10 @@ set(LIB_SRC
     fortran_binding.f90
     kernels/runners.cu
 )
+
+# Debug files shall have a `_debug` suffix
+set(CMAKE_DEBUG_POSTFIX "_debug")
+
 # Output STATIC libraries here
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
 
