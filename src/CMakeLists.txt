@@ -3,6 +3,11 @@ set(LIB_SRC
     fortran_binding.f90
     kernels/runners.cu
 )
+# Output STATIC libraries here
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
+
+# Output SHARED libraries here
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
 
 # Note that `<SHARED|STATIC>` can be specified
 # by using `-DBUILD_SHARED_LIBS=<Yes|No>`.
