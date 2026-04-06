@@ -150,7 +150,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
                 };
 
                 solver = std::make_unique<ps::Solver<1, kBCs>>(
-                    std::array{lenx}, std::array{nx},
+                    std::array{nx}, std::array{lenx},
                     ps::FiniteDifference2Approximation<double>{});
             }
 
@@ -188,7 +188,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
                 };
 
                 solver = std::make_unique<ps::Solver<2, kBCs>>(
-                    std::array{lenx, leny}, std::array{nx, ny},
+                    std::array{nx, ny}, std::array{lenx, leny},
                     ps::FiniteDifference2Approximation<double>{});
             }
 
@@ -231,7 +231,7 @@ TEST_CASE("Poisson Solver Residuum Suite") {
 
                 SUBCASE("C++") {
                     solver = std::make_unique<ps::Solver<3, kBCs>>(
-                        std::array{lenx, leny, lenz}, std::array{nx, ny, nz},
+                        std::array{nx, ny, nz}, std::array{lenx, leny, lenz},
                         ps::FiniteDifference2Approximation<double>{});
 
                     solver->Execute({phi.data(), phi.size()},

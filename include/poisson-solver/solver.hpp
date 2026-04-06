@@ -34,8 +34,8 @@ template <std::size_t Dim, std::array<BCPair, Dim> BCs>
 class Solver {
 public:
     Solver(
-        std::array<double, Dim> lens, std::array<std::size_t, Dim> ns,
-        const IApproximation<double> &approx = SpectralApproximation<double>{},
+        std::array<std::size_t, Dim> ns, std::array<double, Dim> lens,
+        const IApproximation<double>& approx = SpectralApproximation<double>{},
         dim3 cuda_block_size = DefaultBlockSize())
         : ns_(ns),
           cnt_(std::reduce(ns_.begin(), ns_.end(), std::size_t{1},
@@ -79,10 +79,10 @@ public:
     // TODO: Define moves, for now they're deleted
     // (either create plan unique wrapper, similar to device ptrs, and then
     // default them, or manually define the moves)
-    Solver(const Solver &) = delete;
-    Solver &operator=(const Solver &) = delete;
-    Solver(Solver &&) = delete;
-    Solver operator=(Solver &&) = delete;
+    Solver(const Solver&) = delete;
+    Solver& operator=(const Solver&) = delete;
+    Solver(Solver&&) = delete;
+    Solver operator=(Solver&&) = delete;
     ~Solver() { CUFFTCH(cufftDestroy(plan_)); }
 
     void Execute(std::span<double> phi, std::span<const double> rhs) {
@@ -101,7 +101,7 @@ public:
 
         CUFFTCH(cufftExecZ2Z(plan_, cu_cmplx_workspace_.get(),
                              cu_cmplx_workspace_.get(), CUFFT_FORWARD));
-        std::array<const cufftDoubleReal *, Dim> cu_denom_ptrs;
+        std::array<const cufftDoubleReal*, Dim> cu_denom_ptrs;
         for (std::size_t i = 0; i < Dim; ++i) {
             cu_denom_ptrs[i] = cu_denoms_[i].get();
         }
@@ -143,12 +143,12 @@ private:
 
     template <std::size_t... Is>
     static std::array<std::vector<double>, Dim> MakeDenoms(
-        const std::array<std::size_t, Dim> &ns, std::index_sequence<Is...>) {
+        const std::array<std::size_t, Dim>& ns, std::index_sequence<Is...>) {
         return {std::vector<double>(ns[Is])...};
     }
 
     template <std::size_t... Is>
-    static double CalculateNormFactor(const std::array<std::size_t, Dim> &ns,
+    static double CalculateNormFactor(const std::array<std::size_t, Dim>& ns,
                                       std::index_sequence<Is...>) {
         return (
             AxisPolicy<BCs[Is], double>::CalculateNormalizationFactor(ns[Is]) *
@@ -165,7 +165,7 @@ private:
         }
     }
 
-    static dim3 CalculateGridSize(const std::array<std::size_t, Dim> &ns,
+    static dim3 CalculateGridSize(const std::array<std::size_t, Dim>& ns,
                                   dim3 block) {
         if constexpr (Dim == 1) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x};
@@ -181,9 +181,9 @@ private:
 
     // TODO: Delete T parameter as soon as `Solver` is templated by a float type
     template <std::size_t Axis, std::floating_point T>
-    static void CalculateEigenvalues(std::vector<T> &eigenvals, T len,
+    static void CalculateEigenvalues(std::vector<T>& eigenvals, T len,
                                      std::size_t n,
-                                     const IApproximation<T> &approx) {
+                                     const IApproximation<T>& approx) {
         using Policy = AxisPolicy<BCs[Axis], T>;
 
         eigenvals.resize(n);

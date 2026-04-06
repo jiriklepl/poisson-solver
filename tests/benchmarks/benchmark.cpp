@@ -15,7 +15,7 @@
 namespace ps = poisson_solver;
 using namespace tests;
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     if (argc != 7) {
         std::cerr
             << "Usage: warmup_iters measurement_iters grid_side_size_begin "
@@ -54,9 +54,10 @@ int main(int argc, char *argv[]) {
         std::vector<double> rhs(grid_size * grid_size * grid_size);
         Initialize(phi, rhs, seed);
 
-        ps::Solver<3, kBCs> solver{std::array{lenx, leny, lenz},
-                                   std::array{grid_size, grid_size, grid_size},
-                                   ps::FiniteDifference2Approximation<double>{}};
+        ps::Solver<3, kBCs> solver{
+            std::array{grid_size, grid_size, grid_size},
+            std::array{lenx, leny, lenz},
+            ps::FiniteDifference2Approximation<double>{}};
 
         // Warmup
         for (std::size_t i = 0; i < warmup_iters; ++i) {
@@ -64,7 +65,6 @@ int main(int argc, char *argv[]) {
             seed = dev();
             Initialize(phi, rhs, seed);
         }
-
 
         for (std::size_t i = 0; i < measurement_iters; ++i) {
             auto start = std::chrono::steady_clock::now();
@@ -76,7 +76,8 @@ int main(int argc, char *argv[]) {
         }
 
         for (std::size_t i = 0; i < measurement_iters; ++i) {
-            out_file << grid_size << "," << i << "," << times[i].count() << "\n";
+            out_file << grid_size << "," << i << "," << times[i].count()
+                     << "\n";
         }
     }
 
