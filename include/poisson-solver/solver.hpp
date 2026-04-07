@@ -98,6 +98,7 @@ public:
                         cudaMemcpyHostToDevice));
         RunInitCmplxWorkspace(cu_cmplx_workspace_.get(), cu_rhs_.get(), ns_,
                               grid_size_, block_size_);
+        CUCH(cudaGetLastError());
 
         CUFFTCH(cufftExecZ2Z(plan_, cu_cmplx_workspace_.get(),
                              cu_cmplx_workspace_.get(), CUFFT_FORWARD));
@@ -107,11 +108,13 @@ public:
         }
         RunDivideCmplxWorkspaceByDenoms(cu_cmplx_workspace_.get(), ns_,
                                         cu_denom_ptrs, grid_size_, block_size_);
+        CUCH(cudaGetLastError());
         CUFFTCH(cufftExecZ2Z(plan_, cu_cmplx_workspace_.get(),
                              cu_cmplx_workspace_.get(), CUFFT_INVERSE));
 
         RunNormalization(cu_phi_.get(), cu_cmplx_workspace_.get(), ns_,
                          norm_factor_, grid_size_, block_size_);
+        CUCH(cudaGetLastError());
         CUCH(cudaMemcpy(phi.data(), cu_phi_.get(),
                         cnt_ * sizeof(cufftDoubleReal),
                         cudaMemcpyDeviceToHost));
