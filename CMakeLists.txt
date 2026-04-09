@@ -7,7 +7,12 @@ project(PoissonSolver
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
-set(CMAKE_CUDA_ARCHITECTURES 70 80 90 100)
+# Build for Voltas as well if possible
+if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "13.0")
+    set(CMAKE_CUDA_ARCHITECTURES 80 90 100)
+else()
+    set(CMAKE_CUDA_ARCHITECTURES 70 80 90 100)
+endif()
 
 # All Fortran `.mod` files shall be placed into into a separate dir.
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)

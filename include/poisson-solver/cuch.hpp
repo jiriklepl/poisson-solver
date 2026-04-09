@@ -84,7 +84,7 @@ static const char *cufftGetErrorString(cufftResult status) {
         case CUFFT_NOT_SUPPORTED:
             return "CUFFT_NOT_SUPPORTED";
 // Err codes introduced in 13.0
-#if __CUDACC_VER_MAJOR__ >= 13
+#if CUDART_VERSION >= 13000
         case CUFFT_MISSING_DEPENDENCY:
             return "CUFFT_MISSING_DEPENDENCY";
         case CUFFT_NVRTC_FAILURE:

@@ -7,7 +7,7 @@ if [[ ! -f "build-debug/Makefile" ]]; then
     exit 1
 fi
 
-srun -p gpu-short-teach make -C build-debug/ fortran-residuum-tests
+srun -p gpu-short-teach -w volta01 make -C build-debug/ fortran-residuum-tests
 
 echo "Running residuum tests..."
-srun -p gpu-short-teach --gpus=1 ./build-debug/tests/residuum/fortran-residuum-tests
+srun -p gpu-short-teach --gpus=V100:1 ./build-debug/tests/residuum/fortran-residuum-tests
