@@ -14,8 +14,8 @@ module PoisSolver
     integer(c_int), parameter :: PoisSolver_NeumannStag    = 4
 
     integer(c_int), parameter :: PoisSolver_Spectral               = 0
-    integer(c_int), parameter :: PoisSolver_FiniteDifference2      = 1
-    integer(c_int), parameter :: PoisSolver_FiniteDifference4      = 2
+    integer(c_int), parameter :: PoisSolver_FiniteDifference2      = 2
+    integer(c_int), parameter :: PoisSolver_FiniteDifference4      = 4
 
     interface
 
