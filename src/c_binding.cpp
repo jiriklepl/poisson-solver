@@ -34,9 +34,8 @@ std::unique_ptr<ps::IApproximation<double>> GetApprox(Approximation approx) {
             return std::make_unique<
                 ps::FiniteDifference2Approximation<double>>();
         case kFD4:
-            throw std::logic_error("Not yet implemented");
-            // return std::make_unique<
-            //     ps::FiniteDifference4Approximation<double>>();
+            return std::make_unique<
+                ps::FiniteDifference4Approximation<double>>();
         default:
             throw std::invalid_argument("Invalid approximation.");
     }
@@ -79,11 +78,9 @@ void PoissonSolver3DNew(PoissonSolver* solver_out, const int ns[3],
     if (bcs[0] == kPeriodic && bcs[1] == kPeriodic && bcs[2] == kPeriodic &&
         bcs[3] == kPeriodic && bcs[4] == kPeriodic && bcs[5] == kPeriodic) {
         solver_handle = new ps::SolverWrapper<3, {kPP, kPP, kPP}>(
-            {static_cast<std::size_t>(ns[0]),
-             static_cast<std::size_t>(ns[1]),
+            {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1]),
              static_cast<std::size_t>(ns[2])},
-             {lens[0], lens[1], lens[2]},
-            approx);
+            {lens[0], lens[1], lens[2]}, approx);
     } else {
         throw std::invalid_argument("Invalid boundary conditions.");
     }
