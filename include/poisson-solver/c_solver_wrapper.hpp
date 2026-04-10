@@ -17,12 +17,13 @@ public:
     virtual std::size_t GetTotalGridSize() = 0;
 };
 
-template <std::size_t Dim, std::array<BCPair, Dim> BCs>
+template <std::size_t Dim>
 class SolverWrapper : public ISolver {
 public:
     SolverWrapper(std::array<std::size_t, Dim> ns, std::array<double, Dim> lens,
+                  std::array<BCPair, Dim> bcs,
                   const IApproximation<double>& approx)
-        : solver_(ns, lens, approx) {}
+        : solver_(ns, lens, bcs, approx) {}
 
     virtual void Execute(std::span<double> phi,
                          std::span<const double> rhs) override {
@@ -34,7 +35,7 @@ public:
     }
 
 private:
-    Solver<Dim, BCs> solver_;
+    Solver<Dim> solver_;
 };
 }  // namespace poisson_solver
 

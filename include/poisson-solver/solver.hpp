@@ -23,35 +23,38 @@
 
 namespace poisson_solver {
 // TODO: Works only for all bcs == Periodic
-template <std::size_t Dim, std::array<BCPair, Dim> BCs>
-    requires((Dim <= 3 && Dim >= 1) &&
-             std::ranges::none_of(
-                 BCs,
-                 [](BCPair bcp) {
-                     return bcp.first != BoundaryCondition::kPeriodic ||
-                            bcp.second != BoundaryCondition::kPeriodic;
-                 }))
+template <std::size_t Dim>
+    requires(Dim <= 3 && Dim >= 1)
 class Solver {
 public:
     Solver(
         std::array<std::size_t, Dim> ns, std::array<double, Dim> lens,
+        std::array<BCPair, Dim> bcs,
         const IApproximation<double>& approx = SpectralApproximation<double>{},
         dim3 cuda_block_size = DefaultBlockSize())
         : ns_(ns),
+          bcs_(bcs),
           cnt_(std::reduce(ns_.begin(), ns_.end(), std::size_t{1},
                            std::multiplies<>{})),
           denoms_(MakeDenoms(ns_, std::make_index_sequence<Dim>{})),
-          norm_factor_(
-              CalculateNormFactor(ns_, std::make_index_sequence<Dim>{})),
+          norm_factor_(CalculateNormFactor(ns_, bcs_)),
           block_size_(cuda_block_size),
           grid_size_(CalculateGridSize(ns, block_size_)) {
+        if (!std::ranges::none_of(bcs_, [](BCPair bc) {
+                return bc.first != BoundaryCondition::kPeriodic ||
+                       bc.second != BoundaryCondition::kPeriodic;
+            })) {
+            throw std::invalid_argument(
+                "Invalid boundary condition combination.");
+        }
+
         // TODO: We can calculate them directly on the GPU, no?
-        CalculateEigenvalues<0>(denoms_[0], lens[0], ns_[0], approx);
+        CalculateEigenvalues(denoms_[0], lens[0], ns_[0], bcs_[0], approx);
         if constexpr (Dim >= 2) {
-            CalculateEigenvalues<1>(denoms_[1], lens[1], ns_[1], approx);
+            CalculateEigenvalues(denoms_[1], lens[1], ns_[1], bcs_[1], approx);
         }
         if constexpr (Dim >= 3) {
-            CalculateEigenvalues<2>(denoms_[2], lens[2], ns_[2], approx);
+            CalculateEigenvalues(denoms_[2], lens[2], ns_[2], bcs_[2], approx);
         }
 
         cu_rhs_ = make_cuda_unique<cufftDoubleReal>(cnt_);
@@ -83,10 +86,10 @@ public:
     Solver& operator=(const Solver&) = delete;
     Solver(Solver&&) = delete;
     Solver operator=(Solver&&) = delete;
-    ~Solver() { CUFFTCH(cufftDestroy(plan_)); }
+    ~Solver() {
+        CUFFTCH(cufftDestroy(plan_)); }
 
     void Execute(std::span<double> phi, std::span<const double> rhs) {
-        // TODO: Don't check this in release builds
         if (phi.size() != cnt_ || rhs.size() != cnt_) {
             throw std::runtime_error("Incorrect size of phi or rhs.");
         }
@@ -102,6 +105,7 @@ public:
 
         CUFFTCH(cufftExecZ2Z(plan_, cu_cmplx_workspace_.get(),
                              cu_cmplx_workspace_.get(), CUFFT_FORWARD));
+        // TODO: Do this only once in the ctor
         std::array<const cufftDoubleReal*, Dim> cu_denom_ptrs;
         for (std::size_t i = 0; i < Dim; ++i) {
             cu_denom_ptrs[i] = cu_denoms_[i].get();
@@ -120,11 +124,13 @@ public:
                         cudaMemcpyDeviceToHost));
     }
 
-    std::size_t GetTotalGridSize() { return cnt_; }
+    std::size_t GetTotalGridSize() {
+        return cnt_; }
 
 private:
-    // Grid sizes
+    // Grid
     const std::array<std::size_t, Dim> ns_;
+    const std::array<BCPair, Dim> bcs_;
     const std::size_t cnt_;
 
     // Physics and math
@@ -150,12 +156,14 @@ private:
         return {std::vector<double>(ns[Is])...};
     }
 
-    template <std::size_t... Is>
-    static double CalculateNormFactor(const std::array<std::size_t, Dim>& ns,
-                                      std::index_sequence<Is...>) {
-        return (
-            AxisPolicy<BCs[Is], double>::CalculateNormalizationFactor(ns[Is]) *
-            ...);
+    static double CalculateNormFactor(std::array<std::size_t, Dim> ns,
+                                      std::array<BCPair, Dim> bcs) {
+        double factor = 1.0;
+        for (std::size_t i = 0; i < Dim; ++i) {
+            auto policy = GetAxisPolicy<double>(bcs[i]);
+            factor *= policy->CalculateNormalizationFactor(ns[i]);
+        }
+        return factor;
     }
 
     static constexpr dim3 DefaultBlockSize() {
@@ -183,21 +191,21 @@ private:
     }
 
     // TODO: Delete T parameter as soon as `Solver` is templated by a float type
-    template <std::size_t Axis, std::floating_point T>
+    template <std::floating_point T>
     static void CalculateEigenvalues(std::vector<T>& eigenvals, T len,
                                      std::size_t n,
+                                     BCPair bc,
                                      const IApproximation<T>& approx) {
-        using Policy = AxisPolicy<BCs[Axis], T>;
-
+        auto policy = GetAxisPolicy<T>(bc);
         eigenvals.resize(n);
 
-        const T grid_dx = Policy::GetGridDx(len, n);
+        const T grid_dx = policy->GetGridDx(len, n);
         const T dkx = std::numbers::pi_v<T> * grid_dx / len;
 
         const T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
 
         for (std::size_t i = 0; i < n; ++i) {
-            eigenvals[i] = approx(Policy::GetApproximationInput(i, n, dkx)) *
+            eigenvals[i] = approx(policy->GetApproximationInput(i, n, dkx)) *
                            inv_grid_dx_squared;
         }
     }

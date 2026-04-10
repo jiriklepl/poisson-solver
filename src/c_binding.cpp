@@ -10,21 +10,38 @@
 #include <stdexcept>
 
 // Here is the mapping between the C interface and C++ implementation.
-// Most of it comes down to translating compile time C++ errors into runtime
-// errors. This implementation is not really pretty but serves its purpose for
-// now.
 
 extern "C" {
 namespace ps = poisson_solver;
-using BC = ps::BoundaryCondition;
 
-constexpr BC kP = BC::kPeriodic;
-constexpr BC kD = BC::kDirichlet;
-constexpr BC kN = BC::kNeumann;
-constexpr BC kDS = BC::kDirichletStag;
-constexpr BC kNS = BC::kNeumannStag;
+ps::BoundaryCondition ToCxxBC(BoundaryCondition c_bc) {
+    using CxxBC = ps::BoundaryCondition;
 
-constexpr ps::BCPair kPP = {kP, kP};
+    constexpr auto cxxP = CxxBC::kPeriodic;
+    constexpr auto cxxD = CxxBC::kDirichlet;
+    constexpr auto cxxN = CxxBC::kNeumann;
+    constexpr auto cxxDS = CxxBC::kDirichletStag;
+    constexpr auto cxxNS = CxxBC::kNeumannStag;
+
+    switch (c_bc) {
+        case kPeriodic:
+            return cxxP;
+        case kDirichlet:
+            return cxxD;
+        case kNeumann:
+            return cxxN;
+        case kDirichletStag:
+            return cxxDS;
+        case kNeumannStag:
+            return cxxNS;
+        default:
+            throw std::invalid_argument("Unknown boundary condition.");
+    }
+}
+
+ps::BCPair ToCxxBCPair(BoundaryCondition c_bc1, BoundaryCondition c_bc2) {
+    return ps::BCPair{ToCxxBC(c_bc1), ToCxxBC(c_bc2)};
+}
 
 std::unique_ptr<ps::IApproximation<double>> GetApprox(Approximation approx) {
     switch (approx) {
@@ -44,13 +61,9 @@ std::unique_ptr<ps::IApproximation<double>> GetApprox(Approximation approx) {
 void PoissonSolver1DNew(PoissonSolver* solver_out, const int ns[1],
                         const double lens[1], const BoundaryCondition bcs[2],
                         const ps::IApproximation<double>& approx) {
-    ps::ISolver* solver_handle = nullptr;
-    if (bcs[0] == kPeriodic && bcs[1] == kPeriodic) {
-        solver_handle = new ps::SolverWrapper<1, {kPP}>(
-            {static_cast<std::size_t>(ns[0])}, {lens[0]}, approx);
-    } else {
-        throw std::invalid_argument("Invalid boundary conditions.");
-    }
+    ps::BCPair bcp = ToCxxBCPair(bcs[0], bcs[1]);
+    ps::ISolver* solver_handle = new ps::SolverWrapper<1>(
+        {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize()};
 }
@@ -58,15 +71,11 @@ void PoissonSolver1DNew(PoissonSolver* solver_out, const int ns[1],
 void PoissonSolver2DNew(PoissonSolver* solver_out, const int ns[2],
                         const double lens[2], const BoundaryCondition bcs[4],
                         const ps::IApproximation<double>& approx) {
-    ps::ISolver* solver_handle = nullptr;
-    if (bcs[0] == kPeriodic && bcs[1] == kPeriodic && bcs[2] == kPeriodic &&
-        bcs[3] == kPeriodic) {
-        solver_handle = new ps::SolverWrapper<2, {kPP, kPP}>(
-            {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
-            {lens[0], lens[1]}, approx);
-    } else {
-        throw std::invalid_argument("Invalid boundary conditions.");
-    }
+    ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
+    ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
+    ps::ISolver* solver_handle = new ps::SolverWrapper<2>(
+        {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
+        {lens[0], lens[1]}, {bcp1, bcp2}, approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize()};
 }
@@ -74,21 +83,17 @@ void PoissonSolver2DNew(PoissonSolver* solver_out, const int ns[2],
 void PoissonSolver3DNew(PoissonSolver* solver_out, const int ns[3],
                         const double lens[3], const BoundaryCondition bcs[6],
                         const ps::IApproximation<double>& approx) {
-    ps::ISolver* solver_handle = nullptr;
-    if (bcs[0] == kPeriodic && bcs[1] == kPeriodic && bcs[2] == kPeriodic &&
-        bcs[3] == kPeriodic && bcs[4] == kPeriodic && bcs[5] == kPeriodic) {
-        solver_handle = new ps::SolverWrapper<3, {kPP, kPP, kPP}>(
-            {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1]),
-             static_cast<std::size_t>(ns[2])},
-            {lens[0], lens[1], lens[2]}, approx);
-    } else {
-        throw std::invalid_argument("Invalid boundary conditions.");
-    }
+    ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
+    ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
+    ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
+    ps::ISolver* solver_handle = new ps::SolverWrapper<3>(
+        {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1]),
+         static_cast<std::size_t>(ns[2])},
+        {lens[0], lens[1], lens[2]}, {bcp1, bcp2, bcp3}, approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize()};
 }
 
-// TODO: Doesn't support all BCs
 void PoissonSolverNew(PoissonSolver* solver_out, int dims, const int* ns,
                       const double* lens, const BoundaryCondition* bcs,
                       Approximation approx) {
