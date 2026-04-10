@@ -36,7 +36,7 @@ contains
                    Btype,R)
     !2nd order finite difference residuum
 
-    real(rp), intent(inout) :: Phi(:)
+    real(rp), intent(inout) :: Phi(0:)
     real(rp), intent(in) :: RHS(:)
     real(rp),intent(in) :: Aw,Ae
     integer,intent(in) :: Btype(2)
@@ -92,7 +92,7 @@ contains
                    Btype,R)
     !2nd order finite difference residuum
 
-    real(rp), intent(inout) :: Phi(:,:)
+    real(rp), intent(inout) :: Phi(0:,0:)
     real(rp), intent(in) :: RHS(:,:)
     real(rp),intent(in) :: Aw,Ae
     real(rp),intent(in) :: As,An
@@ -181,7 +181,7 @@ contains
                    Btype,R)
     !2nd order finite difference residuum
 
-    real(rp), intent(inout) :: Phi(:,:,:)
+    real(rp), intent(inout) :: Phi(0:,0:,0:)
     real(rp), intent(in) :: RHS(:,:,:)
     real(rp),intent(in) :: Aw,Ae
     real(rp),intent(in) :: As,An
@@ -468,13 +468,13 @@ program testpoisson
   dx = lenx/nx;dy = lenx/ny;dz = lenx/nz
 
   allocate(RHS3D(nx,ny,nz))
-  allocate(Phi3D(nx,ny,nz))
+  allocate(Phi3D(0:nx+1,0:ny+1,0:nz+1))
 
   allocate(RHS2D(nx,ny))
-  allocate(Phi2D(nx,ny))
+  allocate(Phi2D(0:nx+1,0:ny+1))
 
   allocate(RHS1D(nx))
-  allocate(Phi1D(nx))
+  allocate(Phi1D(0:nx+1))
 
   do k = 1,nz
    do j = 1,ny
@@ -508,7 +508,7 @@ program testpoisson
   RHS1D = RHS1D-sum(RHS1D)/size(RHS1D)
 
   dx = lenx / nx
-  call Test1D([(PoisSolver_Periodic, i = 1,3)])
+  call Test1D([(PoisSolver_Periodic, i = 1,2)])
 
   dx = lenx / nx
   dy = leny / ny

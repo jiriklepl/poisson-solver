@@ -65,7 +65,10 @@ void PoissonSolver1DNew(PoissonSolver* solver_out, const int ns[1],
     ps::ISolver* solver_handle = new ps::SolverWrapper<1>(
         {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
     *solver_out = {.handle = solver_handle,
-                   .grid_size = solver_handle->GetTotalGridSize()};
+                   .grid_size = solver_handle->GetTotalGridSize(),
+                   .nx = static_cast<std::size_t>(ns[0]),
+                   .ny = 1,
+                   .nz = 1};
 }
 
 void PoissonSolver2DNew(PoissonSolver* solver_out, const int ns[2],
@@ -77,7 +80,10 @@ void PoissonSolver2DNew(PoissonSolver* solver_out, const int ns[2],
         {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
         {lens[0], lens[1]}, {bcp1, bcp2}, approx);
     *solver_out = {.handle = solver_handle,
-                   .grid_size = solver_handle->GetTotalGridSize()};
+                   .grid_size = solver_handle->GetTotalGridSize(),
+                   .nx = static_cast<std::size_t>(ns[0]),
+                   .ny = static_cast<std::size_t>(ns[1]),
+                   .nz = 1};
 }
 
 void PoissonSolver3DNew(PoissonSolver* solver_out, const int ns[3],
@@ -91,7 +97,10 @@ void PoissonSolver3DNew(PoissonSolver* solver_out, const int ns[3],
          static_cast<std::size_t>(ns[2])},
         {lens[0], lens[1], lens[2]}, {bcp1, bcp2, bcp3}, approx);
     *solver_out = {.handle = solver_handle,
-                   .grid_size = solver_handle->GetTotalGridSize()};
+                   .grid_size = solver_handle->GetTotalGridSize(),
+                   .nx = static_cast<std::size_t>(ns[0]),
+                   .ny = static_cast<std::size_t>(ns[1]),
+                   .nz = static_cast<std::size_t>(ns[2])};
 }
 
 void PoissonSolverNew(PoissonSolver* solver_out, int dims, const int* ns,

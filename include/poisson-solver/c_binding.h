@@ -10,6 +10,7 @@ extern "C" {
 typedef struct PoissonSolver {
     void *handle;
     size_t grid_size;
+    size_t nx, ny, nz;
 } PoissonSolver;
 
 typedef enum {

@@ -5,6 +5,9 @@ module PoisSolver
     type, bind(C) :: PoissonSolver
         type(c_ptr)       :: handle    = c_null_ptr
         integer(c_size_t) :: grid_size = 0
+        ! These correspond to C dimensions (row-major)
+        ! In Fortran the size of first dimension is nz, then ny and last dim is nx
+        integer(c_size_t) :: nx = 1, ny = 1, nz = 1
     end type PoissonSolver
 
     integer(c_int), parameter :: PoisSolver_Periodic       = 0
@@ -46,6 +49,12 @@ module PoisSolver
 
     end interface
 
+    interface poisson_solver_execute
+        module procedure poisson_solver_execute_1d
+        module procedure poisson_solver_execute_2d
+        module procedure poisson_solver_execute_3d
+    end interface
+
 contains
     ! Creates a new solver, writing the result into `solver`.
     !
@@ -71,15 +80,56 @@ contains
             int(bcs(idxs(2 * dims:1:-1)), c_int), int(approx, c_int))
     end subroutine poisson_solver_new
 
-    ! Runs the solver, writing the solution into phi.
-    ! phi and rhs must each contain solver%grid_size elements.
-    subroutine poisson_solver_execute(solver, phi, rhs)
+    subroutine poisson_solver_execute_1d(solver, phi, rhs)
         type(PoissonSolver), intent(inout) :: solver
-        real(c_double),      intent(out)   :: phi(*)
-        real(c_double),      intent(in)    :: rhs(*)
+        real(c_double),      intent(out)   :: phi(:)
+        real(c_double),      intent(in)    :: rhs(:)
+        integer :: ngPhi(1)
+        integer :: ngRHS(1)
 
-        call poisson_solver_execute_c(solver, phi, rhs)
-    end subroutine poisson_solver_execute
+        ngPhi = (shape(phi) - [solver%nx]) / 2
+        ngRHS = (shape(rhs) - [solver%nx]) / 2
+
+        call poisson_solver_execute_c(solver, &
+            phi(lbound(Phi, 1) + ngPhi(1) : lbound(Phi, 1) + ngPhi(1) + solver%nx - 1), &
+            rhs(lbound(RHS, 1) + ngRHS(1) : lbound(RHS, 1) + ngRHS(1) + solver%nx - 1))
+    end subroutine poisson_solver_execute_1d
+
+    subroutine poisson_solver_execute_2d(solver, phi, rhs)
+        type(PoissonSolver), intent(inout) :: solver
+        real(c_double),      intent(out)   :: phi(:, :)
+        real(c_double),      intent(in)    :: rhs(:, :)
+        integer :: ngPhi(2)
+        integer :: ngRHS(2)
+
+        ngPhi = (shape(phi) - [solver%ny, solver%nx]) / 2
+        ngRHS = (shape(rhs) - [solver%ny, solver%nx]) / 2
+
+        call poisson_solver_execute_c(solver, &
+            phi(lbound(Phi, 1) + ngPhi(1) : lbound(Phi, 1) + ngPhi(1) + solver%ny - 1, &
+                lbound(Phi, 2) + ngPhi(2) : lbound(Phi, 2) + ngPhi(2) + solver%nx - 1), &
+            rhs(lbound(RHS, 1) + ngRHS(1) : lbound(RHS, 1) + ngRHS(1) + solver%ny - 1, &
+                lbound(RHS, 2) + ngRHS(2) : lbound(RHS, 2) + ngRHS(2) + solver%nx - 1))
+    end subroutine poisson_solver_execute_2d
+
+    subroutine poisson_solver_execute_3d(solver, phi, rhs)
+        type(PoissonSolver), intent(inout) :: solver
+        real(c_double),      intent(out)   :: phi(:, :, :)
+        real(c_double),      intent(in)    :: rhs(:, :, :)
+        integer :: ngPhi(3)
+        integer :: ngRHS(3)
+
+        ngPhi = (shape(phi) - [solver%nz, solver%ny, solver%nx]) / 2
+        ngRHS = (shape(rhs) - [solver%nz, solver%ny, solver%nx]) / 2
+
+        call poisson_solver_execute_c(solver, &
+            phi(lbound(Phi, 1) + ngPhi(1) : lbound(Phi, 1) + ngPhi(1) + solver%nz - 1, &
+                lbound(Phi, 2) + ngPhi(2) : lbound(Phi, 2) + ngPhi(2) + solver%ny - 1, &
+                lbound(Phi, 3) + ngPhi(3) : lbound(Phi, 3) + ngPhi(3) + solver%nx - 1), &
+            rhs(lbound(RHS, 1) + ngRHS(1) : lbound(RHS, 1) + ngRHS(1) + solver%nz - 1, &
+                lbound(RHS, 2) + ngRHS(2) : lbound(RHS, 2) + ngRHS(2) + solver%ny - 1, &
+                lbound(RHS, 3) + ngRHS(3) : lbound(RHS, 3) + ngRHS(3) + solver%nx - 1))
+    end subroutine poisson_solver_execute_3d
 
     subroutine poisson_solver_finalize(solver)
         type(PoissonSolver), intent(inout) :: solver
