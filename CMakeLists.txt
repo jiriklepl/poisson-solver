@@ -19,7 +19,6 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
 find_package(CUDAToolkit REQUIRED)
 # `COMPONENTS` finds only the CXX and Fortran APIs
-# TODO - Do I need the Fortran API?
 find_package(MPI REQUIRED COMPONENTS CXX Fortran)
 find_package(Heffte REQUIRED)
 
