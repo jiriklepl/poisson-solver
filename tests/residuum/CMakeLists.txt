@@ -20,6 +20,10 @@ target_include_directories(fortran-residuum-tests PRIVATE
     ${CMAKE_Fortran_MODULE_DIRECTORY})
 
 # Automatically links with `stdc++`
-target_link_libraries(fortran-residuum-tests PRIVATE common_flags
-    poisson-solver)
+# TODO - Do I need to link against MPI::MPI_Fortran?
+target_link_libraries(fortran-residuum-tests PRIVATE
+    common_flags
+    poisson-solver
+    MPI::MPI_Fortran
+)
 

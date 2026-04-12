@@ -3,11 +3,11 @@
 set -ueo pipefail
 
 if [[ ! -f "build-debug/Makefile" ]]; then
-    >&2 echo "Generate the 'Makefile' using 'cmake -B build-debug/' before running this script."
+    >&2 echo "Generate the 'Makefile' using 'cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=Yes -B build-debug/' before running this script."
     exit 1
 fi
 
-srun -p gpu-short-teach -w volta01 make -C build-debug/ fortran-residuum-tests
+make -C build-debug/ fortran-residuum-tests
 
 echo "Running residuum tests..."
-srun -p gpu-short-teach --gpus=V100:1 ./build-debug/tests/residuum/fortran-residuum-tests
+./build-debug/tests/residuum/fortran-residuum-tests

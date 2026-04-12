@@ -25,4 +25,10 @@ target_include_directories(poisson-solver PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include/>)
 
 target_link_libraries(poisson-solver PRIVATE common_flags)
-target_link_libraries(poisson-solver PUBLIC CUDA::cufft CUDA::cudart)
+# TODO - Remove cufft linkage
+target_link_libraries(poisson-solver PUBLIC
+    CUDA::cufft
+    CUDA::cudart
+    Heffte::Heffte
+    MPI::MPI_CXX
+)
