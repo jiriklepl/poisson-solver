@@ -34,7 +34,7 @@ template <std::floating_point T>
 class FiniteDifference4Approximation : public IApproximation<T> {
     // f(x) = -((sin(3x) - 27*sin(x)) / 12)^2
     virtual T operator()(T x) const override {
-        const T expr = (std::sin(3*x) - 27 * std::sin(x)) / 12;
+        const T expr = (std::sin(3 * x) - 27 * std::sin(x)) / 12;
         return -(expr * expr);
     }
 };

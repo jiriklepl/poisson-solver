@@ -58,11 +58,13 @@ std::unique_ptr<ps::IApproximation<double>> GetApprox(Approximation approx) {
     }
 }
 
-void PoissonSolver1DNew(PoissonSolver* solver_out, const int ns[1],
-                        const double lens[1], const BoundaryCondition bcs[2],
-                        const ps::IApproximation<double>& approx) {
+void PoissonSolver1DNew(PoissonSolver *solver_out,
+                        const int ns[1],
+                        const double lens[1],
+                        const BoundaryCondition bcs[2],
+                        const ps::IApproximation<double> &approx) {
     ps::BCPair bcp = ToCxxBCPair(bcs[0], bcs[1]);
-    ps::ISolver* solver_handle = new ps::SolverWrapper<1>(
+    ps::ISolver *solver_handle = new ps::SolverWrapper<1>(
         {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -71,14 +73,18 @@ void PoissonSolver1DNew(PoissonSolver* solver_out, const int ns[1],
                    .nz = 1};
 }
 
-void PoissonSolver2DNew(PoissonSolver* solver_out, const int ns[2],
-                        const double lens[2], const BoundaryCondition bcs[4],
-                        const ps::IApproximation<double>& approx) {
+void PoissonSolver2DNew(PoissonSolver *solver_out,
+                        const int ns[2],
+                        const double lens[2],
+                        const BoundaryCondition bcs[4],
+                        const ps::IApproximation<double> &approx) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
-    ps::ISolver* solver_handle = new ps::SolverWrapper<2>(
+    ps::ISolver *solver_handle = new ps::SolverWrapper<2>(
         {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
-        {lens[0], lens[1]}, {bcp1, bcp2}, approx);
+        {lens[0], lens[1]},
+        {bcp1, bcp2},
+        approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .nx = static_cast<std::size_t>(ns[0]),
@@ -86,16 +92,21 @@ void PoissonSolver2DNew(PoissonSolver* solver_out, const int ns[2],
                    .nz = 1};
 }
 
-void PoissonSolver3DNew(PoissonSolver* solver_out, const int ns[3],
-                        const double lens[3], const BoundaryCondition bcs[6],
-                        const ps::IApproximation<double>& approx) {
+void PoissonSolver3DNew(PoissonSolver *solver_out,
+                        const int ns[3],
+                        const double lens[3],
+                        const BoundaryCondition bcs[6],
+                        const ps::IApproximation<double> &approx) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
-    ps::ISolver* solver_handle = new ps::SolverWrapper<3>(
-        {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1]),
-         static_cast<std::size_t>(ns[2])},
-        {lens[0], lens[1], lens[2]}, {bcp1, bcp2, bcp3}, approx);
+    ps::ISolver *solver_handle =
+        new ps::SolverWrapper<3>({static_cast<std::size_t>(ns[0]),
+                                  static_cast<std::size_t>(ns[1]),
+                                  static_cast<std::size_t>(ns[2])},
+                                 {lens[0], lens[1], lens[2]},
+                                 {bcp1, bcp2, bcp3},
+                                 approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .nx = static_cast<std::size_t>(ns[0]),
@@ -103,8 +114,11 @@ void PoissonSolver3DNew(PoissonSolver* solver_out, const int ns[3],
                    .nz = static_cast<std::size_t>(ns[2])};
 }
 
-void PoissonSolverNew(PoissonSolver* solver_out, int dims, const int* ns,
-                      const double* lens, const BoundaryCondition* bcs,
+void PoissonSolverNew(PoissonSolver *solver_out,
+                      int dims,
+                      const int *ns,
+                      const double *lens,
+                      const BoundaryCondition *bcs,
                       Approximation approx) {
     std::unique_ptr<ps::IApproximation<double>> ps_approx = GetApprox(approx);
 
@@ -123,15 +137,16 @@ void PoissonSolverNew(PoissonSolver* solver_out, int dims, const int* ns,
     }
 }
 
-void PoissonSolverExecute(PoissonSolver* solver, double* phi,
-                          const double* rhs) {
-    static_cast<ps::ISolver*>(solver->handle)
+void PoissonSolverExecute(PoissonSolver *solver,
+                          double *phi,
+                          const double *rhs) {
+    static_cast<ps::ISolver *>(solver->handle)
         ->Execute(std::span{phi, solver->grid_size},
                   std::span{rhs, solver->grid_size});
 }
 
-void PoissonSolverFinalize(PoissonSolver* solver) {
-    delete static_cast<ps::ISolver*>(solver->handle);
+void PoissonSolverFinalize(PoissonSolver *solver) {
+    delete static_cast<ps::ISolver *>(solver->handle);
     solver->handle = nullptr;
     solver->grid_size = 0;
 }

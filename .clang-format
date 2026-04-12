@@ -2,6 +2,25 @@
 Language: Cpp
 BasedOnStyle: Google
 
+PointerAlignment: Right
+DerivePointerAlignment: false
+
+# If function parameters or arguments don't all
+# fit on one line, put one item per line.
+BinPackParameters: false
+BinPackArguments: false
+
+# Put one each initializer list member on a new line.
+PackConstructorInitializers: Never
+
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortBlocksOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+SeparateDefinitionBlocks: Always
+
 IndentWidth: 4
 TabWidth: 4
 AccessModifierOffset: -4

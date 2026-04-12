@@ -40,7 +40,9 @@ constexpr std::size_t FlatIndex(std::array<std::size_t, Dim> indices,
 }
 
 struct CudaFreeDeleter {
-    void operator()(void *ptr) { cudaFree(ptr); }
+    void operator()(void *ptr) {
+        cudaFree(ptr);
+    }
 };
 
 // Creates a unique pointer to memory such that it can hold `size` elements of

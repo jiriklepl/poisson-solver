@@ -7,8 +7,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdio>
-#include <cuda_runtime.h>
 #include <cuComplex.h>
+#include <cuda_runtime.h>
 
 namespace poisson_solver {
 // Returns indices of the current thread
@@ -34,7 +34,8 @@ __device__ std::array<std::size_t, Dim> GetStrides() {
     } else if constexpr (Dim == 2) {
         return {gridDim.x * blockDim.x, gridDim.y * blockDim.y};
     } else if constexpr (Dim == 3) {
-        return {gridDim.x * blockDim.x, gridDim.y * blockDim.y,
+        return {gridDim.x * blockDim.x,
+                gridDim.y * blockDim.y,
                 gridDim.z * blockDim.z};
     }
 }
@@ -53,8 +54,8 @@ __device__ void ApplyStrideLoopImpl(std::array<std::size_t, Dim> &indices,
     for (indices[CurDim] = starts[CurDim]; indices[CurDim] < ns[CurDim];
          indices[CurDim] += strides[CurDim]) {
         if constexpr (CurDim + 1 < Dim) {
-            ApplyStrideLoopImpl<Dim, CurDim + 1>(indices, starts, ns, strides,
-                                                 f);
+            ApplyStrideLoopImpl<Dim, CurDim + 1>(
+                indices, starts, ns, strides, f);
         } else {
             f(indices);
         }
@@ -83,7 +84,8 @@ __global__ void InitCmplxWorkspace(cuDoubleComplex *cmplx_workspace,
 
 template <std::size_t Dim>
 __global__ void DivideCmplxWorkspaceByDenoms(
-    cuDoubleComplex *cmplx_workspace, std::array<std::size_t, Dim> ns,
+    cuDoubleComplex *cmplx_workspace,
+    std::array<std::size_t, Dim> ns,
     std::array<const double *, Dim> denoms) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
@@ -104,8 +106,10 @@ __global__ void DivideCmplxWorkspaceByDenoms(
 
 template <std::size_t Dim>
 __global__ void NormalizeCmplxWorkspaceToPhi(
-    double *phi, const cuDoubleComplex *cmplx_workspace,
-    std::array<std::size_t, Dim> ns, double norm_factor) {
+    double *phi,
+    const cuDoubleComplex *cmplx_workspace,
+    std::array<std::size_t, Dim> ns,
+    double norm_factor) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
         phi[idx] = cmplx_workspace[idx].x / norm_factor;

@@ -5,25 +5,29 @@ namespace poisson_solver {
 template <std::size_t Dim>
 void RunInitCmplxWorkspace(cuDoubleComplex *cmplx_workspace,
                            const double *rhs,
-                           std::array<std::size_t, Dim> ns, dim3 grid_size,
+                           std::array<std::size_t, Dim> ns,
+                           dim3 grid_size,
                            dim3 block_size) {
     InitCmplxWorkspace<<<grid_size, block_size>>>(cmplx_workspace, rhs, ns);
 }
 
 template <std::size_t Dim>
-void RunDivideCmplxWorkspaceByDenoms(
-    cuDoubleComplex *cmplx_workspace, std::array<std::size_t, Dim> ns,
-    std::array<const double *, Dim> denoms, dim3 grid_size,
-    dim3 block_size) {
-    DivideCmplxWorkspaceByDenoms<<<grid_size, block_size>>>(cmplx_workspace, ns,
-                                                            denoms);
+void RunDivideCmplxWorkspaceByDenoms(cuDoubleComplex *cmplx_workspace,
+                                     std::array<std::size_t, Dim> ns,
+                                     std::array<const double *, Dim> denoms,
+                                     dim3 grid_size,
+                                     dim3 block_size) {
+    DivideCmplxWorkspaceByDenoms<<<grid_size, block_size>>>(
+        cmplx_workspace, ns, denoms);
 }
 
 template <std::size_t Dim>
 void RunNormalization(double *phi,
                       const cuDoubleComplex *cmplx_workspace,
-                      std::array<std::size_t, Dim> ns, double norm_factor,
-                      dim3 grid_size, dim3 block_size) {
+                      std::array<std::size_t, Dim> ns,
+                      double norm_factor,
+                      dim3 grid_size,
+                      dim3 block_size) {
     NormalizeCmplxWorkspaceToPhi<<<grid_size, block_size>>>(
         phi, cmplx_workspace, ns, norm_factor);
 }
@@ -32,40 +36,52 @@ void RunNormalization(double *phi,
 template void RunInitCmplxWorkspace<1>(cuDoubleComplex *cmplx_workspace,
                                        const double *rhs,
                                        std::array<std::size_t, 1> ns,
-                                       dim3 grid_size, dim3 block_size);
+                                       dim3 grid_size,
+                                       dim3 block_size);
 template void RunInitCmplxWorkspace<2>(cuDoubleComplex *cmplx_workspace,
                                        const double *rhs,
                                        std::array<std::size_t, 2> ns,
-                                       dim3 grid_size, dim3 block_size);
+                                       dim3 grid_size,
+                                       dim3 block_size);
 template void RunInitCmplxWorkspace<3>(cuDoubleComplex *cmplx_workspace,
                                        const double *rhs,
                                        std::array<std::size_t, 3> ns,
-                                       dim3 grid_size, dim3 block_size);
+                                       dim3 grid_size,
+                                       dim3 block_size);
 template void RunDivideCmplxWorkspaceByDenoms<1>(
-    cuDoubleComplex *cmplx_workspace, std::array<std::size_t, 1> ns,
-    std::array<const double *, 1> denoms, dim3 grid_size,
+    cuDoubleComplex *cmplx_workspace,
+    std::array<std::size_t, 1> ns,
+    std::array<const double *, 1> denoms,
+    dim3 grid_size,
     dim3 block_size);
 template void RunDivideCmplxWorkspaceByDenoms<2>(
-    cuDoubleComplex *cmplx_workspace, std::array<std::size_t, 2> ns,
-    std::array<const double *, 2> denoms, dim3 grid_size,
+    cuDoubleComplex *cmplx_workspace,
+    std::array<std::size_t, 2> ns,
+    std::array<const double *, 2> denoms,
+    dim3 grid_size,
     dim3 block_size);
 template void RunDivideCmplxWorkspaceByDenoms<3>(
-    cuDoubleComplex *cmplx_workspace, std::array<std::size_t, 3> ns,
-    std::array<const double *, 3> denoms, dim3 grid_size,
+    cuDoubleComplex *cmplx_workspace,
+    std::array<std::size_t, 3> ns,
+    std::array<const double *, 3> denoms,
+    dim3 grid_size,
     dim3 block_size);
 template void RunNormalization<1>(double *phi,
                                   const cuDoubleComplex *cmplx_workspace,
                                   std::array<std::size_t, 1> ns,
-                                  double norm_factor, dim3 grid_size,
+                                  double norm_factor,
+                                  dim3 grid_size,
                                   dim3 block_size);
 template void RunNormalization<2>(double *phi,
                                   const cuDoubleComplex *cmplx_workspace,
                                   std::array<std::size_t, 2> ns,
-                                  double norm_factor, dim3 grid_size,
+                                  double norm_factor,
+                                  dim3 grid_size,
                                   dim3 block_size);
 template void RunNormalization<3>(double *phi,
                                   const cuDoubleComplex *cmplx_workspace,
                                   std::array<std::size_t, 3> ns,
-                                  double norm_factor, dim3 grid_size,
+                                  double norm_factor,
+                                  dim3 grid_size,
                                   dim3 block_size);
 }  // namespace poisson_solver

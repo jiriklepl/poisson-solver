@@ -18,7 +18,8 @@ template <std::floating_point T>
 class IAxisPolicy {
 public:
     virtual T GetGridDx(T len, std::size_t n) const = 0;
-    virtual T GetApproximationInput(std::size_t i, std::size_t n,
+    virtual T GetApproximationInput(std::size_t i,
+                                    std::size_t n,
                                     T dkx) const = 0;
     virtual T CalculateNormalizationFactor(std::size_t n) const = 0;
 
@@ -28,11 +29,16 @@ public:
 template <std::floating_point T>
 class PeriodicPolicy : public IAxisPolicy<T> {
 public:
-    virtual T GetGridDx(T len, std::size_t n) const override { return len / n; }
-    virtual T GetApproximationInput(std::size_t i, std::size_t n,
+    virtual T GetGridDx(T len, std::size_t n) const override {
+        return len / n;
+    }
+
+    virtual T GetApproximationInput(std::size_t i,
+                                    std::size_t n,
                                     T dkx) const override {
         return i < (n / 2) ? i * dkx : (n - i) * dkx;
     }
+
     virtual T CalculateNormalizationFactor(std::size_t n) const override {
         return n;
     }
@@ -44,10 +50,13 @@ public:
     virtual T GetGridDx(T len, std::size_t n) const override {
         return len / (n + 1);
     }
-    virtual T GetApproximationInput(std::size_t i, std::size_t n,
+
+    virtual T GetApproximationInput(std::size_t i,
+                                    std::size_t n,
                                     T dkx) const override {
         return (i + 1) * (dkx / 2);
     }
+
     virtual T CalculateNormalizationFactor(std::size_t n) const override {
         return 2 * (n + 1);
     }
@@ -59,10 +68,13 @@ public:
     virtual T GetGridDx(T len, std::size_t n) const override {
         return len / (n - 1);
     }
-    virtual T GetApproximationInput(std::size_t i, std::size_t n,
+
+    virtual T GetApproximationInput(std::size_t i,
+                                    std::size_t n,
                                     T dkx) const override {
         return i * (dkx / 2);
     }
+
     virtual T CalculateNormalizationFactor(std::size_t n) const override {
         return 2 * (n - 1);
     }
@@ -71,11 +83,16 @@ public:
 template <std::floating_point T>
 class DirichletStagPolicy : public IAxisPolicy<T> {
 public:
-    virtual T GetGridDx(T len, std::size_t n) const override { return len / n; }
-    virtual T GetApproximationInput(std::size_t i, std::size_t n,
+    virtual T GetGridDx(T len, std::size_t n) const override {
+        return len / n;
+    }
+
+    virtual T GetApproximationInput(std::size_t i,
+                                    std::size_t n,
                                     T dkx) const override {
         return (i + 1) * (dkx / 2);
     }
+
     virtual T CalculateNormalizationFactor(std::size_t n) const override {
         return 2 * n;
     }
@@ -84,11 +101,16 @@ public:
 template <std::floating_point T>
 class NeumannStagPolicy : public IAxisPolicy<T> {
 public:
-    virtual T GetGridDx(T len, std::size_t n) const override { return len / n; }
-    virtual T GetApproximationInput(std::size_t i, std::size_t n,
+    virtual T GetGridDx(T len, std::size_t n) const override {
+        return len / n;
+    }
+
+    virtual T GetApproximationInput(std::size_t i,
+                                    std::size_t n,
                                     T dkx) const override {
         return i * (dkx / 2);
     }
+
     virtual T CalculateNormalizationFactor(std::size_t n) const override {
         return 2 * n;
     }
@@ -97,11 +119,16 @@ public:
 template <std::floating_point T>
 class MixedPolicy : public IAxisPolicy<T> {
 public:
-    virtual T GetGridDx(T len, std::size_t n) const override { return len / n; }
-    virtual T GetApproximationInput(std::size_t i, std::size_t n,
+    virtual T GetGridDx(T len, std::size_t n) const override {
+        return len / n;
+    }
+
+    virtual T GetApproximationInput(std::size_t i,
+                                    std::size_t n,
                                     T dkx) const override {
         return (i + 1 - static_cast<T>(0.5)) * (dkx / 2);
     }
+
     virtual T CalculateNormalizationFactor(std::size_t n) const override {
         return 2 * n;
     }

@@ -18,14 +18,24 @@ protected:
 
 public:
     CudaError(cudaError_t status = cudaSuccess)
-        : std::exception(), mStatus(status) {}
+        : std::exception(),
+          mStatus(status) {}
+
     CudaError(const char *msg, cudaError_t status = cudaSuccess)
-        : std::exception(), mMessage(msg), mStatus(status) {}
+        : std::exception(),
+          mMessage(msg),
+          mStatus(status) {}
+
     CudaError(const std::string &msg, cudaError_t status = cudaSuccess)
-        : std::exception(), mMessage(msg), mStatus(status) {}
+        : std::exception(),
+          mMessage(msg),
+          mStatus(status) {}
+
     virtual ~CudaError() throw() {}
 
-    virtual const char *what() const throw() { return mMessage.c_str(); }
+    virtual const char *what() const throw() {
+        return mMessage.c_str();
+    }
 
     // Overloading << operator that uses stringstream to append data to
     // mMessage.
@@ -41,7 +51,9 @@ public:
 /**
  * CUDA error code check. This is internal function used by CUCH macro.
  */
-inline void _cuda_check(cudaError_t status, int line, const char *srcFile,
+inline void _cuda_check(cudaError_t status,
+                        int line,
+                        const char *srcFile,
                         const char *errMsg = NULL) {
     if (status != cudaSuccess) {
         throw(CudaError(status)

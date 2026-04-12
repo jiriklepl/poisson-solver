@@ -20,32 +20,38 @@ const float leny = GRID_SIZE;
 const int ITERATIONS = 1000;
 
 // --- Helper: Save to Binary ---
-void SaveFrame(const poisson_solver::Workspace2D<float>& data, int frame_idx) {
+void SaveFrame(const poisson_solver::Workspace2D<float> &data, int frame_idx) {
     std::stringstream ss;
     ss << "frames/frame_" << std::setw(4) << std::setfill('0') << frame_idx
        << ".bin";
 
     std::ofstream out(ss.str(), std::ios::binary);
     if (out.is_open()) {
-        out.write(reinterpret_cast<const char*>(data.Ptr()),
+        out.write(reinterpret_cast<const char *>(data.Ptr()),
                   data.Size() * sizeof(float));
         out.close();
     }
 }
 
 // --- Helper: Linear Interpolation (Lerp) ---
-float Lerp(float a, float b, float t) { return a + t * (b - a); }
+float Lerp(float a, float b, float t) {
+    return a + t * (b - a);
+}
 
 // --- Helper: Periodic Sampling with Bilinear Interpolation ---
-float SampleBilinear(const poisson_solver::Workspace2D<float>& field, float x,
-                     float y, int N) {
+float SampleBilinear(const poisson_solver::Workspace2D<float> &field,
+                     float x,
+                     float y,
+                     int N) {
     // 1. Handle Periodic Wrapping
     // fmod can return negative values, so we fix that.
     x = std::fmod(x, static_cast<float>(N));
-    if (x < 0) x += N;
+    if (x < 0)
+        x += N;
 
     y = std::fmod(y, static_cast<float>(N));
-    if (y < 0) y += N;
+    if (y < 0)
+        y += N;
 
     // 2. Find integer coordinates
     int x0 = static_cast<int>(x);
@@ -75,10 +81,11 @@ float SampleBilinear(const poisson_solver::Workspace2D<float>& field, float x,
 }
 
 // --- Physics: Semi-Lagrangian Advection ---
-void Advect(poisson_solver::Workspace2D<float>& field,
-            const poisson_solver::Workspace2D<float>& vel_x,
-            const poisson_solver::Workspace2D<float>& vel_y,
-            poisson_solver::Workspace2D<float>& new_field, int N) {
+void Advect(poisson_solver::Workspace2D<float> &field,
+            const poisson_solver::Workspace2D<float> &vel_x,
+            const poisson_solver::Workspace2D<float> &vel_y,
+            poisson_solver::Workspace2D<float> &new_field,
+            int N) {
     for (int j = 0; j < N; ++j) {
         for (int i = 0; i < N; ++i) {
             // int idx = j * N + i;
@@ -124,7 +131,10 @@ int main() {
     // 2. Initialize Solver (Assuming your class interface)
     // Using Periodic Boundaries for both X and Y
     poisson_solver::Solver2D solver(
-        lenx, leny, N, N,
+        lenx,
+        leny,
+        N,
+        N,
         {{poisson_solver::BoundaryCondition::kPeriodic,
           poisson_solver::BoundaryCondition::kPeriodic},
          {poisson_solver::BoundaryCondition::kPeriodic,

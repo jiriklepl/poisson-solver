@@ -1,8 +1,8 @@
 #ifndef C_BINDING_H
 #define C_BINDING_H
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,11 +23,15 @@ typedef enum {
 
 typedef enum { kSpectral = 0, kFD2 = 2, kFD4 = 4 } Approximation;
 
-void PoissonSolverNew(PoissonSolver *solver_out, int dims, const int *ns,
-                      const double *lens, const BoundaryCondition *bcs,
+void PoissonSolverNew(PoissonSolver *solver_out,
+                      int dims,
+                      const int *ns,
+                      const double *lens,
+                      const BoundaryCondition *bcs,
                       Approximation approx);
 
-void PoissonSolverExecute(PoissonSolver *solver, double *phi,
+void PoissonSolverExecute(PoissonSolver *solver,
+                          double *phi,
                           const double *rhs);
 
 void PoissonSolverFinalize(PoissonSolver *solver);

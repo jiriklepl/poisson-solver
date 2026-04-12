@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cuComplex.h>
 #include <cuda_runtime.h>
 #include <heffte.h>
 #include <iostream>
@@ -20,7 +21,6 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
-#include <cuComplex.h>
 
 namespace poisson_solver {
 // TODO: Works only for all bcs == Periodic
@@ -29,14 +29,15 @@ template <std::size_t Dim>
 class Solver {
 public:
     Solver(
-        std::array<std::size_t, Dim> ns, std::array<double, Dim> lens,
+        std::array<std::size_t, Dim> ns,
+        std::array<double, Dim> lens,
         std::array<BCPair, Dim> bcs,
-        const IApproximation<double>& approx = SpectralApproximation<double>{},
+        const IApproximation<double> &approx = SpectralApproximation<double>{},
         dim3 cuda_block_size = DefaultBlockSize())
         : ns_(ns),
           bcs_(bcs),
-          cnt_(std::reduce(ns_.begin(), ns_.end(), std::size_t{1},
-                           std::multiplies<>{})),
+          cnt_(std::reduce(
+              ns_.begin(), ns_.end(), std::size_t{1}, std::multiplies<>{})),
           denoms_(MakeDenoms(ns_, std::make_index_sequence<Dim>{})),
           norm_factor_(CalculateNormFactor(ns_, bcs_)),
           block_size_(cuda_block_size),
@@ -66,7 +67,8 @@ public:
 
             // Eigenvals don't change between iterations.
             // Thus can be copied immediately.
-            CUCH(cudaMemcpy(cu_denoms_[i].get(), denoms_[i].data(),
+            CUCH(cudaMemcpy(cu_denoms_[i].get(),
+                            denoms_[i].data(),
                             ns_[i] * sizeof(double),
                             cudaMemcpyHostToDevice));
         }
@@ -85,44 +87,60 @@ public:
     // TODO: Define moves, for now they're deleted
     // (either create plan unique wrapper, similar to device ptrs, and then
     // default them, or manually define the moves)
-    Solver(const Solver&) = delete;
-    Solver& operator=(const Solver&) = delete;
-    Solver(Solver&&) = delete;
-    Solver operator=(Solver&&) = delete;
+    Solver(const Solver &) = delete;
+    Solver &operator=(const Solver &) = delete;
+    Solver(Solver &&) = delete;
+    Solver operator=(Solver &&) = delete;
 
     void Execute(std::span<double> phi, std::span<const double> rhs) {
         if (phi.size() != cnt_ || rhs.size() != cnt_) {
             throw std::runtime_error("Incorrect size of phi or rhs.");
         }
 
-        CUCH(cudaMemcpy(cu_rhs_.get(), rhs.data(),
+        CUCH(cudaMemcpy(cu_rhs_.get(),
+                        rhs.data(),
                         cnt_ * sizeof(double),
                         cudaMemcpyHostToDevice));
-        RunInitCmplxWorkspace(cu_cmplx_workspace_.get(), cu_rhs_.get(), ns_,
-                              grid_size_, block_size_);
+        RunInitCmplxWorkspace(cu_cmplx_workspace_.get(),
+                              cu_rhs_.get(),
+                              ns_,
+                              grid_size_,
+                              block_size_);
         CUCH(cudaGetLastError());
-        fft_plan_->forward(cu_cmplx_workspace_.get(), cu_cmplx_workspace_.get(),
+        fft_plan_->forward(cu_cmplx_workspace_.get(),
+                           cu_cmplx_workspace_.get(),
                            heffte::scale::none);
 
         // TODO: Do this only once in the ctor
-        std::array<const double*, Dim> cu_denom_ptrs;
+        std::array<const double *, Dim> cu_denom_ptrs;
         for (std::size_t i = 0; i < Dim; ++i) {
             cu_denom_ptrs[i] = cu_denoms_[i].get();
         }
-        RunDivideCmplxWorkspaceByDenoms(cu_cmplx_workspace_.get(), ns_,
-                                        cu_denom_ptrs, grid_size_, block_size_);
+        RunDivideCmplxWorkspaceByDenoms(cu_cmplx_workspace_.get(),
+                                        ns_,
+                                        cu_denom_ptrs,
+                                        grid_size_,
+                                        block_size_);
         CUCH(cudaGetLastError());
         fft_plan_->backward(cu_cmplx_workspace_.get(),
-                            cu_cmplx_workspace_.get(), heffte::scale::none);
-        RunNormalization(cu_phi_.get(), cu_cmplx_workspace_.get(), ns_,
-                         norm_factor_, grid_size_, block_size_);
+                            cu_cmplx_workspace_.get(),
+                            heffte::scale::none);
+        RunNormalization(cu_phi_.get(),
+                         cu_cmplx_workspace_.get(),
+                         ns_,
+                         norm_factor_,
+                         grid_size_,
+                         block_size_);
         CUCH(cudaGetLastError());
-        CUCH(cudaMemcpy(phi.data(), cu_phi_.get(),
+        CUCH(cudaMemcpy(phi.data(),
+                        cu_phi_.get(),
                         cnt_ * sizeof(double),
                         cudaMemcpyDeviceToHost));
     }
 
-    std::size_t GetTotalGridSize() { return cnt_; }
+    std::size_t GetTotalGridSize() {
+        return cnt_;
+    }
 
 private:
     // Grid
@@ -147,7 +165,7 @@ private:
 
     template <std::size_t... Is>
     static std::array<std::vector<double>, Dim> MakeDenoms(
-        const std::array<std::size_t, Dim>& ns, std::index_sequence<Is...>) {
+        const std::array<std::size_t, Dim> &ns, std::index_sequence<Is...>) {
         return {std::vector<double>(ns[Is])...};
     }
 
@@ -171,7 +189,7 @@ private:
         }
     }
 
-    static dim3 CalculateGridSize(const std::array<std::size_t, Dim>& ns,
+    static dim3 CalculateGridSize(const std::array<std::size_t, Dim> &ns,
                                   dim3 block) {
         if constexpr (Dim == 1) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x};
@@ -187,9 +205,11 @@ private:
 
     // TODO: Delete T parameter as soon as `Solver` is templated by a float type
     template <std::floating_point T>
-    static void CalculateEigenvalues(std::vector<T>& eigenvals, T len,
-                                     std::size_t n, BCPair bc,
-                                     const IApproximation<T>& approx) {
+    static void CalculateEigenvalues(std::vector<T> &eigenvals,
+                                     T len,
+                                     std::size_t n,
+                                     BCPair bc,
+                                     const IApproximation<T> &approx) {
         auto policy = GetAxisPolicy<T>(bc);
         eigenvals.resize(n);
 

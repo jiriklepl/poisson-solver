@@ -20,9 +20,10 @@ public:
 template <std::size_t Dim>
 class SolverWrapper : public ISolver {
 public:
-    SolverWrapper(std::array<std::size_t, Dim> ns, std::array<double, Dim> lens,
+    SolverWrapper(std::array<std::size_t, Dim> ns,
+                  std::array<double, Dim> lens,
                   std::array<BCPair, Dim> bcs,
-                  const IApproximation<double>& approx)
+                  const IApproximation<double> &approx)
         : solver_(ns, lens, bcs, approx) {}
 
     virtual void Execute(std::span<double> phi,

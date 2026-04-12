@@ -15,7 +15,7 @@
 namespace ps = poisson_solver;
 using namespace tests;
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     if (argc != 7) {
         std::cerr
             << "Usage: warmup_iters measurement_iters grid_side_size_begin "
