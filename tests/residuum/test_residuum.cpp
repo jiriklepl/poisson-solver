@@ -1,4 +1,4 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#define DOCTEST_CONFIG_IMPLEMENT
 #include "initialization.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/c_binding.h"
@@ -15,6 +15,7 @@
 #include <numeric>
 #include <random>
 #include <stdexcept>
+#include <mpi.h>
 
 namespace ps = poisson_solver;
 using BC = ps::BoundaryCondition;
@@ -115,7 +116,21 @@ ResiduumResult<T> ResiduumBelowThreshold(T residuum,
     bool success = residuum < max_residuum;
     return {.success = success, .max_residuum = max_residuum};
 }
+
+struct MPIEnvironment {
+    MPIEnvironment(int* argc, char*** argv) { MPI_Init(argc, argv); }
+    ~MPIEnvironment() { MPI_Finalize(); }
+};
 }  // namespace
+
+int main(int argc, char *argv[]) {
+    MPIEnvironment mpi_env(&argc, &argv);
+
+    doctest::Context context(argc, argv);
+    int res = context.run();
+
+    return res;
+}
 
 TEST_CASE("Poisson Solver Residuum Suite") {
     std::random_device dev;

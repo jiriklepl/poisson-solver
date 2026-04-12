@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cuda_runtime.h>
-#include <cufft.h>
+#include <cuComplex.h>
 
 namespace poisson_solver {
 // Returns indices of the current thread
@@ -72,8 +72,8 @@ __device__ void ApplyStrideLoop(std::array<std::size_t, Dim> ns, Func f) {
 }
 
 template <std::size_t Dim>
-__global__ void InitCmplxWorkspace(cufftDoubleComplex *cmplx_workspace,
-                                   const cufftDoubleReal *rhs,
+__global__ void InitCmplxWorkspace(cuDoubleComplex *cmplx_workspace,
+                                   const double *rhs,
                                    std::array<std::size_t, Dim> ns) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
@@ -83,8 +83,8 @@ __global__ void InitCmplxWorkspace(cufftDoubleComplex *cmplx_workspace,
 
 template <std::size_t Dim>
 __global__ void DivideCmplxWorkspaceByDenoms(
-    cufftDoubleComplex *cmplx_workspace, std::array<std::size_t, Dim> ns,
-    std::array<const cufftDoubleReal *, Dim> denoms) {
+    cuDoubleComplex *cmplx_workspace, std::array<std::size_t, Dim> ns,
+    std::array<const double *, Dim> denoms) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
 
@@ -93,7 +93,7 @@ __global__ void DivideCmplxWorkspaceByDenoms(
             return;
         }
 
-        cufftDoubleReal denom = 0;
+        double denom = 0;
         for (std::size_t i = 0; i < Dim; ++i) {
             denom += denoms[i][idxs[i]];
         }
@@ -104,7 +104,7 @@ __global__ void DivideCmplxWorkspaceByDenoms(
 
 template <std::size_t Dim>
 __global__ void NormalizeCmplxWorkspaceToPhi(
-    cufftDoubleReal *phi, const cufftDoubleComplex *cmplx_workspace,
+    double *phi, const cuDoubleComplex *cmplx_workspace,
     std::array<std::size_t, Dim> ns, double norm_factor) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);

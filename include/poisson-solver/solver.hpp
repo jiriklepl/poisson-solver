@@ -11,7 +11,7 @@
 #include <array>
 #include <cstddef>
 #include <cuda_runtime.h>
-#include <cufft.h>
+#include <heffte.h>
 #include <iostream>
 #include <memory>
 #include <numbers>
@@ -20,6 +20,7 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
+#include <cuComplex.h>
 
 namespace poisson_solver {
 // TODO: Works only for all bcs == Periodic
@@ -57,26 +58,28 @@ public:
             CalculateEigenvalues(denoms_[2], lens[2], ns_[2], bcs_[2], approx);
         }
 
-        cu_rhs_ = make_cuda_unique<cufftDoubleReal>(cnt_);
-        cu_phi_ = make_cuda_unique<cufftDoubleReal>(cnt_);
-        cu_cmplx_workspace_ = make_cuda_unique<cufftDoubleComplex>(cnt_);
+        cu_rhs_ = make_cuda_unique<double>(cnt_);
+        cu_phi_ = make_cuda_unique<double>(cnt_);
+        cu_cmplx_workspace_ = make_cuda_unique<cuDoubleComplex>(cnt_);
         for (std::size_t i = 0; i < Dim; ++i) {
-            cu_denoms_[i] = make_cuda_unique<cufftDoubleReal>(ns_[i]);
+            cu_denoms_[i] = make_cuda_unique<double>(ns_[i]);
 
             // Eigenvals don't change between iterations.
             // Thus can be copied immediately.
             CUCH(cudaMemcpy(cu_denoms_[i].get(), denoms_[i].data(),
-                            ns_[i] * sizeof(cufftDoubleReal),
+                            ns_[i] * sizeof(double),
                             cudaMemcpyHostToDevice));
         }
 
-        if constexpr (Dim == 1) {
-            CUFFTCH(cufftPlan1d(&plan_, ns_[0], CUFFT_Z2Z, 1));
-        } else if constexpr (Dim == 2) {
-            CUFFTCH(cufftPlan2d(&plan_, ns_[0], ns_[1], CUFFT_Z2Z));
-        } else if constexpr (Dim == 3) {
-            CUFFTCH(cufftPlan3d(&plan_, ns_[0], ns_[1], ns_[2], CUFFT_Z2Z));
-        }
+        int nx = ns_[0];
+        int ny = (Dim >= 2) ? ns_[1] : 1;
+        int nz = (Dim >= 3) ? ns_[2] : 1;
+        // `box3d` has column-major ordering!!!
+        heffte::box3d<> grid_box({0, 0, 0}, {nz - 1, ny - 1, nx - 1});
+        heffte::plan_options options =
+            heffte::default_options<heffte::backend::cufft>();
+        fft_plan_ = std::make_unique<heffte::fft3d<heffte::backend::cufft>>(
+            grid_box, grid_box, MPI_COMM_SELF, options);
     }
 
     // TODO: Define moves, for now they're deleted
@@ -86,46 +89,40 @@ public:
     Solver& operator=(const Solver&) = delete;
     Solver(Solver&&) = delete;
     Solver operator=(Solver&&) = delete;
-    ~Solver() {
-        CUFFTCH(cufftDestroy(plan_)); }
 
     void Execute(std::span<double> phi, std::span<const double> rhs) {
         if (phi.size() != cnt_ || rhs.size() != cnt_) {
             throw std::runtime_error("Incorrect size of phi or rhs.");
         }
 
-        // TODO: No need for this copy if we are guaranteed the rhs didn't
-        // change
         CUCH(cudaMemcpy(cu_rhs_.get(), rhs.data(),
-                        cnt_ * sizeof(cufftDoubleReal),
+                        cnt_ * sizeof(double),
                         cudaMemcpyHostToDevice));
         RunInitCmplxWorkspace(cu_cmplx_workspace_.get(), cu_rhs_.get(), ns_,
                               grid_size_, block_size_);
         CUCH(cudaGetLastError());
+        fft_plan_->forward(cu_cmplx_workspace_.get(), cu_cmplx_workspace_.get(),
+                           heffte::scale::none);
 
-        CUFFTCH(cufftExecZ2Z(plan_, cu_cmplx_workspace_.get(),
-                             cu_cmplx_workspace_.get(), CUFFT_FORWARD));
         // TODO: Do this only once in the ctor
-        std::array<const cufftDoubleReal*, Dim> cu_denom_ptrs;
+        std::array<const double*, Dim> cu_denom_ptrs;
         for (std::size_t i = 0; i < Dim; ++i) {
             cu_denom_ptrs[i] = cu_denoms_[i].get();
         }
         RunDivideCmplxWorkspaceByDenoms(cu_cmplx_workspace_.get(), ns_,
                                         cu_denom_ptrs, grid_size_, block_size_);
         CUCH(cudaGetLastError());
-        CUFFTCH(cufftExecZ2Z(plan_, cu_cmplx_workspace_.get(),
-                             cu_cmplx_workspace_.get(), CUFFT_INVERSE));
-
+        fft_plan_->backward(cu_cmplx_workspace_.get(),
+                            cu_cmplx_workspace_.get(), heffte::scale::none);
         RunNormalization(cu_phi_.get(), cu_cmplx_workspace_.get(), ns_,
                          norm_factor_, grid_size_, block_size_);
         CUCH(cudaGetLastError());
         CUCH(cudaMemcpy(phi.data(), cu_phi_.get(),
-                        cnt_ * sizeof(cufftDoubleReal),
+                        cnt_ * sizeof(double),
                         cudaMemcpyDeviceToHost));
     }
 
-    std::size_t GetTotalGridSize() {
-        return cnt_; }
+    std::size_t GetTotalGridSize() { return cnt_; }
 
 private:
     // Grid
@@ -135,16 +132,14 @@ private:
 
     // Physics and math
     std::array<std::vector<double>, Dim> denoms_;
-    std::array<CudaUniquePtr<cufftDoubleReal>, Dim> cu_denoms_;
+    std::array<CudaUniquePtr<double>, Dim> cu_denoms_;
     const double norm_factor_;
 
     // FFT
-    // Cufft defined forward/backward during execution.
-    // Initialization requires only the domain size, thus only one plan needed.
-    cufftHandle plan_;
-    CudaUniquePtr<cufftDoubleReal> cu_rhs_;
-    CudaUniquePtr<cufftDoubleReal> cu_phi_;
-    CudaUniquePtr<cufftDoubleComplex> cu_cmplx_workspace_;
+    std::unique_ptr<heffte::fft3d<heffte::backend::cufft>> fft_plan_;
+    CudaUniquePtr<double> cu_rhs_;
+    CudaUniquePtr<double> cu_phi_;
+    CudaUniquePtr<cuDoubleComplex> cu_cmplx_workspace_;
 
     // Device settings
     const dim3 block_size_;
@@ -193,8 +188,7 @@ private:
     // TODO: Delete T parameter as soon as `Solver` is templated by a float type
     template <std::floating_point T>
     static void CalculateEigenvalues(std::vector<T>& eigenvals, T len,
-                                     std::size_t n,
-                                     BCPair bc,
+                                     std::size_t n, BCPair bc,
                                      const IApproximation<T>& approx) {
         auto policy = GetAxisPolicy<T>(bc);
         eigenvals.resize(n);
