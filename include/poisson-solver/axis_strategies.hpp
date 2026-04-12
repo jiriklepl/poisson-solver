@@ -1,5 +1,5 @@
-#ifndef AXIS_POLICIES_HPP
-#define AXIS_POLICIES_HPP
+#ifndef AXIS_STRATEGIES_HPP
+#define AXIS_STRATEGIES_HPP
 
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/helpers.hpp"
@@ -11,11 +11,11 @@
 
 // This file groups together certain calculations that are based on boundary
 // conditions of an axis. Valid boundary conditions on an axis are explicitly
-// enumerated in the `GetAxisPolicy` function.
+// enumerated in the `GetAxisStrategy` function.
 
 namespace poisson_solver {
 template <std::floating_point T>
-class IAxisPolicy {
+class IAxisStrategy {
 public:
     virtual T GetGridDx(T len, std::size_t n) const = 0;
     virtual T GetApproximationInput(std::size_t i,
@@ -23,11 +23,11 @@ public:
                                     T dkx) const = 0;
     virtual T CalculateNormalizationFactor(std::size_t n) const = 0;
 
-    virtual ~IAxisPolicy() = default;
+    virtual ~IAxisStrategy() = default;
 };
 
 template <std::floating_point T>
-class PeriodicPolicy : public IAxisPolicy<T> {
+class PeriodicStrategy : public IAxisStrategy<T> {
 public:
     virtual T GetGridDx(T len, std::size_t n) const override {
         return len / n;
@@ -45,7 +45,7 @@ public:
 };
 
 template <std::floating_point T>
-class DirichletPolicy : public IAxisPolicy<T> {
+class DirichletStrategy : public IAxisStrategy<T> {
 public:
     virtual T GetGridDx(T len, std::size_t n) const override {
         return len / (n + 1);
@@ -63,7 +63,7 @@ public:
 };
 
 template <std::floating_point T>
-class NeumannPolicy : public IAxisPolicy<T> {
+class NeumannStrategy : public IAxisStrategy<T> {
 public:
     virtual T GetGridDx(T len, std::size_t n) const override {
         return len / (n - 1);
@@ -81,7 +81,7 @@ public:
 };
 
 template <std::floating_point T>
-class DirichletStagPolicy : public IAxisPolicy<T> {
+class DirichletStagStrategy : public IAxisStrategy<T> {
 public:
     virtual T GetGridDx(T len, std::size_t n) const override {
         return len / n;
@@ -99,7 +99,7 @@ public:
 };
 
 template <std::floating_point T>
-class NeumannStagPolicy : public IAxisPolicy<T> {
+class NeumannStagStrategy : public IAxisStrategy<T> {
 public:
     virtual T GetGridDx(T len, std::size_t n) const override {
         return len / n;
@@ -117,7 +117,7 @@ public:
 };
 
 template <std::floating_point T>
-class MixedPolicy : public IAxisPolicy<T> {
+class MixedStrategy : public IAxisStrategy<T> {
 public:
     virtual T GetGridDx(T len, std::size_t n) const override {
         return len / n;
@@ -135,7 +135,7 @@ public:
 };
 
 template <std::floating_point T>
-static std::unique_ptr<IAxisPolicy<T>> GetAxisPolicy(BCPair bcs) {
+static std::unique_ptr<IAxisStrategy<T>> GetAxisStrategy(BCPair bcs) {
     using BC = BoundaryCondition;
     constexpr BC P = BC::kPeriodic;
     constexpr BC D = BC::kDirichlet;
@@ -144,24 +144,24 @@ static std::unique_ptr<IAxisPolicy<T>> GetAxisPolicy(BCPair bcs) {
     constexpr BC NS = BC::kNeumannStag;
 
     if (bcs.first == P && bcs.second == P) {
-        return std::make_unique<PeriodicPolicy<T>>();
+        return std::make_unique<PeriodicStrategy<T>>();
     } else if (bcs.first == D && bcs.second == D) {
-        return std::make_unique<DirichletPolicy<T>>();
+        return std::make_unique<DirichletStrategy<T>>();
     } else if (bcs.first == N && bcs.second == N) {
-        return std::make_unique<NeumannPolicy<T>>();
+        return std::make_unique<NeumannStrategy<T>>();
     } else if (bcs.first == DS && bcs.second == DS) {
-        return std::make_unique<DirichletStagPolicy<T>>();
+        return std::make_unique<DirichletStagStrategy<T>>();
     } else if (bcs.first == NS && bcs.second == NS) {
-        return std::make_unique<NeumannStagPolicy<T>>();
+        return std::make_unique<NeumannStagStrategy<T>>();
     } else if (((bcs.first == D && bcs.second == N) ||
                 (bcs.first == N && bcs.second == D)) ||
                (bcs.first == DS && bcs.second == NS) ||
                (bcs.first == NS && bcs.second == DS)) {
-        return std::make_unique<MixedPolicy<T>>();
+        return std::make_unique<MixedStrategy<T>>();
     } else {
         throw std::invalid_argument("Invalid boundary condition combination.");
     }
 }
 }  // namespace poisson_solver
 
-#endif  // AXIS_POLICIES_HPP
+#endif  // AXIS_STRATEGIES_HPP

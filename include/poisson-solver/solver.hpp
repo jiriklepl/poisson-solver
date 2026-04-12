@@ -2,7 +2,7 @@
 #define SOLVER_HPP
 
 #include "poisson-solver/approximations.hpp"
-#include "poisson-solver/axis_policies.hpp"
+#include "poisson-solver/axis_strategies.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/helpers.hpp"
 #include "poisson-solver/runners.hpp"
@@ -165,8 +165,8 @@ private:
                                       std::array<BCPair, Dim> bcs) {
         double factor = 1.0;
         for (std::size_t i = 0; i < Dim; ++i) {
-            auto policy = GetAxisPolicy<double>(bcs[i]);
-            factor *= policy->CalculateNormalizationFactor(ns[i]);
+            auto strategy = GetAxisStrategy<double>(bcs[i]);
+            factor *= strategy->CalculateNormalizationFactor(ns[i]);
         }
         return factor;
     }
@@ -202,16 +202,16 @@ private:
                                      std::size_t n,
                                      BCPair bc,
                                      const IApproximation<T> &approx) {
-        auto policy = GetAxisPolicy<T>(bc);
+        auto strategy = GetAxisStrategy<T>(bc);
         eigenvals.resize(n);
 
-        const T grid_dx = policy->GetGridDx(len, n);
+        const T grid_dx = strategy->GetGridDx(len, n);
         const T dkx = std::numbers::pi_v<T> * grid_dx / len;
 
         const T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
 
         for (std::size_t i = 0; i < n; ++i) {
-            eigenvals[i] = approx(policy->GetApproximationInput(i, n, dkx)) *
+            eigenvals[i] = approx(strategy->GetApproximationInput(i, n, dkx)) *
                            inv_grid_dx_squared;
         }
     }
