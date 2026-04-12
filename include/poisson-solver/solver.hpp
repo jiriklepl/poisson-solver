@@ -84,14 +84,6 @@ public:
             grid_box, grid_box, MPI_COMM_SELF, options);
     }
 
-    // TODO: Define moves, for now they're deleted
-    // (either create plan unique wrapper, similar to device ptrs, and then
-    // default them, or manually define the moves)
-    Solver(const Solver &) = delete;
-    Solver &operator=(const Solver &) = delete;
-    Solver(Solver &&) = delete;
-    Solver operator=(Solver &&) = delete;
-
     void Execute(std::span<double> phi, std::span<const double> rhs) {
         if (phi.size() != cnt_ || rhs.size() != cnt_) {
             throw std::runtime_error("Incorrect size of phi or rhs.");
@@ -138,20 +130,20 @@ public:
                         cudaMemcpyDeviceToHost));
     }
 
-    std::size_t GetTotalGridSize() {
+    std::size_t GetTotalGridSize() const {
         return cnt_;
     }
 
 private:
     // Grid
-    const std::array<std::size_t, Dim> ns_;
-    const std::array<BCPair, Dim> bcs_;
-    const std::size_t cnt_;
+    std::array<std::size_t, Dim> ns_;
+    std::array<BCPair, Dim> bcs_;
+    std::size_t cnt_;
 
     // Physics and math
     std::array<std::vector<double>, Dim> denoms_;
     std::array<CudaUniquePtr<double>, Dim> cu_denoms_;
-    const double norm_factor_;
+    double norm_factor_;
 
     // FFT
     std::unique_ptr<heffte::fft3d<heffte::backend::cufft>> fft_plan_;
@@ -160,8 +152,8 @@ private:
     CudaUniquePtr<cuDoubleComplex> cu_cmplx_workspace_;
 
     // Device settings
-    const dim3 block_size_;
-    const dim3 grid_size_;
+    dim3 block_size_;
+    dim3 grid_size_;
 
     template <std::size_t... Is>
     static std::array<std::vector<double>, Dim> MakeDenoms(
