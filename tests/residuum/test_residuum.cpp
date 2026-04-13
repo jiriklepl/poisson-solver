@@ -35,12 +35,12 @@ struct ResiduumResult {
 };
 
 // Coeffs order: [west, east, south, north, bottom, top]
-template <std::size_t Dim>
+template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
-double GetMaxResiduumFullPeriodic(std::span<double> phi,
-                                  std::span<double> rhs,
-                                  std::array<std::size_t, Dim> ns,
-                                  std::array<double, 2 * Dim> coeffs) {
+T GetMaxResiduumFullPeriodic(std::span<T> phi,
+                             std::span<T> rhs,
+                             std::array<std::size_t, Dim> ns,
+                             std::array<T, 2 * Dim> coeffs) {
     if (rhs.size() != phi.size()) {
         throw std::runtime_error("Incorrect size of phi or rhs.");
     }
@@ -81,12 +81,11 @@ double GetMaxResiduumFullPeriodic(std::span<double> phi,
         return neighbor_idxs;
     };
 
-    double max_residuum = 0.0;
-    const double coeff_center =
-        std::accumulate(coeffs.begin(), coeffs.end(), 0.0);
+    T max_residuum = 0.0;
+    const T coeff_center = std::accumulate(coeffs.begin(), coeffs.end(), 0.0);
 
     for (std::size_t i = 0; i < size; ++i) {
-        double neighbor_sum = 0.0;
+        T neighbor_sum = 0.0;
         auto multidim_idx = flat_to_multidim_idx(i);
         auto neighbor_idxs = get_neighbor_idxs(multidim_idx);
 
@@ -99,8 +98,7 @@ double GetMaxResiduumFullPeriodic(std::span<double> phi,
         }
 
         neighbor_sum -= rhs[i];
-        const double local_residuum =
-            std::abs(coeff_center * phi[i] - neighbor_sum);
+        const T local_residuum = std::abs(coeff_center * phi[i] - neighbor_sum);
         max_residuum = std::max(max_residuum, local_residuum);
     }
 
@@ -117,6 +115,101 @@ ResiduumResult<T> ResiduumBelowThreshold(T residuum,
         fudge_factor * std::numeric_limits<T>::epsilon();
     bool success = residuum < max_residuum;
     return {.success = success, .max_residuum = max_residuum};
+}
+
+BoundaryCondition ToCBoundary(BC cxx_bc) {
+    using CxxBC = ps::BoundaryCondition;
+
+    constexpr auto cxxP = CxxBC::kPeriodic;
+    constexpr auto cxxD = CxxBC::kDirichlet;
+    constexpr auto cxxN = CxxBC::kNeumann;
+    constexpr auto cxxDS = CxxBC::kDirichletStag;
+    constexpr auto cxxNS = CxxBC::kNeumannStag;
+
+    switch (cxx_bc) {
+        case cxxP:
+            return kPeriodic;
+        case cxxD:
+            return kDirichlet;
+        case cxxN:
+            return kNeumann;
+        case cxxDS:
+            return kDirichletStag;
+        case cxxNS:
+            return kNeumannStag;
+        default:
+            throw std::invalid_argument("Unknown boundary condition.");
+    }
+}
+
+// Runs tests for both the C++ and C APIs
+template <std::floating_point T, std::size_t Dim>
+void RunApis(std::span<T> phi,
+             std::span<T> rhs,
+             std::array<std::size_t, Dim> ns,
+             std::array<T, Dim> lens,
+             std::array<ps::BCPair, Dim> bcs,
+             const ps::IApproximation<T> &approx,
+             Approximation c_approx,
+             std::function<T()> calc_residuum) {
+    SUBCASE("API: C++") {
+        ps::Solver<T, Dim> solver(ns, lens, bcs, approx);
+        solver.Execute(phi, rhs);
+
+        T residuum = calc_residuum();
+        auto result = ResiduumBelowThreshold<T>(residuum, ns);
+        CHECK_MESSAGE(result.success,
+                      "Residuum is ",
+                      residuum,
+                      " and max allowed is ",
+                      result.max_residuum);
+    }
+
+    SUBCASE("API: C Binding") {
+        PoissonSolver solver;
+        std::array<int, Dim> c_ns;
+        std::array<T, Dim> c_lens;
+        std::array<BoundaryCondition, 2 * Dim> c_bcs;
+
+        for (std::size_t i = 0; i < Dim; ++i) {
+            c_ns[i] = static_cast<int>(ns[i]);
+            c_lens[i] = lens[i];
+            c_bcs[2 * i] = ToCBoundary(bcs[i].first);
+            c_bcs[2 * i + 1] = ToCBoundary(bcs[i].second);
+        }
+
+        if constexpr (std::is_same_v<T, double>) {
+            PoissonSolverNew(&solver,
+                             Dim,
+                             c_ns.data(),
+                             c_lens.data(),
+                             c_bcs.data(),
+                             c_approx);
+            PoissonSolverExecute(&solver, phi.data(), rhs.data());
+        } else {
+            PoissonSolverNewFloat(&solver,
+                                  Dim,
+                                  c_ns.data(),
+                                  c_lens.data(),
+                                  c_bcs.data(),
+                                  c_approx);
+            PoissonSolverExecuteFloat(&solver, phi.data(), rhs.data());
+        }
+
+        T residuum = calc_residuum();
+        auto result = ResiduumBelowThreshold<T>(residuum, ns);
+        CHECK_MESSAGE(result.success,
+                      "Residuum is ",
+                      residuum,
+                      " and max allowed is ",
+                      result.max_residuum);
+
+        if constexpr (std::is_same_v<T, double>) {
+            PoissonSolverFinalize(&solver);
+        } else {
+            PoissonSolverFinalizeFloat(&solver);
+        }
+    }
 }
 
 struct MPIEnvironment {
@@ -139,186 +232,124 @@ int main(int argc, char *argv[]) {
     return res;
 }
 
-TEST_CASE("Poisson Solver Residuum Suite") {
+TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
     std::random_device dev;
     unsigned seed = dev();
     INFO("Initialized with seed ", seed);
 
     constexpr std::size_t nx = 21, ny = 32, nz = 25;
-    constexpr double lenx = 2 * std::numbers::pi_v<double>;
-    constexpr double leny = lenx * 1.1, lenz = lenx / 1.1;
-    constexpr double dx = lenx / nx, dy = leny / ny, dz = lenz / nz;
-    constexpr double inv_dx_squared = 1.0 / (dx * dx);
-    constexpr double inv_dy_squared = 1.0 / (dy * dy);
-    constexpr double inv_dz_squared = 1.0 / (dz * dz);
-    std::function<double()> residuum_calculation_strategy;
+    constexpr T lenx = 2 * std::numbers::pi_v<T>;
+    constexpr T leny = lenx * 1.1, lenz = lenx / 1.1;
+
+    constexpr T dx = lenx / nx, dy = leny / ny, dz = lenz / nz;
+    constexpr T inv_dx_squared = 1.0 / (dx * dx);
+    constexpr T inv_dy_squared = 1.0 / (dy * dy);
+    constexpr T inv_dz_squared = 1.0 / (dz * dz);
 
     SUBCASE("1D") {
-        std::array<double, nx> phi{};
-        std::array<double, nx> rhs{};
-        Initialize(phi, rhs, seed);
+        std::array<T, nx> phi{};
+        std::array<T, nx> rhs{};
+        Initialize<T>(phi, rhs, seed);
+        std::array<std::size_t, 1> ns{nx};
 
         SUBCASE("Boundary: Periodic | Periodic") {
             std::array<ps::BCPair, 1> bcs = {{{P, P}}};
 
-            std::unique_ptr<ps::Solver<1>> solver;
-
             // TODO: Test for Spectral approx
 
             SUBCASE("Approximation: FD2") {
-                residuum_calculation_strategy = [&]() {
-                    return GetMaxResiduumFullPeriodic(
-                        phi,
-                        rhs,
-                        std::array{nx},
-                        std::array{inv_dx_squared, inv_dx_squared});
+                auto calc = [&]() {
+                    return GetMaxResiduumFullPeriodic<T, 1>(
+                        phi, rhs, ns, {inv_dx_squared, inv_dx_squared});
                 };
-
-                solver = std::make_unique<ps::Solver<1>>(
-                    std::array{nx},
-                    std::array{lenx},
-                    bcs,
-                    ps::FiniteDifference2Approximation<double>{});
+                RunApis<T, 1>(phi,
+                              rhs,
+                              ns,
+                              {lenx},
+                              bcs,
+                              ps::FiniteDifference2Approximation<T>{},
+                              kFD2,
+                              calc);
             }
 
             // TODO: Test for FD4
-
-            solver->Execute({phi.data(), phi.size()}, {rhs.data(), rhs.size()});
-            double residuum = residuum_calculation_strategy();
-            ResiduumResult<double> result =
-                ResiduumBelowThreshold(residuum, std::array{nx});
-            CHECK_MESSAGE(result.success,
-                          "Residuum is ",
-                          residuum,
-                          " and max allowed is ",
-                          result.max_residuum);
         }
 
         // TODO: Test for other BCs
     }
 
     SUBCASE("2D") {
-        std::array<double, nx * ny> phi{};
-        std::array<double, nx * ny> rhs{};
-        Initialize(phi, rhs, seed);
+        std::array<T, nx * ny> phi{};
+        std::array<T, nx * ny> rhs{};
+        Initialize<T>(phi, rhs, seed);
+        std::array<std::size_t, 2> ns{nx, ny};
 
         SUBCASE("Boundary: Periodic | Periodic | Periodic | Periodic") {
             std::array<ps::BCPair, 2> bcs = {{{P, P}, {P, P}}};
 
-            std::unique_ptr<ps::Solver<2>> solver;
-
             // TODO: Test for Spectral approx
 
             SUBCASE("Approximation: FD2") {
-                residuum_calculation_strategy = [&]() {
-                    return GetMaxResiduumFullPeriodic(
-                        phi,
-                        rhs,
-                        std::array{nx, ny},
-                        std::array{inv_dx_squared,
-                                   inv_dx_squared,
-                                   inv_dy_squared,
-                                   inv_dy_squared});
+                auto calc = [&]() {
+                    return GetMaxResiduumFullPeriodic<T, 2>(phi,
+                                                            rhs,
+                                                            ns,
+                                                            {inv_dx_squared,
+                                                             inv_dx_squared,
+                                                             inv_dy_squared,
+                                                             inv_dy_squared});
                 };
-
-                solver = std::make_unique<ps::Solver<2>>(
-                    std::array{nx, ny},
-                    std::array{lenx, leny},
-                    bcs,
-                    ps::FiniteDifference2Approximation<double>{});
+                RunApis<T, 2>(phi,
+                              rhs,
+                              ns,
+                              {lenx, leny},
+                              bcs,
+                              ps::FiniteDifference2Approximation<T>{},
+                              kFD2,
+                              calc);
             }
-
             // TODO: Test for FD4
-
-            solver->Execute({phi.data(), phi.size()}, {rhs.data(), rhs.size()});
-            double residuum = residuum_calculation_strategy();
-            ResiduumResult<double> result =
-                ResiduumBelowThreshold(residuum, std::array{nx, ny});
-            CHECK_MESSAGE(result.success,
-                          "Residuum is ",
-                          residuum,
-                          " and max allowed is ",
-                          result.max_residuum);
         }
 
-        // TODO: Tests for other BCs
+        // TODO: Test for other BCs
     }
 
     SUBCASE("3D") {
-        std::array<double, nx * ny * nz> phi{};
-        std::array<double, nx * ny * nz> rhs{};
-        Initialize(phi, rhs, seed);
+        std::array<T, nx * ny * nz> phi{};
+        std::array<T, nx * ny * nz> rhs{};
+        Initialize<T>(phi, rhs, seed);
+        std::array<std::size_t, 3> ns{nx, ny, nz};
 
         SUBCASE(
             "Boundary: Periodic | Periodic | Periodic | Periodic | Periodic | "
             "Periodic") {
             std::array<ps::BCPair, 3> bcs = {{{P, P}, {P, P}, {P, P}}};
 
-            std::unique_ptr<ps::Solver<3>> solver;
-
             // TODO: Test for Spectral approx
 
             SUBCASE("Approximation: FD2") {
-                residuum_calculation_strategy = [&]() {
-                    return GetMaxResiduumFullPeriodic(
-                        phi,
-                        rhs,
-                        std::array{nx, ny, nz},
-                        std::array{inv_dx_squared,
-                                   inv_dx_squared,
-                                   inv_dy_squared,
-                                   inv_dy_squared,
-                                   inv_dz_squared,
-                                   inv_dz_squared});
+                auto calc = [&]() {
+                    return GetMaxResiduumFullPeriodic<T, 3>(phi,
+                                                            rhs,
+                                                            ns,
+                                                            {inv_dx_squared,
+                                                             inv_dx_squared,
+                                                             inv_dy_squared,
+                                                             inv_dy_squared,
+                                                             inv_dz_squared,
+                                                             inv_dz_squared});
                 };
-
-                SUBCASE("C++") {
-                    solver = std::make_unique<ps::Solver<3>>(
-                        std::array{nx, ny, nz},
-                        std::array{lenx, leny, lenz},
-                        bcs,
-                        ps::FiniteDifference2Approximation<double>{});
-
-                    solver->Execute({phi.data(), phi.size()},
-                                    {rhs.data(), rhs.size()});
-                    double residuum = residuum_calculation_strategy();
-                    ResiduumResult<double> result = ResiduumBelowThreshold(
-                        residuum, std::array{nx, ny, nz});
-                    CHECK_MESSAGE(result.success,
-                                  "Residuum is ",
-                                  residuum,
-                                  " and max allowed is ",
-                                  result.max_residuum);
-                }
-
-                SUBCASE("C Binding") {
-                    // From "c_binding.h"
-                    constexpr auto P_c = kPeriodic;
-                    const int ns[] = {static_cast<int>(nx),
-                                      static_cast<int>(ny),
-                                      static_cast<int>(nz)};
-                    const double lens[] = {lenx, leny, lenz};
-                    const BoundaryCondition bcs[] = {
-                        P_c, P_c, P_c, P_c, P_c, P_c};
-                    const Approximation approx = kFD2;
-
-                    PoissonSolver solver;
-                    PoissonSolverNew(&solver, 3, ns, lens, bcs, approx);
-
-                    PoissonSolverExecute(&solver, phi.data(), rhs.data());
-
-                    double residuum = residuum_calculation_strategy();
-                    ResiduumResult<double> result = ResiduumBelowThreshold(
-                        residuum, std::array{nx, ny, nz});
-                    CHECK_MESSAGE(result.success,
-                                  "Residuum is ",
-                                  residuum,
-                                  " and max allowed is ",
-                                  result.max_residuum);
-
-                    PoissonSolverFinalize(&solver);
-                }
+                RunApis<T, 3>(phi,
+                              rhs,
+                              ns,
+                              {lenx, leny, lenz},
+                              bcs,
+                              ps::FiniteDifference2Approximation<T>{},
+                              kFD2,
+                              calc);
             }
+
+            // TODO: Test for FD4
         }
 
         // TODO: Test for other BCs

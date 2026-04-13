@@ -35,6 +35,19 @@ void PoissonSolverExecute(PoissonSolver *solver,
                           const double *rhs);
 
 void PoissonSolverFinalize(PoissonSolver *solver);
+
+void PoissonSolverNewFloat(PoissonSolver *solver_out,
+                           int dims,
+                           const int *ns,
+                           const float *lens,
+                           const BoundaryCondition *bcs,
+                           Approximation approx);
+
+void PoissonSolverExecuteFloat(PoissonSolver *solver,
+                               float *phi,
+                               const float *rhs);
+
+void PoissonSolverFinalizeFloat(PoissonSolver *solver);
 #ifdef __cplusplus
 }
 #endif

@@ -7,6 +7,7 @@
 
 #include <concepts>
 #include <cstddef>
+#include <cuComplex.h>
 #include <cuda_runtime.h>
 #include <memory>
 #include <numbers>
@@ -53,6 +54,23 @@ CudaUniquePtr<T> make_cuda_unique(std::size_t size) {
     CUCH(cudaMalloc(&ptr, size * sizeof(T)));
     return CudaUniquePtr<T>(ptr);
 }
+
+// This type helps to decide the complex type based on the real type
+template <std::floating_point T>
+struct CuComplexTrait;
+
+template <>
+struct CuComplexTrait<float> {
+    using Type = cuComplex;
+};
+
+template <>
+struct CuComplexTrait<double> {
+    using Type = cuDoubleComplex;
+};
+
+template <std::floating_point T>
+using CuComplexTrait_t = typename CuComplexTrait<T>::Type;
 }  // namespace poisson_solver
 
 #endif  // HELPERS_HPP

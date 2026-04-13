@@ -5,12 +5,25 @@
 #include "poisson-solver/helpers.hpp"
 
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <cstdio>
-#include <cuComplex.h>
 #include <cuda_runtime.h>
 
 namespace poisson_solver {
+template <std::floating_point T>
+__device__ CuComplexTrait_t<T> MakeCuComplex(T r, T i);
+
+template <>
+__device__ inline CuComplexTrait_t<float> MakeCuComplex(float r, float i) {
+    return make_cuFloatComplex(r, i);
+}
+
+template <>
+__device__ inline CuComplexTrait_t<double> MakeCuComplex(double r, double i) {
+    return make_cuDoubleComplex(r, i);
+}
+
 // Returns indices of the current thread
 template <std::size_t Dim>
 __device__ std::array<std::size_t, Dim> GetIdxs() {
@@ -72,30 +85,30 @@ __device__ void ApplyStrideLoop(std::array<std::size_t, Dim> ns, Func f) {
     ApplyStrideLoopImpl<Dim, 0>(indices, starts, ns, strides, f);
 }
 
-template <std::size_t Dim>
-__global__ void InitCmplxWorkspace(cuDoubleComplex *cmplx_workspace,
-                                   const double *rhs,
+template <std::floating_point T, std::size_t Dim>
+__global__ void InitCmplxWorkspace(CuComplexTrait_t<T> *cmplx_workspace,
+                                   const T *rhs,
                                    std::array<std::size_t, Dim> ns) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
-        cmplx_workspace[idx] = make_cuDoubleComplex(rhs[idx], 0);
+        cmplx_workspace[idx] = MakeCuComplex<T>(rhs[idx], 0);
     });
 }
 
-template <std::size_t Dim>
+template <std::floating_point T, std::size_t Dim>
 __global__ void DivideCmplxWorkspaceByDenoms(
-    cuDoubleComplex *cmplx_workspace,
+    CuComplexTrait_t<T> *cmplx_workspace,
     std::array<std::size_t, Dim> ns,
-    std::array<const double *, Dim> denoms) {
+    std::array<const T *, Dim> denoms) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
 
         if (idx == 0) {
-            cmplx_workspace[idx] = make_cuDoubleComplex(0, 0);
+            cmplx_workspace[idx] = MakeCuComplex<T>(0, 0);
             return;
         }
 
-        double denom = 0;
+        T denom = 0;
         for (std::size_t i = 0; i < Dim; ++i) {
             denom += denoms[i][idxs[i]];
         }
@@ -104,12 +117,12 @@ __global__ void DivideCmplxWorkspaceByDenoms(
     });
 }
 
-template <std::size_t Dim>
+template <std::floating_point T, std::size_t Dim>
 __global__ void NormalizeCmplxWorkspaceToPhi(
-    double *phi,
-    const cuDoubleComplex *cmplx_workspace,
+    T *phi,
+    const CuComplexTrait_t<T> *cmplx_workspace,
     std::array<std::size_t, Dim> ns,
-    double norm_factor) {
+    T norm_factor) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
         phi[idx] = cmplx_workspace[idx].x / norm_factor;

@@ -5,29 +5,29 @@
 #include "poisson-solver/solver.hpp"
 
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <span>
 
 namespace poisson_solver {
+template <std::floating_point T>
 class ISolver {
 public:
     virtual ~ISolver() = default;
-    virtual void Execute(std::span<double> phi,
-                         std::span<const double> rhs) = 0;
+    virtual void Execute(std::span<T> phi, std::span<const T> rhs) = 0;
     virtual std::size_t GetTotalGridSize() = 0;
 };
 
-template <std::size_t Dim>
-class SolverWrapper : public ISolver {
+template <std::floating_point T, std::size_t Dim>
+class SolverWrapper : public ISolver<T> {
 public:
     SolverWrapper(std::array<std::size_t, Dim> ns,
-                  std::array<double, Dim> lens,
+                  std::array<T, Dim> lens,
                   std::array<BCPair, Dim> bcs,
-                  const IApproximation<double> &approx)
+                  const IApproximation<T> &approx)
         : solver_(ns, lens, bcs, approx) {}
 
-    virtual void Execute(std::span<double> phi,
-                         std::span<const double> rhs) override {
+    virtual void Execute(std::span<T> phi, std::span<const T> rhs) override {
         solver_.Execute(phi, rhs);
     }
 
@@ -36,7 +36,7 @@ public:
     }
 
 private:
-    Solver<Dim> solver_;
+    Solver<T, Dim> solver_;
 };
 }  // namespace poisson_solver
 

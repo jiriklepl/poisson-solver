@@ -9,8 +9,8 @@
 
 #include <algorithm>
 #include <array>
+#include <concepts>
 #include <cstddef>
-#include <cuComplex.h>
 #include <cuda_runtime.h>
 #include <heffte.h>
 #include <iostream>
@@ -24,16 +24,15 @@
 
 namespace poisson_solver {
 // TODO: Works only for all bcs == Periodic
-template <std::size_t Dim>
+template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 class Solver {
 public:
-    Solver(
-        std::array<std::size_t, Dim> ns,
-        std::array<double, Dim> lens,
-        std::array<BCPair, Dim> bcs,
-        const IApproximation<double> &approx = SpectralApproximation<double>{},
-        dim3 cuda_block_size = DefaultBlockSize())
+    Solver(std::array<std::size_t, Dim> ns,
+           std::array<T, Dim> lens,
+           std::array<BCPair, Dim> bcs,
+           const IApproximation<T> &approx = SpectralApproximation<T>{},
+           dim3 cuda_block_size = DefaultBlockSize())
         : ns_(ns),
           bcs_(bcs),
           cnt_(std::reduce(
@@ -59,39 +58,44 @@ public:
             CalculateEigenvalues(denoms_[2], lens[2], ns_[2], bcs_[2], approx);
         }
 
-        cu_rhs_ = make_cuda_unique<double>(cnt_);
-        cu_phi_ = make_cuda_unique<double>(cnt_);
-        cu_cmplx_workspace_ = make_cuda_unique<cuDoubleComplex>(cnt_);
+        cu_rhs_ = make_cuda_unique<T>(cnt_);
+        cu_phi_ = make_cuda_unique<T>(cnt_);
+        cu_cmplx_workspace_ = make_cuda_unique<CuComplexTrait_t<T>>(cnt_);
         for (std::size_t i = 0; i < Dim; ++i) {
-            cu_denoms_[i] = make_cuda_unique<double>(ns_[i]);
+            cu_denoms_[i] = make_cuda_unique<T>(ns_[i]);
 
             // Eigenvals don't change between iterations.
             // Thus can be copied immediately.
             CUCH(cudaMemcpy(cu_denoms_[i].get(),
                             denoms_[i].data(),
-                            ns_[i] * sizeof(double),
+                            ns_[i] * sizeof(T),
                             cudaMemcpyHostToDevice));
         }
 
         int nx = ns_[0];
         int ny = (Dim >= 2) ? ns_[1] : 1;
         int nz = (Dim >= 3) ? ns_[2] : 1;
-        // `box3d` has column-major ordering!!!
+        // TODO: Order is not used right now, but may improve performance in
+        // distributed environmnet i->slowest, j->middle, k->fastest growing
+        // indices std::array<int, 3> order = {2, 1, 0};
+
+        // Apparently `box3d`s first index is the fastest changing, second is
+        // middle and last is slowest changing.
+        // Also, the order apparently doesn't affect this and serves only as an
+        // optimization parameter for better data spliting for the MPI ranks.
         heffte::box3d<> grid_box({0, 0, 0}, {nz - 1, ny - 1, nx - 1});
-        heffte::plan_options options =
-            heffte::default_options<heffte::backend::cufft>();
         fft_plan_ = std::make_unique<heffte::fft3d<heffte::backend::cufft>>(
-            grid_box, grid_box, MPI_COMM_SELF, options);
+            grid_box, grid_box, MPI_COMM_SELF);
     }
 
-    void Execute(std::span<double> phi, std::span<const double> rhs) {
+    void Execute(std::span<T> phi, std::span<const T> rhs) {
         if (phi.size() != cnt_ || rhs.size() != cnt_) {
             throw std::runtime_error("Incorrect size of phi or rhs.");
         }
 
         CUCH(cudaMemcpy(cu_rhs_.get(),
                         rhs.data(),
-                        cnt_ * sizeof(double),
+                        cnt_ * sizeof(T),
                         cudaMemcpyHostToDevice));
         RunInitCmplxWorkspace(cu_cmplx_workspace_.get(),
                               cu_rhs_.get(),
@@ -104,7 +108,7 @@ public:
                            heffte::scale::none);
 
         // TODO: Do this only once in the ctor
-        std::array<const double *, Dim> cu_denom_ptrs;
+        std::array<const T *, Dim> cu_denom_ptrs;
         for (std::size_t i = 0; i < Dim; ++i) {
             cu_denom_ptrs[i] = cu_denoms_[i].get();
         }
@@ -126,7 +130,7 @@ public:
         CUCH(cudaGetLastError());
         CUCH(cudaMemcpy(phi.data(),
                         cu_phi_.get(),
-                        cnt_ * sizeof(double),
+                        cnt_ * sizeof(T),
                         cudaMemcpyDeviceToHost));
     }
 
@@ -141,31 +145,31 @@ private:
     std::size_t cnt_;
 
     // Physics and math
-    std::array<std::vector<double>, Dim> denoms_;
-    std::array<CudaUniquePtr<double>, Dim> cu_denoms_;
-    double norm_factor_;
+    std::array<std::vector<T>, Dim> denoms_;
+    std::array<CudaUniquePtr<T>, Dim> cu_denoms_;
+    T norm_factor_;
 
     // FFT
     std::unique_ptr<heffte::fft3d<heffte::backend::cufft>> fft_plan_;
-    CudaUniquePtr<double> cu_rhs_;
-    CudaUniquePtr<double> cu_phi_;
-    CudaUniquePtr<cuDoubleComplex> cu_cmplx_workspace_;
+    CudaUniquePtr<T> cu_rhs_;
+    CudaUniquePtr<T> cu_phi_;
+    CudaUniquePtr<CuComplexTrait_t<T>> cu_cmplx_workspace_;
 
     // Device settings
     dim3 block_size_;
     dim3 grid_size_;
 
     template <std::size_t... Is>
-    static std::array<std::vector<double>, Dim> MakeDenoms(
+    static std::array<std::vector<T>, Dim> MakeDenoms(
         const std::array<std::size_t, Dim> &ns, std::index_sequence<Is...>) {
-        return {std::vector<double>(ns[Is])...};
+        return {std::vector<T>(ns[Is])...};
     }
 
-    static double CalculateNormFactor(std::array<std::size_t, Dim> ns,
-                                      std::array<BCPair, Dim> bcs) {
-        double factor = 1.0;
+    static T CalculateNormFactor(std::array<std::size_t, Dim> ns,
+                                 std::array<BCPair, Dim> bcs) {
+        T factor = 1.0;
         for (std::size_t i = 0; i < Dim; ++i) {
-            auto strategy = GetAxisStrategy<double>(bcs[i]);
+            auto strategy = GetAxisStrategy<T>(bcs[i]);
             factor *= strategy->CalculateNormalizationFactor(ns[i]);
         }
         return factor;
@@ -195,8 +199,6 @@ private:
         }
     }
 
-    // TODO: Delete T parameter as soon as `Solver` is templated by a float type
-    template <std::floating_point T>
     static void CalculateEigenvalues(std::vector<T> &eigenvals,
                                      T len,
                                      std::size_t n,
