@@ -4,6 +4,7 @@
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/axis_strategies.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
+#include "poisson-solver/fft_policies.hpp"
 #include "poisson-solver/helpers.hpp"
 #include "poisson-solver/runners.hpp"
 
@@ -12,7 +13,6 @@
 #include <concepts>
 #include <cstddef>
 #include <cuda_runtime.h>
-#include <heffte.h>
 #include <iostream>
 #include <memory>
 #include <numbers>
@@ -24,7 +24,9 @@
 
 namespace poisson_solver {
 // TODO: Works only for all bcs == Periodic
-template <std::floating_point T, std::size_t Dim>
+template <std::floating_point T,
+          std::size_t Dim,
+          template <std::floating_point> typename FFTPolicy>
     requires(Dim <= 3 && Dim >= 1)
 class Solver {
 public:
@@ -72,20 +74,7 @@ public:
                             cudaMemcpyHostToDevice));
         }
 
-        int nx = ns_[0];
-        int ny = (Dim >= 2) ? ns_[1] : 1;
-        int nz = (Dim >= 3) ? ns_[2] : 1;
-        // TODO: Order is not used right now, but may improve performance in
-        // distributed environmnet i->slowest, j->middle, k->fastest growing
-        // indices std::array<int, 3> order = {2, 1, 0};
-
-        // Apparently `box3d`s first index is the fastest changing, second is
-        // middle and last is slowest changing.
-        // Also, the order apparently doesn't affect this and serves only as an
-        // optimization parameter for better data spliting for the MPI ranks.
-        heffte::box3d<> grid_box({0, 0, 0}, {nz - 1, ny - 1, nx - 1});
-        fft_plan_ = std::make_unique<heffte::fft3d<heffte::backend::cufft>>(
-            grid_box, grid_box, MPI_COMM_SELF);
+        FFTPolicy<T>::Init(fft_plan_, ns_);
     }
 
     void Execute(std::span<T> phi, std::span<const T> rhs) {
@@ -103,9 +92,7 @@ public:
                               grid_size_,
                               block_size_);
         CUCH(cudaGetLastError());
-        fft_plan_->forward(cu_cmplx_workspace_.get(),
-                           cu_cmplx_workspace_.get(),
-                           heffte::scale::none);
+        FFTPolicy<T>::Forward(cu_cmplx_workspace_.get(), fft_plan_);
 
         // TODO: Do this only once in the ctor
         std::array<const T *, Dim> cu_denom_ptrs;
@@ -118,9 +105,8 @@ public:
                                         grid_size_,
                                         block_size_);
         CUCH(cudaGetLastError());
-        fft_plan_->backward(cu_cmplx_workspace_.get(),
-                            cu_cmplx_workspace_.get(),
-                            heffte::scale::none);
+
+        FFTPolicy<T>::Backward(cu_cmplx_workspace_.get(), fft_plan_);
         RunNormalization(cu_phi_.get(),
                          cu_cmplx_workspace_.get(),
                          ns_,
@@ -150,7 +136,7 @@ private:
     T norm_factor_;
 
     // FFT
-    std::unique_ptr<heffte::fft3d<heffte::backend::cufft>> fft_plan_;
+    typename FFTPolicy<T>::Plan fft_plan_;
     CudaUniquePtr<T> cu_rhs_;
     CudaUniquePtr<T> cu_phi_;
     CudaUniquePtr<CuComplexTrait_t<T>> cu_cmplx_workspace_;

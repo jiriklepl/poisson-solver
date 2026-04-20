@@ -3,7 +3,7 @@
 set -ueo pipefail
 
 if [[ ! -f "build-release/Makefile" ]]; then
-    >&2 echo "Generate the 'Makefile' using 'cmake -DCMAKE_BUILD_TYPE=Release -B build-release/' before running this script."
+    >&2 echo "Generate the 'Makefile' using 'cmake -DCMAKE_BUILD_TYPE=Release -DUSE_MPI=No -B build-release/' before running this script."
     exit 1
 fi
 

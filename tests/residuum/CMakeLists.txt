@@ -23,6 +23,5 @@ target_include_directories(fortran-residuum-tests PRIVATE
 target_link_libraries(fortran-residuum-tests PRIVATE
     common_flags
     poisson-solver
-    MPI::MPI_Fortran
 )
 

@@ -2,6 +2,7 @@
 #include "initialization.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/c_binding.h"
+#include "poisson-solver/fft_policies.hpp"
 #include "poisson-solver/helpers.hpp"
 #include "poisson-solver/solver.hpp"
 #include "vendor/doctest.h"
@@ -11,7 +12,6 @@
 #include <cmath>
 #include <concepts>
 #include <functional>
-#include <mpi.h>
 #include <numbers>
 #include <numeric>
 #include <random>
@@ -153,7 +153,7 @@ void RunApis(std::span<T> phi,
              Approximation c_approx,
              std::function<T()> calc_residuum) {
     SUBCASE("API: C++") {
-        ps::Solver<T, Dim> solver(ns, lens, bcs, approx);
+        ps::Solver<T, Dim, ps::VkFFTPolicy> solver(ns, lens, bcs, approx);
         solver.Execute(phi, rhs);
 
         T residuum = calc_residuum();
@@ -212,20 +212,9 @@ void RunApis(std::span<T> phi,
     }
 }
 
-struct MPIEnvironment {
-    MPIEnvironment(int *argc, char ***argv) {
-        MPI_Init(argc, argv);
-    }
-
-    ~MPIEnvironment() {
-        MPI_Finalize();
-    }
-};
 }  // namespace
 
 int main(int argc, char *argv[]) {
-    MPIEnvironment mpi_env(&argc, &argv);
-
     doctest::Context context(argc, argv);
     int res = context.run();
 

@@ -18,9 +18,23 @@ endif()
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
 find_package(CUDAToolkit REQUIRED)
-# `COMPONENTS` finds only the CXX and Fortran APIs
-find_package(MPI REQUIRED COMPONENTS CXX Fortran)
-find_package(Heffte REQUIRED)
+
+option(USE_MPI "Build distributed version" OFF)
+if (USE_MPI)
+    # `COMPONENTS` finds only the CXX and Fortran APIs
+    find_package(MPI REQUIRED COMPONENTS CXX Fortran)
+    find_package(Heffte REQUIRED)
+else()
+    # Assumes that VkFFT is in `/usr/local/include`
+    add_library(VkFFT INTERFACE)
+    # Set CUDA (1) as backend
+    target_compile_definitions(VkFFT INTERFACE VKFFT_BACKEND=1)
+
+    # Tell VkFFT where CUDA Toolkit is
+    target_compile_definitions(VkFFT INTERFACE CUDA_TOOLKIT_ROOT_DIR="${CUDAToolkit_TARGET_DIR}")
+
+    target_link_libraries(VkFFT INTERFACE CUDA::cuda_driver CUDA::nvrtc)
+endif()
 
 # Define compiler flags.
 add_library(common_flags INTERFACE)

@@ -3,13 +3,19 @@
 ## Description
 TODO
 
+## Requirements
+`poisson-solver` requires a library for FFT computations.
+In the local version that is `VkFFT` and in the distributed version `heFFTe`.
+The distributed version also requires `MPI`.
+
 ## How to Build
 ### Generate Makefile
 First, generate the `Makefile`s by running
 ```bash
-cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=<Yes|No> -B build-release/
+cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=<Yes|No> -DUSE_MPI=<Yes|No> -B build-release/
 ```
 You can choose between shared and static libraries with `DBUILD_SHARED_LIBS`.
+You can choose between local and distributed build with `DUSE_MPI`.
 
 It is possible to also generate a debug build by changing `Release` to `Debug` in `-DCMAKE_BUILD_TYPE`.
 In that case, it may be a good idea to rename the target directory to `build-debug/`.

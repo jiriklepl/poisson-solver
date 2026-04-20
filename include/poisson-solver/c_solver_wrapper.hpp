@@ -18,7 +18,9 @@ public:
     virtual std::size_t GetTotalGridSize() = 0;
 };
 
-template <std::floating_point T, std::size_t Dim>
+template <std::floating_point T,
+          std::size_t Dim,
+          template <std::floating_point> typename FFTPolicy>
 class SolverWrapper : public ISolver<T> {
 public:
     SolverWrapper(std::array<std::size_t, Dim> ns,
@@ -36,7 +38,7 @@ public:
     }
 
 private:
-    Solver<T, Dim> solver_;
+    Solver<T, Dim, FFTPolicy> solver_;
 };
 }  // namespace poisson_solver
 

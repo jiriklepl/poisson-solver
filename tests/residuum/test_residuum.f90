@@ -445,7 +445,6 @@ program testpoisson
   use Residues
   use Tests
   use PoisSolver
-  use mpi
   
   implicit none
 
@@ -454,8 +453,6 @@ program testpoisson
   real(rp) :: x,y,z
   character(len = 12) :: arg
 
-  call MPI_Init(ierr)
-  
   if (command_argument_count()>=3) then
     call get_command_argument(1,value = arg)
     read(arg,'(i12)') nx
@@ -522,6 +519,4 @@ program testpoisson
   dy = leny / ny
   dz = lenz / nz
   call Test3D([(PoisSolver_Periodic, i = 1,6)])
-
-  call MPI_Finalize(ierr)
 end program testpoisson
