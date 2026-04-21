@@ -10,6 +10,9 @@ FetchContent_MakeAvailable(doctest)
 
 set(DOCTEST_INCLUDE_DIR ${doctest_SOURCE_DIR})
 
+# Include doctest_discover_tests(<target>) function
+include("${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake")
+
 # == C/C++ Residuum Tests ==
 set(CXX_TEST_SRC
     test_residuum.cpp
@@ -27,6 +30,9 @@ target_link_libraries(residuum-tests PRIVATE
     doctest::doctest
 )
 
+# Register residuum tests
+doctest_discover_tests(residuum-tests)
+
 # == Fortran Residuum Tests ==
 set(FORTRAN_TEST_SRC
     test_residuum.f90
@@ -41,5 +47,16 @@ target_include_directories(fortran-residuum-tests PRIVATE
 target_link_libraries(fortran-residuum-tests PRIVATE
     common_flags
     poisson-solver
+)
+
+# Register tests with ctest
+add_test(
+    NAME fortran-residuum-suite
+    COMMAND fortran-residuum-tests
+)
+
+# Tests fail when `FAIL` appears on output
+set_tests_properties(fortran-residuum-suite
+    PROPERTIES FAIL_REGULAR_EXPRESSION "FAIL"
 )
 
