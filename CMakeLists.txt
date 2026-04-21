@@ -7,6 +7,8 @@ project(PoissonSolver
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
+include(FetchContent)
+
 # Build for Voltas as well if possible
 if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "13.0")
     set(CMAKE_CUDA_ARCHITECTURES 80 90 100)
@@ -18,8 +20,6 @@ endif()
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
 find_package(CUDAToolkit REQUIRED)
-
-include(FetchContent)
 
 option(USE_MPI "Build distributed version" OFF)
 if (USE_MPI)

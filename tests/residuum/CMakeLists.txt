@@ -1,3 +1,15 @@
+# Fetch doctest
+include(FetchContent)
+set(DOCTEST_VERSION v2.5.2)
+FetchContent_Declare(
+    doctest
+    GIT_REPOSITORY https://github.com/doctest/doctest
+    GIT_TAG v2.5.2
+)
+FetchContent_MakeAvailable(doctest)
+
+set(DOCTEST_INCLUDE_DIR ${doctest_SOURCE_DIR})
+
 # == C/C++ Residuum Tests ==
 set(CXX_TEST_SRC
     test_residuum.cpp
@@ -6,8 +18,14 @@ set(CXX_TEST_SRC
 # By default, only the lib is built
 add_executable(residuum-tests EXCLUDE_FROM_ALL ${CXX_TEST_SRC})
 
-target_include_directories(residuum-tests PRIVATE ../include/)
-target_link_libraries(residuum-tests PRIVATE common_flags poisson-solver)
+target_include_directories(residuum-tests PRIVATE
+    ../include/
+)
+target_link_libraries(residuum-tests PRIVATE
+    common_flags
+    poisson-solver
+    doctest::doctest
+)
 
 # == Fortran Residuum Tests ==
 set(FORTRAN_TEST_SRC

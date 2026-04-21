@@ -5,7 +5,7 @@
 #include "poisson-solver/fft_policies.hpp"
 #include "poisson-solver/helpers.hpp"
 #include "poisson-solver/solver.hpp"
-#include "vendor/doctest.h"
+#include "doctest.h"
 
 #include <algorithm>
 #include <array>
