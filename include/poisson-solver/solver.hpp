@@ -72,6 +72,9 @@ public:
                             denoms_[i].data(),
                             ns_[i] * sizeof(T),
                             cudaMemcpyHostToDevice));
+
+            // Get non-owning C ptr from the smart ptr to pass to CUDA kernels
+            cu_denom_observers[i] = cu_denoms_[i].get();
         }
 
         FFTPolicy<T>::Init(fft_plan_, ns_);
@@ -94,14 +97,9 @@ public:
         CUCH(cudaGetLastError());
         FFTPolicy<T>::Forward(cu_cmplx_workspace_.get(), fft_plan_);
 
-        // TODO: Do this only once in the ctor
-        std::array<const T *, Dim> cu_denom_ptrs;
-        for (std::size_t i = 0; i < Dim; ++i) {
-            cu_denom_ptrs[i] = cu_denoms_[i].get();
-        }
         RunDivideCmplxWorkspaceByDenoms(cu_cmplx_workspace_.get(),
                                         ns_,
-                                        cu_denom_ptrs,
+                                        cu_denom_observers,
                                         grid_size_,
                                         block_size_);
         CUCH(cudaGetLastError());
@@ -133,6 +131,7 @@ private:
     // Physics and math
     std::array<std::vector<T>, Dim> denoms_;
     std::array<CudaUniquePtr<T>, Dim> cu_denoms_;
+    std::array<const T *, Dim> cu_denom_observers;
     T norm_factor_;
 
     // FFT
