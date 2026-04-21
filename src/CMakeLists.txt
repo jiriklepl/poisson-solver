@@ -28,7 +28,7 @@ target_link_libraries(poisson-solver PRIVATE common_flags)
 target_link_libraries(poisson-solver PUBLIC CUDA::cudart)
 if (USE_MPI)
     target_link_libraries(poisson-solver PUBLIC
-        Heffte::Heffte
+        Heffte
         MPI::MPI_CXX
     )
 

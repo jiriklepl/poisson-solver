@@ -19,20 +19,44 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
 find_package(CUDAToolkit REQUIRED)
 
+include(FetchContent)
+
 option(USE_MPI "Build distributed version" OFF)
 if (USE_MPI)
     # `COMPONENTS` finds only the CXX and Fortran APIs
     find_package(MPI REQUIRED COMPONENTS CXX Fortran)
-    find_package(Heffte REQUIRED)
+
+    FetchContent_Declare(
+        heffte
+        GIT_REPOSITORY https://github.com/icl-utk-edu/heffte
+        GIT_TAG v2.4.1
+    )
+
+    # This variable is then read by HeFFTe's CMake.
+    # `CACHE` vars persist between CMake runs.
+    # `FORCE` writes to the variable even if e.g. user specified otherwise
+    # with the `-D...` command line option.
+    set(Heffte_ENABLE_CUDA ON CACHE BOOL "Enable heFFTe CUDA backend" FORCE)
+    FetchContent_MakeAvailable(heffte)
 else()
-    # Assumes that VkFFT is in `/usr/local/include`
+    FetchContent_Populate(
+        vkfft
+        GIT_REPOSITORY https://github.com/DTolm/VkFFT
+        GIT_TAG v1.3.4
+        SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/vkfft-src
+        BINARY_DIR ${CMAKE_BINARY_DIR}/_deps/vkfft-build
+    )
+
     add_library(VkFFT INTERFACE)
+
     # Set CUDA (1) as backend
     target_compile_definitions(VkFFT INTERFACE VKFFT_BACKEND=1)
 
     # Tell VkFFT where CUDA Toolkit is
     target_compile_definitions(VkFFT INTERFACE CUDA_TOOLKIT_ROOT_DIR="${CUDAToolkit_TARGET_DIR}")
 
+    # Have to use `SYSTEM` to prevent `VkFFT` warnings cluttering compilation output
+    target_include_directories(VkFFT SYSTEM INTERFACE ${CMAKE_BINARY_DIR}/_deps/vkfft-src/vkFFT)
     target_link_libraries(VkFFT INTERFACE CUDA::cuda_driver CUDA::nvrtc)
 endif()
 
