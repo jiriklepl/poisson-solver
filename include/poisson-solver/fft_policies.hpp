@@ -26,9 +26,7 @@
 namespace poisson_solver {
 #ifdef USE_MPI
 
-struct HeFFTePlan {
-}
-
+// TODO: NOT TESTED!
 template <std::floating_point T>
 struct HeFFTePolicy {
     // This needs to be a ptr because `heffte::fft3d` doesn't have a default
