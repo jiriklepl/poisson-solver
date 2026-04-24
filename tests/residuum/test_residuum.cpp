@@ -1,11 +1,11 @@
 #define DOCTEST_CONFIG_IMPLEMENT
+#include "doctest.h"
 #include "initialization.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/c_binding.h"
 #include "poisson-solver/fft_policies.hpp"
 #include "poisson-solver/helpers.hpp"
 #include "poisson-solver/solver.hpp"
-#include "doctest.h"
 
 #include <algorithm>
 #include <array>
