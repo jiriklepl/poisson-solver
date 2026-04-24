@@ -18,6 +18,7 @@
 #include <memory>
 #include <numbers>
 #include <numeric>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <utility>
@@ -55,7 +56,7 @@ public:
 
         cu_rhs_ = make_cuda_unique<T>(cnt_);
         cu_phi_ = make_cuda_unique<T>(cnt_);
-        cu_cmplx_workspace_ = make_cuda_unique<CuComplexTrait_t<T>>(cnt_);
+        AllocateWorkspace();
         for (std::size_t i = 0; i < Dim; ++i) {
             cu_denoms_[i] = make_cuda_unique<T>(ns_[i]);
 
@@ -80,37 +81,7 @@ public:
             throw std::runtime_error("Incorrect size of phi or rhs.");
         }
 
-        CUCH(cudaMemcpy(cu_rhs_.get(),
-                        rhs.data(),
-                        cnt_ * sizeof(T),
-                        cudaMemcpyHostToDevice));
-        RunInitCmplxWorkspace(cu_cmplx_workspace_.get(),
-                              cu_rhs_.get(),
-                              ns_,
-                              grid_size_,
-                              block_size_);
-        CUCH(cudaGetLastError());
-        FFTPolicy<T>::Forward(cu_cmplx_workspace_.get(), fft_plan_);
-
-        RunDivideCmplxWorkspaceByDenoms(cu_cmplx_workspace_.get(),
-                                        ns_,
-                                        cu_denom_observers,
-                                        grid_size_,
-                                        block_size_);
-        CUCH(cudaGetLastError());
-
-        FFTPolicy<T>::Backward(cu_cmplx_workspace_.get(), fft_plan_);
-        RunNormalization(cu_phi_.get(),
-                         cu_cmplx_workspace_.get(),
-                         ns_,
-                         norm_factor_,
-                         grid_size_,
-                         block_size_);
-        CUCH(cudaGetLastError());
-        CUCH(cudaMemcpy(phi.data(),
-                        cu_phi_.get(),
-                        cnt_ * sizeof(T),
-                        cudaMemcpyDeviceToHost));
+        solve_(this, phi, rhs);
     }
 
     std::size_t GetTotalGridSize() const {
@@ -119,26 +90,30 @@ public:
 
 private:
     using SolveFunction =
-        std::function<void(Solver &, std::span<T>, std::span<T>)>;
-    // Grid
+        std::function<void(Solver *, std::span<T>, std::span<const T>)>;
+
+    // === Grid ===
     std::array<std::size_t, Dim> ns_;
     std::array<BCPair, Dim> bcs_;
     std::size_t cnt_;
 
-    // Physics and math
+    // === Physics and math ===
     std::array<std::vector<T>, Dim> denoms_;
     std::array<CudaUniquePtr<T>, Dim> cu_denoms_;
     std::array<const T *, Dim> cu_denom_observers;
     T norm_factor_;
     SolveFunction solve_;
 
-    // FFT
+    // === FFT ===
     typename FFTPolicy<T>::Plan fft_plan_;
     CudaUniquePtr<T> cu_rhs_;
     CudaUniquePtr<T> cu_phi_;
-    CudaUniquePtr<CuComplexTrait_t<T>> cu_cmplx_workspace_;
 
-    // Device settings
+    // Only one of those is used
+    std::optional<CudaUniquePtr<CuComplexTrait_t<T>>> cu_cmplx_workspace_;
+    std::optional<CudaUniquePtr<T>> cu_real_workspace_;
+
+    // === Device settings ===
     dim3 block_size_;
     dim3 grid_size_;
 
@@ -201,56 +176,94 @@ private:
         }
     }
 
-    void SolveFullPeriodic(std::span<T> phi, std::span<T> rhs) {
-        // TODO
+    void AllocateWorkspace() {
+        // TODO: Only allocate one of those depending on the BCs (or solve
+        // method? could be cleaner). For now both are allocated as idk when
+        // specifically each is needed.
+        cu_cmplx_workspace_ = make_cuda_unique<CuComplexTrait_t<T>>(cnt_);
+        cu_real_workspace_ = make_cuda_unique<T>(cnt_);
     }
 
-    void SolveFullDirichlet(std::span<T> phi, std::span<T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
+    void SolveFullPeriodic(std::span<T> phi, std::span<const T> rhs) {
+        CUCH(cudaMemcpy(cu_rhs_.get(),
+                        rhs.data(),
+                        cnt_ * sizeof(T),
+                        cudaMemcpyHostToDevice));
+        RunInitCmplxWorkspace(cu_cmplx_workspace_.value().get(),
+                              cu_rhs_.get(),
+                              ns_,
+                              grid_size_,
+                              block_size_);
+        CUCH(cudaGetLastError());
+        FFTPolicy<T>::Forward(cu_cmplx_workspace_.value().get(), fft_plan_);
+
+        RunDivideCmplxWorkspaceByDenoms(cu_cmplx_workspace_.value().get(),
+                                        ns_,
+                                        cu_denom_observers,
+                                        grid_size_,
+                                        block_size_);
+        CUCH(cudaGetLastError());
+
+        FFTPolicy<T>::Backward(cu_cmplx_workspace_.value().get(), fft_plan_);
+        RunNormalization(cu_phi_.get(),
+                         cu_cmplx_workspace_.value().get(),
+                         ns_,
+                         norm_factor_,
+                         grid_size_,
+                         block_size_);
+        CUCH(cudaGetLastError());
+        CUCH(cudaMemcpy(phi.data(),
+                        cu_phi_.get(),
+                        cnt_ * sizeof(T),
+                        cudaMemcpyDeviceToHost));
     }
 
-    void SolveFullNeumann(std::span<T> phi, std::span<T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
-    }
-
-    void SolvePPNs(std::span<T> phi, std::span<T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
-    }
-
-    void SolvePPD(std::span<T> phi, std::span<T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
-    }
-
-    void SolveNsPP(std::span<T> phi, std::span<T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
-    }
-
-    void SolvePNsNs(std::span<T> phi, std::span<T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
-    }
-
-    void SolvePNsP(std::span<T> phi, std::span<T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
-    }
-
-    void SolveDDP(std::span<T> phi, std::span<T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
-    }
-
-    void Solve2Real1Real(std::span<T> phi, std::span<T> rhs) {
+    void SolveFullDirichlet(std::span<T> phi, std::span<const T> rhs) {
         // TODO
         throw std::runtime_error("Not implemented.");
     }
 
-    void Solve1Real2Real(std::span<T> phi, std::span<T> rhs) {
+    void SolveFullNeumann(std::span<T> phi, std::span<const T> rhs) {
+        // TODO
+        throw std::runtime_error("Not implemented.");
+    }
+
+    void SolvePPNs(std::span<T> phi, std::span<const T> rhs) {
+        // TODO
+        throw std::runtime_error("Not implemented.");
+    }
+
+    void SolvePPD(std::span<T> phi, std::span<const T> rhs) {
+        // TODO
+        throw std::runtime_error("Not implemented.");
+    }
+
+    void SolveNsPP(std::span<T> phi, std::span<const T> rhs) {
+        // TODO
+        throw std::runtime_error("Not implemented.");
+    }
+
+    void SolvePNsNs(std::span<T> phi, std::span<const T> rhs) {
+        // TODO
+        throw std::runtime_error("Not implemented.");
+    }
+
+    void SolvePNsP(std::span<T> phi, std::span<const T> rhs) {
+        // TODO
+        throw std::runtime_error("Not implemented.");
+    }
+
+    void SolveDDP(std::span<T> phi, std::span<const T> rhs) {
+        // TODO
+        throw std::runtime_error("Not implemented.");
+    }
+
+    void Solve2Real1Real(std::span<T> phi, std::span<const T> rhs) {
+        // TODO
+        throw std::runtime_error("Not implemented.");
+    }
+
+    void Solve1Real2Real(std::span<T> phi, std::span<const T> rhs) {
         // TODO
         throw std::runtime_error("Not implemented.");
     }
