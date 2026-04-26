@@ -1,6 +1,7 @@
 #ifndef FFT_POLICIES_HPP
 #define FFT_POLICIES_HPP
 
+#include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/helpers.hpp"
 
 #include <array>
@@ -15,6 +16,7 @@
 #else
 #include "poisson-solver/cuch.hpp"
 
+#include <algorithm>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <stdexcept>
@@ -24,17 +26,26 @@
 #endif  // USE_MPI
 
 namespace poisson_solver {
+// Restricts workspace to be a real or complex workspace
+template <typename Workspace, typename T>
+concept ValidWorkspace =
+    std::floating_point<T> && (std::is_same_v<Workspace, T> ||
+                               std::is_same_v<Workspace, CuComplexTrait_t<T>>);
+
 #ifdef USE_MPI
 
 // TODO: NOT TESTED!
-template <std::floating_point T>
+template <std::floating_point T, std::size_t Dim>
 struct HeFFTePolicy {
     // This needs to be a ptr because `heffte::fft3d` doesn't have a default
     // ctor and we defer initialization to a solver ctor body
     using Plan = std::unique_ptr<heffte::fft3d<heffte::backend::cufft>>;
 
-    template <std::size_t Dim>
-    static void Init(Plan &plan, std::array<std::size_t, Dim> ns) {
+    static void Init(Plan &plan,
+                     std::array<std::size_t, Dim> ns,
+                     // TODO: Currently unused but will be needed to determine
+                     // the FFT plan type.
+                     std::array<BCPair, Dim> bcs) {
         int nx = ns[0];
         int ny = (Dim >= 2) ? ns[1] : 1;
         int nz = (Dim >= 3) ? ns[2] : 1;
@@ -52,11 +63,13 @@ struct HeFFTePolicy {
             grid_box, grid_box, MPI_COMM_SELF);
     }
 
-    static void Forward(CuComplexTrait_t<T> *dev_buffer, Plan &plan) {
+    template <ValidWorkspace<T> Workspace>
+    static void Forward(Workspace *dev_buffer, Plan &plan) {
         plan->forward(dev_buffer, dev_buffer, heffte::scale::none);
     }
 
-    static void Backward(CuComplexTrait_t<T> *dev_buffer, Plan &plan) {
+    template <ValidWorkspace<T> Workspace>
+    static void Backward(Workspace *dev_buffer, Plan &plan) {
         plan->backward(dev_buffer, dev_buffer, heffte::scale::none);
     }
 };
@@ -80,14 +93,15 @@ struct VkFFTPlan {
     std::unique_ptr<VkFFTApplication, VkFFTApplicationDeleter> app;
 };
 
-template <std::floating_point T>
+template <std::floating_point T, std::size_t Dim>
 struct VkFFTPolicy {
     using Plan = VkFFTPlan;
     static constexpr int ForwardDirection = -1;
     static constexpr int BackwardDirection = 1;
 
-    template <std::size_t Dim>
-    static void Init(Plan &plan, std::array<std::size_t, Dim> ns) {
+    static void Init(Plan &plan,
+                     std::array<std::size_t, Dim> ns,
+                     std::array<BCPair, Dim> bcs) {
         // Set dim and axes sizes
         plan.config.FFTdim = Dim;
         for (std::size_t d = 0; d < Dim; ++d) {
@@ -99,12 +113,13 @@ struct VkFFTPolicy {
         // 0 for float, 1 for doubles.
         plan.config.doublePrecision = !std::is_same_v<T, float>;
 
+        GetCudaDevice(&plan.cu_device);
+        plan.config.device = &plan.cu_device;
+        SetFFTType(plan, bcs);
+
         // Need to use `reset` because `make_unique` doesn't work with custom
         // deleters.
         plan.app.reset(new VkFFTApplication{});
-
-        GetCudaDevice(&plan.cu_device);
-        plan.config.device = &plan.cu_device;
 
         VkFFTResult res = initializeVkFFT(plan.app.get(), plan.config);
         if (res != VKFFT_SUCCESS)
@@ -113,7 +128,8 @@ struct VkFFTPolicy {
                 std::to_string(res) + ".");
     }
 
-    static void Forward(CuComplexTrait_t<T> *dev_buffer, Plan &plan) {
+    template <ValidWorkspace<T> Workspace>
+    static void Forward(Workspace *dev_buffer, Plan &plan) {
         VkFFTLaunchParams launch_params{};
         launch_params.buffer = (void **)&dev_buffer;
 
@@ -124,7 +140,8 @@ struct VkFFTPolicy {
                                      std::to_string(res) + ".");
     }
 
-    static void Backward(CuComplexTrait_t<T> *dev_buffer, Plan &plan) {
+    template <ValidWorkspace<T> Workspace>
+    static void Backward(Workspace *dev_buffer, Plan &plan) {
         VkFFTLaunchParams launch_params{};
         launch_params.buffer = (void **)&dev_buffer;
 
@@ -144,6 +161,79 @@ private:
         int ordinal;
         CUCH(cudaGetDevice(&ordinal));
         cuDeviceGet(device, ordinal);
+    }
+
+    // Sets the FFT type for `bcs` that are not all equal.
+    static void SetFFTType1D(Plan &plan, std::array<BCPair, 1> bcs) {
+        using BC = BoundaryCondition;
+        constexpr BC D = BC::kDirichlet;
+        constexpr BC N = BC::kNeumann;
+        constexpr BC DS = BC::kDirichletStag;
+        constexpr BC NS = BC::kNeumannStag;
+
+        BCPair bcp = bcs[0];
+        if (bcp.first == NS && bcp.second == DS) {
+            // RE11
+            plan.config.performDCT = 4;
+        } else if (bcp.first == DS && bcp.second == NS) {
+            // RO11
+            plan.config.performDST = 4;
+        } else if (bcp.first == N && bcp.second == D) {
+            // RE01
+            plan.config.performDCT = 3;
+        } else if (bcp.first == D && bcp.second == N) {
+            // RO01
+            plan.config.performDST = 3;
+        } else {
+            throw std::invalid_argument("Invalid combination of 1D BCs.");
+        }
+    }
+
+    // Sets the FFT type for `bcs` that are not all equal.
+    static void SetFFTType3D(Plan &plan, std::array<BCPair, 3> bcs) {
+        // TODO: Finish implementation of all possible types
+        throw std::runtime_error("Not implemented.");
+    }
+
+    // Sets the FFT type if all the `bcs` are equal as this behaviour is
+    // shared in all dimensions. Returns whether all `bcs` are equal. If not,
+    // further processing and FFT type setting should be done.
+    static bool TrySetFullBCsFFTType(Plan &plan, std::array<BCPair, Dim> bcs) {
+        using namespace std::ranges;
+
+        if (all_of(bcs, IsPeriodic)) {
+            plan.config.performDCT = 0;
+            plan.config.performDST = 0;
+        } else if (all_of(bcs, IsDirichlet)) {
+            // RO00
+            plan.config.performDST = 1;
+        } else if (all_of(bcs, IsDirichletStag)) {
+            // RO10
+            plan.config.performDST = 2;
+        } else if (all_of(bcs, IsNeumann)) {
+            // RE00
+            plan.config.performDCT = 1;
+        } else if (all_of(bcs, IsNeumannStag)) {
+            // RE10
+            plan.config.performDCT = 2;
+        } else {
+            return false;
+        }
+        return true;
+    }
+
+    // Sets the FFT type of the plan.
+    static void SetFFTType(Plan &plan, std::array<BCPair, Dim> bcs) {
+        if (TrySetFullBCsFFTType(plan, bcs))
+            return;
+
+        if constexpr (Dim == 1) {
+            SetFFTType1D(plan, bcs);
+        } else if constexpr (Dim == 2) {
+            throw std::invalid_argument("Invalid combination of 2D BCs.");
+        } else if constexpr (Dim == 3) {
+            SetFFTType3D(plan, bcs);
+        }
     }
 };
 

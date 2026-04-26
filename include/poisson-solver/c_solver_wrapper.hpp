@@ -20,7 +20,7 @@ public:
 
 template <std::floating_point T,
           std::size_t Dim,
-          template <std::floating_point> typename FFTPolicy>
+          template <std::floating_point, std::size_t> typename FFTPolicy>
 class SolverWrapper : public ISolver<T> {
 public:
     SolverWrapper(std::array<std::size_t, Dim> ns,

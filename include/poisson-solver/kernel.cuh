@@ -118,6 +118,21 @@ __global__ void DivideCmplxWorkspaceByDenoms(
 }
 
 template <std::floating_point T, std::size_t Dim>
+__global__ void DivideRealWorkspaceByDenoms(T *real_workspace,
+                                            std::array<std::size_t, Dim> ns,
+                                            std::array<const T *, Dim> denoms) {
+    ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
+        const std::size_t idx = FlatIndex(idxs, ns);
+
+        T denom = 0;
+        for (std::size_t i = 0; i < Dim; ++i) {
+            denom += denoms[i][idxs[i]];
+        }
+        real_workspace[idx] /= denom;
+    });
+}
+
+template <std::floating_point T, std::size_t Dim>
 __global__ void NormalizeCmplxWorkspaceToPhi(
     T *phi,
     const CuComplexTrait_t<T> *cmplx_workspace,
@@ -126,6 +141,17 @@ __global__ void NormalizeCmplxWorkspaceToPhi(
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
         phi[idx] = cmplx_workspace[idx].x / norm_factor;
+    });
+}
+
+template <std::floating_point T, std::size_t Dim>
+__global__ void NormalizeRealWorkspaceToPhi(T *phi,
+                                            const T *real_workspace,
+                                            std::array<std::size_t, Dim> ns,
+                                            T norm_factor) {
+    ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
+        const std::size_t idx = FlatIndex(idxs, ns);
+        phi[idx] = real_workspace[idx] / norm_factor;
     });
 }
 }  // namespace poisson_solver

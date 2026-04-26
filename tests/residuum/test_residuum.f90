@@ -511,12 +511,24 @@ program testpoisson
   dx = lenx / nx
   call Test1D([(PoisSolver_Periodic, i = 1,2)])
 
+  dx = lenx / (nx + 1)
+  call Test1D([(PoisSolver_Dirichlet, i = 1,2)])
+
   dx = lenx / nx
   dy = leny / ny
   call Test2D([(PoisSolver_Periodic, i = 1,4)])
+
+  dx = lenx / (nx + 1)
+  dy = leny / (ny + 1)
+  call Test2D([(PoisSolver_Dirichlet, i = 1,4)])
 
   dx = lenx / nx
   dy = leny / ny
   dz = lenz / nz
   call Test3D([(PoisSolver_Periodic, i = 1,6)])
+
+  dx = lenx / (nx + 1)
+  dy = leny / (ny + 1)
+  dz = lenz / (nz + 1)
+  call Test3D([(PoisSolver_Dirichlet, i = 1,6)])
 end program testpoisson

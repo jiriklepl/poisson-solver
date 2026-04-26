@@ -28,7 +28,7 @@ namespace poisson_solver {
 // TODO: Works only for all bcs == Periodic
 template <std::floating_point T,
           std::size_t Dim,
-          template <std::floating_point> typename FFTPolicy>
+          template <std::floating_point, std::size_t> typename FFTPolicy>
     requires(Dim <= 3 && Dim >= 1)
 class Solver {
 public:
@@ -54,9 +54,8 @@ public:
             CalculateEigenvalues(denoms_[2], lens[2], ns_[2], bcs_[2], approx);
         }
 
-        cu_rhs_ = make_cuda_unique<T>(cnt_);
         cu_phi_ = make_cuda_unique<T>(cnt_);
-        AllocateWorkspace();
+        AllocateCudaWorkspaceAndRhs();
         for (std::size_t i = 0; i < Dim; ++i) {
             cu_denoms_[i] = make_cuda_unique<T>(ns_[i]);
 
@@ -68,12 +67,12 @@ public:
                             cudaMemcpyHostToDevice));
 
             // Get non-owning C ptr from the smart ptr to pass to CUDA kernels
-            cu_denom_observers[i] = cu_denoms_[i].get();
+            cu_denom_observers_[i] = cu_denoms_[i].get();
         }
 
         solve_ = GetSolveMethod(bcs);
 
-        FFTPolicy<T>::Init(fft_plan_, ns_);
+        FFTPolicy<T, Dim>::Init(fft_plan_, ns_, bcs);
     }
 
     void Execute(std::span<T> phi, std::span<const T> rhs) {
@@ -82,6 +81,10 @@ public:
         }
 
         solve_(this, phi, rhs);
+        CUCH(cudaMemcpy(phi.data(),
+                        cu_phi_.get(),
+                        cnt_ * sizeof(T),
+                        cudaMemcpyDeviceToHost));
     }
 
     std::size_t GetTotalGridSize() const {
@@ -100,13 +103,14 @@ private:
     // === Physics and math ===
     std::array<std::vector<T>, Dim> denoms_;
     std::array<CudaUniquePtr<T>, Dim> cu_denoms_;
-    std::array<const T *, Dim> cu_denom_observers;
+    std::array<const T *, Dim> cu_denom_observers_;
     T norm_factor_;
     SolveFunction solve_;
 
     // === FFT ===
-    typename FFTPolicy<T>::Plan fft_plan_;
-    CudaUniquePtr<T> cu_rhs_;
+    typename FFTPolicy<T, Dim>::Plan fft_plan_;
+    // RHS needed only in case we initialize complex workspace from it.
+    std::optional<CudaUniquePtr<T>> cu_rhs_;
     CudaUniquePtr<T> cu_phi_;
 
     // Only one of those is used
@@ -176,35 +180,40 @@ private:
         }
     }
 
-    void AllocateWorkspace() {
+    void AllocateCudaWorkspaceAndRhs() {
         // TODO: Only allocate one of those depending on the BCs (or solve
         // method? could be cleaner). For now both are allocated as idk when
         // specifically each is needed.
         cu_cmplx_workspace_ = make_cuda_unique<CuComplexTrait_t<T>>(cnt_);
         cu_real_workspace_ = make_cuda_unique<T>(cnt_);
+        // TODO: rhs is needed only in case that complex workspace is needed.
+        cu_rhs_ = make_cuda_unique<T>(cnt_);
     }
 
     void SolveFullPeriodic(std::span<T> phi, std::span<const T> rhs) {
-        CUCH(cudaMemcpy(cu_rhs_.get(),
+        CUCH(cudaMemcpy(cu_rhs_.value().get(),
                         rhs.data(),
                         cnt_ * sizeof(T),
                         cudaMemcpyHostToDevice));
+
         RunInitCmplxWorkspace(cu_cmplx_workspace_.value().get(),
-                              cu_rhs_.get(),
+                              cu_rhs_.value().get(),
                               ns_,
                               grid_size_,
                               block_size_);
         CUCH(cudaGetLastError());
-        FFTPolicy<T>::Forward(cu_cmplx_workspace_.value().get(), fft_plan_);
+        FFTPolicy<T, Dim>::Forward(cu_cmplx_workspace_.value().get(),
+                                   fft_plan_);
 
         RunDivideCmplxWorkspaceByDenoms(cu_cmplx_workspace_.value().get(),
                                         ns_,
-                                        cu_denom_observers,
+                                        cu_denom_observers_,
                                         grid_size_,
                                         block_size_);
         CUCH(cudaGetLastError());
 
-        FFTPolicy<T>::Backward(cu_cmplx_workspace_.value().get(), fft_plan_);
+        FFTPolicy<T, Dim>::Backward(cu_cmplx_workspace_.value().get(),
+                                    fft_plan_);
         RunNormalization(cu_phi_.get(),
                          cu_cmplx_workspace_.value().get(),
                          ns_,
@@ -212,15 +221,32 @@ private:
                          grid_size_,
                          block_size_);
         CUCH(cudaGetLastError());
-        CUCH(cudaMemcpy(phi.data(),
-                        cu_phi_.get(),
-                        cnt_ * sizeof(T),
-                        cudaMemcpyDeviceToHost));
     }
 
     void SolveFullDirichlet(std::span<T> phi, std::span<const T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
+        CUCH(cudaMemcpy(cu_real_workspace_.value().get(),
+                        rhs.data(),
+                        cnt_ * sizeof(T),
+                        cudaMemcpyHostToDevice));
+
+        FFTPolicy<T, Dim>::Forward(cu_real_workspace_.value().get(), fft_plan_);
+
+        RunDivideRealWorkspaceByDenoms(cu_real_workspace_.value().get(),
+                                       ns_,
+                                       cu_denom_observers_,
+                                       grid_size_,
+                                       block_size_);
+        CUCH(cudaGetLastError());
+
+        FFTPolicy<T, Dim>::Backward(cu_real_workspace_.value().get(),
+                                    fft_plan_);
+        RunNormalization(cu_phi_.get(),
+                         cu_real_workspace_.value().get(),
+                         ns_,
+                         norm_factor_,
+                         grid_size_,
+                         block_size_);
+        CUCH(cudaGetLastError());
     }
 
     void SolveFullNeumann(std::span<T> phi, std::span<const T> rhs) {
@@ -345,7 +371,7 @@ private:
             return GetSolveMethod1D(bcs);
         } else if constexpr (Dim == 2) {
             return GetSolveMethod2D(bcs);
-        } else {
+        } else if constexpr (Dim == 3) {
             return GetSolveMethod3D(bcs);
         }
     }

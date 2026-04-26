@@ -16,6 +16,7 @@
 #include <numeric>
 #include <random>
 #include <stdexcept>
+#include <utility>
 
 namespace ps = poisson_solver;
 using BC = ps::BoundaryCondition;
@@ -34,76 +35,138 @@ struct ResiduumResult {
     T max_residuum;
 };
 
-// Coeffs order: [west, east, south, north, bottom, top]
 template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
-T GetMaxResiduumFullPeriodic(std::span<T> phi,
-                             std::span<T> rhs,
-                             std::array<std::size_t, Dim> ns,
-                             std::array<T, 2 * Dim> coeffs) {
-    if (rhs.size() != phi.size()) {
-        throw std::runtime_error("Incorrect size of phi or rhs.");
+class MaxResiduumCalculator {
+public:
+    MaxResiduumCalculator(std::array<std::size_t, Dim> ns)
+        : ns_(ns) {}
+
+    T operator()(std::span<T> phi,
+                 std::span<T> rhs,
+                 std::array<ps::BCPair, Dim> bcs,
+                 std::array<T, 2 * Dim> coeffs) {
+        if (rhs.size() != phi.size()) {
+            throw std::runtime_error("Incorrect size of phi or rhs.");
+        }
+
+        const std::size_t size = rhs.size();
+        T max_residuum = 0.0;
+
+        for (std::size_t i = 0; i < size; ++i) {
+            T neighbor_sum = 0.0;
+            T coeff_center = 0.0;
+            auto midx = FlatToMultidimIdx(i);
+
+            for (std::size_t d = 0; d < Dim; ++d) {
+                const T coeff_left = coeffs[2 * d];
+                const T coeff_right = coeffs[2 * d + 1];
+
+                if (midx[d] > 0) {
+                    auto left_idx = midx;
+                    left_idx[d] -= 1;
+                    neighbor_sum +=
+                        phi[MultidimToFlatIdx(left_idx)] * coeff_left;
+                    coeff_center += coeff_left;
+                } else {
+                    ApplyBorderBC(phi,
+                                  midx,
+                                  d,
+                                  Side::kLeft,
+                                  bcs[d].first,
+                                  coeff_left,
+                                  neighbor_sum,
+                                  coeff_center);
+                }
+
+                if (midx[d] < ns_[d] - 1) {
+                    auto right_idx = midx;
+                    right_idx[d] += 1;
+                    neighbor_sum +=
+                        phi[MultidimToFlatIdx(right_idx)] * coeff_right;
+                    coeff_center += coeff_right;
+                } else {
+                    ApplyBorderBC(phi,
+                                  midx,
+                                  d,
+                                  Side::kRight,
+                                  bcs[d].second,
+                                  coeff_right,
+                                  neighbor_sum,
+                                  coeff_center);
+                }
+            }
+
+            neighbor_sum -= rhs[i];
+            const T local_residuum =
+                std::abs(coeff_center * phi[i] - neighbor_sum);
+            max_residuum = std::max(max_residuum, local_residuum);
+        }
+        return max_residuum;
     }
-    const std::size_t size = rhs.size();
 
-    auto multidim_to_flat_idx = [=](std::array<std::size_t, Dim> idxs) {
-        return ps::FlatIndex<Dim>(idxs, ns);
-    };
+private:
+    enum class Side { kLeft, kRight };
 
-    // Calculates multidimensional idx from a flat one
-    auto flat_to_multidim_idx = [=](std::size_t idx) {
-        std::array<std::size_t, Dim> multidim_idx;
+    using MultidimIdx = std::array<std::size_t, Dim>;
+
+    std::array<std::size_t, Dim> ns_;
+
+    void ApplyBorderBC(std::span<T> phi,
+                       MultidimIdx midx,
+                       std::size_t dim,
+                       Side side,
+                       BC bc,
+                       T coeff,
+                       T &neighbor_sum,
+                       T &coeff_center) {
+        switch (bc) {
+            case P: {
+                auto wrap_idx = midx;
+                wrap_idx[dim] = (side == Side::kLeft) ? (ns_[dim] - 1) : 0;
+                neighbor_sum += phi[MultidimToFlatIdx(wrap_idx)] * coeff;
+                coeff_center += coeff;
+                break;
+            }
+            case D: {
+                coeff_center += coeff;
+                break;
+            }
+            case N: {
+                auto inner_idx = midx;
+                inner_idx[dim] = (side == Side::kLeft) ? 1 : (ns_[dim] - 2);
+                neighbor_sum += phi[MultidimToFlatIdx(inner_idx)] * coeff;
+                coeff_center += coeff;
+                break;
+            }
+            case DS: {
+                neighbor_sum -= phi[MultidimToFlatIdx(midx)] * coeff;
+                coeff_center += coeff;
+                break;
+            }
+            case NS: {
+                // nop
+                break;
+            }
+            default: {
+                throw std::invalid_argument("Unknown boundary condition.");
+            }
+        }
+    }
+
+    std::size_t MultidimToFlatIdx(MultidimIdx idx) const {
+        return ps::FlatIndex<Dim>(idx, ns_);
+    }
+
+    MultidimIdx FlatToMultidimIdx(std::size_t idx) const {
+        MultidimIdx midx{};
         for (std::size_t i = Dim; i > 0; --i) {
-            multidim_idx[i - 1] = idx % ns[i - 1];
-            idx /= ns[i - 1];
+            midx[i - 1] = idx % ns_[i - 1];
+            idx /= ns_[i - 1];
         }
-        return multidim_idx;
+        return midx;
     };
-
-    // Gets the multidim_idxs of neighbors on each axis.
-    // Adjusts for wrapping around.
-    auto get_neighbor_idxs = [=](std::array<std::size_t, Dim> multidim_idx) {
-        // Pairs of mutlidim idxs for each axis
-        std::array<std::array<std::array<std::size_t, Dim>, 2>, Dim>
-            neighbor_idxs{};
-        for (std::size_t i = 0; i < Dim; ++i) {
-            auto left_neighbor_idx = multidim_idx;
-            left_neighbor_idx[i] =
-                (multidim_idx[i] == 0) ? (ns[i] - 1) : (multidim_idx[i] - 1);
-
-            auto right_neighbor_idx = multidim_idx;
-            right_neighbor_idx[i] =
-                (multidim_idx[i] == ns[i] - 1) ? 0 : (multidim_idx[i] + 1);
-
-            neighbor_idxs[i] =
-                std::array{left_neighbor_idx, right_neighbor_idx};
-        }
-        return neighbor_idxs;
-    };
-
-    T max_residuum = 0.0;
-    const T coeff_center = std::accumulate(coeffs.begin(), coeffs.end(), 0.0);
-
-    for (std::size_t i = 0; i < size; ++i) {
-        T neighbor_sum = 0.0;
-        auto multidim_idx = flat_to_multidim_idx(i);
-        auto neighbor_idxs = get_neighbor_idxs(multidim_idx);
-
-        for (std::size_t d = 0; d < Dim; ++d) {
-            const auto &[left_neigh_idx, right_neigh_idx] = neighbor_idxs[d];
-            std::size_t flat_left_idx = multidim_to_flat_idx(left_neigh_idx);
-            std::size_t flat_right_idx = multidim_to_flat_idx(right_neigh_idx);
-            neighbor_sum += phi[flat_left_idx] * coeffs[2 * d];
-            neighbor_sum += phi[flat_right_idx] * coeffs[2 * d + 1];
-        }
-
-        neighbor_sum -= rhs[i];
-        const T local_residuum = std::abs(coeff_center * phi[i] - neighbor_sum);
-        max_residuum = std::max(max_residuum, local_residuum);
-    }
-
-    return max_residuum;
-}
+};
 
 template <std::floating_point T, std::size_t Dim>
 ResiduumResult<T> ResiduumBelowThreshold(T residuum,
@@ -230,26 +293,47 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
     constexpr T lenx = 2 * std::numbers::pi_v<T>;
     constexpr T leny = lenx * 1.1, lenz = lenx / 1.1;
 
-    constexpr T dx = lenx / nx, dy = leny / ny, dz = lenz / nz;
-    constexpr T inv_dx_squared = 1.0 / (dx * dx);
-    constexpr T inv_dy_squared = 1.0 / (dy * dy);
-    constexpr T inv_dz_squared = 1.0 / (dz * dz);
-
     SUBCASE("1D") {
         std::array<T, nx> phi{};
         std::array<T, nx> rhs{};
         Initialize<T>(phi, rhs, seed);
         std::array<std::size_t, 1> ns{nx};
+        MaxResiduumCalculator<T, 1> mrc(ns);
 
         SUBCASE("Boundary: Periodic | Periodic") {
+            constexpr T dx = lenx / nx;
+            constexpr T inv_dx_squared = 1.0 / (dx * dx);
             std::array<ps::BCPair, 1> bcs = {{{P, P}}};
 
             // TODO: Test for Spectral approx
 
             SUBCASE("Approximation: FD2") {
                 auto calc = [&]() {
-                    return GetMaxResiduumFullPeriodic<T, 1>(
-                        phi, rhs, ns, {inv_dx_squared, inv_dx_squared});
+                    return mrc(phi, rhs, bcs, {inv_dx_squared, inv_dx_squared});
+                };
+                RunApis<T, 1>(phi,
+                              rhs,
+                              ns,
+                              {lenx},
+                              bcs,
+                              ps::FiniteDifference2Approximation<T>{},
+                              kFD2,
+                              calc);
+            }
+
+            // TODO: Test for FD4
+        }
+
+        SUBCASE("Boundary: Dirichlet | Dirichlet") {
+            constexpr T dx = lenx / (nx + 1);
+            constexpr T inv_dx_squared = 1.0 / (dx * dx);
+            std::array<ps::BCPair, 1> bcs = {{{D, D}}};
+
+            // TODO: Test for Spectral approx
+
+            SUBCASE("Approximation: FD2") {
+                auto calc = [&]() {
+                    return mrc(phi, rhs, bcs, {inv_dx_squared, inv_dx_squared});
                 };
                 RunApis<T, 1>(phi,
                               rhs,
@@ -272,21 +356,25 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
         std::array<T, nx * ny> rhs{};
         Initialize<T>(phi, rhs, seed);
         std::array<std::size_t, 2> ns{nx, ny};
+        MaxResiduumCalculator<T, 2> mrc(ns);
 
         SUBCASE("Boundary: Periodic | Periodic | Periodic | Periodic") {
+            constexpr T dx = lenx / nx, dy = leny / ny;
+            constexpr T inv_dx_squared = 1.0 / (dx * dx);
+            constexpr T inv_dy_squared = 1.0 / (dy * dy);
             std::array<ps::BCPair, 2> bcs = {{{P, P}, {P, P}}};
 
             // TODO: Test for Spectral approx
 
             SUBCASE("Approximation: FD2") {
                 auto calc = [&]() {
-                    return GetMaxResiduumFullPeriodic<T, 2>(phi,
-                                                            rhs,
-                                                            ns,
-                                                            {inv_dx_squared,
-                                                             inv_dx_squared,
-                                                             inv_dy_squared,
-                                                             inv_dy_squared});
+                    return mrc(phi,
+                               rhs,
+                               bcs,
+                               {inv_dx_squared,
+                                inv_dx_squared,
+                                inv_dy_squared,
+                                inv_dy_squared});
                 };
                 RunApis<T, 2>(phi,
                               rhs,
@@ -300,6 +388,37 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
             // TODO: Test for FD4
         }
 
+        SUBCASE("Boundary: Dirichlet | Dirichlet | Dirichlet | Dirichlet") {
+            constexpr T dx = lenx / (nx + 1), dy = leny / (ny + 1);
+            constexpr T inv_dx_squared = 1.0 / (dx * dx);
+            constexpr T inv_dy_squared = 1.0 / (dy * dy);
+            std::array<ps::BCPair, 2> bcs = {{{D, D}, {D, D}}};
+
+            // TODO: Test for Spectral approx
+
+            SUBCASE("Approximation: FD2") {
+                auto calc = [&]() {
+                    return mrc(phi,
+                               rhs,
+                               bcs,
+                               {inv_dx_squared,
+                                inv_dx_squared,
+                                inv_dy_squared,
+                                inv_dy_squared});
+                };
+                RunApis<T, 2>(phi,
+                              rhs,
+                              ns,
+                              {lenx, leny},
+                              bcs,
+                              ps::FiniteDifference2Approximation<T>{},
+                              kFD2,
+                              calc);
+            }
+
+            // TODO: Test for FD4
+        }
+
         // TODO: Test for other BCs
     }
 
@@ -308,25 +427,67 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
         std::array<T, nx * ny * nz> rhs{};
         Initialize<T>(phi, rhs, seed);
         std::array<std::size_t, 3> ns{nx, ny, nz};
+        MaxResiduumCalculator<T, 3> mrc(ns);
 
         SUBCASE(
             "Boundary: Periodic | Periodic | Periodic | Periodic | Periodic | "
             "Periodic") {
+            constexpr T dx = lenx / nx, dy = leny / ny, dz = lenz / nz;
+            constexpr T inv_dx_squared = 1.0 / (dx * dx);
+            constexpr T inv_dy_squared = 1.0 / (dy * dy);
+            constexpr T inv_dz_squared = 1.0 / (dz * dz);
             std::array<ps::BCPair, 3> bcs = {{{P, P}, {P, P}, {P, P}}};
 
             // TODO: Test for Spectral approx
 
             SUBCASE("Approximation: FD2") {
                 auto calc = [&]() {
-                    return GetMaxResiduumFullPeriodic<T, 3>(phi,
-                                                            rhs,
-                                                            ns,
-                                                            {inv_dx_squared,
-                                                             inv_dx_squared,
-                                                             inv_dy_squared,
-                                                             inv_dy_squared,
-                                                             inv_dz_squared,
-                                                             inv_dz_squared});
+                    return mrc(phi,
+                               rhs,
+                               bcs,
+                               {inv_dx_squared,
+                                inv_dx_squared,
+                                inv_dy_squared,
+                                inv_dy_squared,
+                                inv_dz_squared,
+                                inv_dz_squared});
+                };
+                RunApis<T, 3>(phi,
+                              rhs,
+                              ns,
+                              {lenx, leny, lenz},
+                              bcs,
+                              ps::FiniteDifference2Approximation<T>{},
+                              kFD2,
+                              calc);
+            }
+
+            // TODO: Test for FD4
+        }
+
+        SUBCASE(
+            "Boundary: Dirichlet | Dirichlet | Dirichlet | Dirichlet | "
+            "Dirichlet | Dirichlet") {
+            constexpr T dx = lenx / (nx + 1), dy = leny / (ny + 1),
+                        dz = lenz / (nz + 1);
+            constexpr T inv_dx_squared = 1.0 / (dx * dx);
+            constexpr T inv_dy_squared = 1.0 / (dy * dy);
+            constexpr T inv_dz_squared = 1.0 / (dz * dz);
+            std::array<ps::BCPair, 3> bcs = {{{D, D}, {D, D}, {D, D}}};
+
+            // TODO: Test for Spectral approx
+
+            SUBCASE("Approximation: FD2") {
+                auto calc = [&]() {
+                    return mrc(phi,
+                               rhs,
+                               bcs,
+                               {inv_dx_squared,
+                                inv_dx_squared,
+                                inv_dy_squared,
+                                inv_dy_squared,
+                                inv_dz_squared,
+                                inv_dz_squared});
                 };
                 RunApis<T, 3>(phi,
                               rhs,
