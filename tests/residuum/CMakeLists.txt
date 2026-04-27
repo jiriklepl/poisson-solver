@@ -60,3 +60,7 @@ set_tests_properties(fortran-residuum-suite
     PROPERTIES FAIL_REGULAR_EXPRESSION "FAIL"
 )
 
+# == Group Tests Together ==
+add_custom_target(tests)
+add_dependencies(tests residuum-tests fortran-residuum-tests)
+
