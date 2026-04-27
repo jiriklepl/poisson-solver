@@ -6,7 +6,8 @@
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/fft_policies.hpp"
 #include "poisson-solver/helpers.hpp"
-#include "poisson-solver/runners.hpp"
+#include "poisson-solver/kernels/runners_full_dirichlet.hpp"
+#include "poisson-solver/kernels/runners_full_periodic.hpp"
 
 #include <algorithm>
 #include <array>
@@ -196,20 +197,21 @@ private:
                         cnt_ * sizeof(T),
                         cudaMemcpyHostToDevice));
 
-        RunInitCmplxWorkspace(cu_cmplx_workspace_.value().get(),
-                              cu_rhs_.value().get(),
-                              ns_,
-                              grid_size_,
-                              block_size_);
+        RunInitWorkspaceFullPeriodic(cu_cmplx_workspace_.value().get(),
+                                     cu_rhs_.value().get(),
+                                     ns_,
+                                     grid_size_,
+                                     block_size_);
         CUCH(cudaGetLastError());
         FFTPolicy<T, Dim>::Forward(cu_cmplx_workspace_.value().get(),
                                    fft_plan_);
 
-        RunDivideCmplxWorkspaceByDenoms(cu_cmplx_workspace_.value().get(),
-                                        ns_,
-                                        cu_denom_observers_,
-                                        grid_size_,
-                                        block_size_);
+        RunDivideWorkspaceByDenomsFullPeriodic(
+            cu_cmplx_workspace_.value().get(),
+            ns_,
+            cu_denom_observers_,
+            grid_size_,
+            block_size_);
         CUCH(cudaGetLastError());
 
         FFTPolicy<T, Dim>::Backward(cu_cmplx_workspace_.value().get(),
@@ -231,11 +233,12 @@ private:
 
         FFTPolicy<T, Dim>::Forward(cu_real_workspace_.value().get(), fft_plan_);
 
-        RunDivideRealWorkspaceByDenoms(cu_real_workspace_.value().get(),
-                                       ns_,
-                                       cu_denom_observers_,
-                                       grid_size_,
-                                       block_size_);
+        RunDivideWorkspaceByDenomsFullDirichlet(
+            cu_real_workspace_.value().get(),
+            ns_,
+            cu_denom_observers_,
+            grid_size_,
+            block_size_);
         CUCH(cudaGetLastError());
 
         FFTPolicy<T, Dim>::Backward(cu_real_workspace_.value().get(),
