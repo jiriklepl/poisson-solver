@@ -6,6 +6,7 @@
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/fft_policies.hpp"
 #include "poisson-solver/helpers.hpp"
+#include "poisson-solver/kernels/runners_common_real.hpp"
 #include "poisson-solver/kernels/runners_full_dirichlet.hpp"
 #include "poisson-solver/kernels/runners_full_periodic.hpp"
 
