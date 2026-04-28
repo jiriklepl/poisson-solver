@@ -8,6 +8,7 @@
 #include "poisson-solver/helpers.hpp"
 #include "poisson-solver/kernels/runners_common_real.hpp"
 #include "poisson-solver/kernels/runners_full_dirichlet.hpp"
+#include "poisson-solver/kernels/runners_full_neumann.hpp"
 #include "poisson-solver/kernels/runners_full_periodic.hpp"
 
 #include <algorithm>
@@ -254,8 +255,29 @@ private:
     }
 
     void SolveFullNeumann(std::span<T> phi, std::span<const T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
+        CUCH(cudaMemcpy(cu_real_workspace_.value().get(),
+                        rhs.data(),
+                        cnt_ * sizeof(T),
+                        cudaMemcpyHostToDevice));
+
+        FFTPolicy<T, Dim>::Forward(cu_real_workspace_.value().get(), fft_plan_);
+
+        RunDivideWorkspaceByDenomsFullNeumann(cu_real_workspace_.value().get(),
+                                              ns_,
+                                              cu_denom_observers_,
+                                              grid_size_,
+                                              block_size_);
+        CUCH(cudaGetLastError());
+
+        FFTPolicy<T, Dim>::Backward(cu_real_workspace_.value().get(),
+                                    fft_plan_);
+        RunNormalization(cu_phi_.get(),
+                         cu_real_workspace_.value().get(),
+                         ns_,
+                         norm_factor_,
+                         grid_size_,
+                         block_size_);
+        CUCH(cudaGetLastError());
     }
 
     void SolvePPNs(std::span<T> phi, std::span<const T> rhs) {

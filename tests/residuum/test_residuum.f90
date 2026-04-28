@@ -452,6 +452,7 @@ program testpoisson
   integer i,j,k
   real(rp) :: x,y,z
   character(len = 12) :: arg
+  real(RP) :: avg, p
 
   if (command_argument_count()>=3) then
     call get_command_argument(1,value = arg)
@@ -514,6 +515,11 @@ program testpoisson
   dx = lenx / (nx + 1)
   call Test1D([(PoisSolver_Dirichlet, i = 1,2)])
 
+  dx = lenx / (nx - 1)
+  RHS1D = RHS1D - &
+      (sum(RHS1D(2:nx-1))+RHS1D(1)/2+RHS1D(nx)/2)/(size(RHS1D,kind=size_kind)-1)
+  call Test1D([(PoisSolver_Neumann, i = 1,2)])
+
   dx = lenx / nx
   dy = leny / ny
   call Test2D([(PoisSolver_Periodic, i = 1,4)])
@@ -521,6 +527,20 @@ program testpoisson
   dx = lenx / (nx + 1)
   dy = leny / (ny + 1)
   call Test2D([(PoisSolver_Dirichlet, i = 1,4)])
+
+  dx = lenx / (nx - 1)
+  dy = leny / (ny - 1)
+  avg = 0
+  do j = 1,ny
+    do i = 1,nx
+      p = RHS2D(i,j)
+      if (i==1.or.i==nx) p = p / 2
+      if (j==1.or.j==ny) p = p / 2
+      avg = avg + p
+    end do
+  end do
+  RHS2D = RHS2D - avg/(real(nx-1,rp)*real(ny-1,rp))
+  call Test2D([(PoisSolver_Neumann, i = 1,4)])
 
   dx = lenx / nx
   dy = leny / ny
@@ -531,4 +551,22 @@ program testpoisson
   dy = leny / (ny + 1)
   dz = lenz / (nz + 1)
   call Test3D([(PoisSolver_Dirichlet, i = 1,6)])
+
+  dx = lenx / (nx - 1)
+  dy = leny / (ny - 1)
+  dz = lenz / (nz - 1)
+  avg = 0
+  do k = 1,nz
+    do j = 1,ny
+      do i = 1,nx
+        p = RHS3D(i,j,k)
+        if (i==1.or.i==nx) p = p / 2
+        if (j==1.or.j==ny) p = p / 2
+        if (k==1.or.k==nz) p = p / 2
+        avg = avg + p
+      end do
+    end do
+  end do
+  RHS3D = RHS3D - avg/(real(nx-1,rp)*real(ny-1,rp)*real(nz-1,rp))
+  call Test3D([(PoisSolver_Neumann, i = 1,6)])
 end program testpoisson

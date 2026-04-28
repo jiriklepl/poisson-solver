@@ -1,0 +1,18 @@
+#ifndef RUNNERS_FULL_NEUMANN_HPP
+#define RUNNERS_FULL_NEUMANN_HPP
+
+#include <array>
+#include <concepts>
+#include <cstddef>
+#include <cuda_runtime.h>
+
+namespace poisson_solver {
+template <std::floating_point T, std::size_t Dim>
+void RunDivideWorkspaceByDenomsFullNeumann(T *real_workspace,
+                                           std::array<std::size_t, Dim> ns,
+                                           std::array<const T *, Dim> denoms,
+                                           dim3 grid_size,
+                                           dim3 block_size);
+}
+
+#endif  // RUNNERS_FULL_NEUMANN_HPP

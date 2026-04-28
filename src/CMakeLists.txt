@@ -4,6 +4,7 @@ set(LIB_SRC
     kernels/runners_common_real.cu
     kernels/runners_full_periodic.cu
     kernels/runners_full_dirichlet.cu
+    kernels/runners_full_neumann.cu
 )
 
 # Debug files shall have a `_debug` suffix

@@ -31,6 +31,53 @@ constexpr auto N = BC::kNeumann;
 constexpr auto DS = BC::kDirichletStag;
 constexpr auto NS = BC::kNeumannStag;
 
+template <std::size_t Dim>
+std::array<std::size_t, Dim> FlatToMultidimIdx(
+    std::size_t idx, std::array<std::size_t, Dim> ns) {
+    std::array<std::size_t, Dim> midx{};
+    for (std::size_t i = Dim; i > 0; --i) {
+        midx[i - 1] = idx % ns[i - 1];
+        idx /= ns[i - 1];
+    }
+    return midx;
+};
+
+template <std::floating_point T, std::size_t Dim>
+std::function<void(std::span<T>)> MakeNeumannRHSCorrector(
+    std::array<std::size_t, Dim> ns) {
+    return [ns](std::span<T> rhs) {
+        T sum = 0.0;
+        std::size_t num_cells = 1.0;
+
+        // Calculate the total number of "cells" (N-1 per dimension)
+        for (std::size_t d = 0; d < Dim; ++d) {
+            num_cells *= ns[d] - 1;
+        }
+
+        for (std::size_t i = 0; i < rhs.size(); ++i) {
+            T p = rhs[i];
+
+            auto midx = FlatToMultidimIdx<Dim>(i, ns);
+
+            // Halve the value for every dimension's boundary it touches
+            for (std::size_t d = 0; d < Dim; ++d) {
+                if (midx[d] == 0 || midx[d] == ns[d] - 1) {
+                    p /= static_cast<T>(2.0);
+                }
+            }
+
+            sum += p;
+        }
+
+        T mean = sum / num_cells;
+
+        // Subtract the calculated mean from every node
+        for (std::size_t i = 0; i < rhs.size(); ++i) {
+            rhs[i] -= mean;
+        }
+    };
+}
+
 template <std::floating_point T>
 struct ResiduumResult {
     bool success;
@@ -58,7 +105,7 @@ public:
         for (std::size_t i = 0; i < size; ++i) {
             T neighbor_sum = 0.0;
             T coeff_center = 0.0;
-            auto midx = FlatToMultidimIdx(i);
+            auto midx = FlatToMultidimIdx<Dim>(i, ns_);
 
             for (std::size_t d = 0; d < Dim; ++d) {
                 const T coeff_left = coeffs[2 * d];
@@ -110,12 +157,10 @@ public:
 private:
     enum class Side { kLeft, kRight };
 
-    using MultidimIdx = std::array<std::size_t, Dim>;
-
     std::array<std::size_t, Dim> ns_;
 
     void ApplyBorderBC(std::span<T> phi,
-                       MultidimIdx midx,
+                       std::array<std::size_t, Dim> midx,
                        std::size_t dim,
                        Side side,
                        BC bc,
@@ -156,18 +201,9 @@ private:
         }
     }
 
-    std::size_t MultidimToFlatIdx(MultidimIdx idx) const {
+    std::size_t MultidimToFlatIdx(std::array<std::size_t, Dim> idx) const {
         return ps::FlatIndex<Dim>(idx, ns_);
     }
-
-    MultidimIdx FlatToMultidimIdx(std::size_t idx) const {
-        MultidimIdx midx{};
-        for (std::size_t i = Dim; i > 0; --i) {
-            midx[i - 1] = idx % ns_[i - 1];
-            idx /= ns_[i - 1];
-        }
-        return midx;
-    };
 };
 
 template <std::floating_point T, std::size_t Dim>
@@ -277,15 +313,16 @@ void RunApis(std::span<T> phi,
     }
 }
 
-template <std::size_t Dim>
+template <std::floating_point T, std::size_t Dim>
 struct TestConfig {
-    std::string name;
-    std::array<ps::BCPair, Dim> bcs;
-    std::array<std::size_t, Dim> dx_divisors;
+    std::string name{};
+    std::array<ps::BCPair, Dim> bcs{};
+    std::array<std::size_t, Dim> dx_divisors{};
+    std::function<void(std::span<T>)> rhs_adjust = nullptr;
 };
 
 template <std::floating_point T, std::size_t Dim>
-void RunTestConfigs(std::span<TestConfig<Dim>> configs,
+void RunTestConfigs(std::span<TestConfig<T, Dim>> configs,
                     std::span<T> phi,
                     std::span<T> rhs,
                     std::array<std::size_t, Dim> ns,
@@ -300,6 +337,12 @@ void RunTestConfigs(std::span<TestConfig<Dim>> configs,
                 inv_dxs_squared[d] = 1.0 / (dxs[d] * dxs[d]);
             }
 
+            std::vector<T> local_rhs(rhs.begin(), rhs.end());
+
+            if (tc.rhs_adjust) {
+                tc.rhs_adjust(local_rhs);
+            }
+
             // TODO: Test for Spectral approx
 
             SUBCASE("Approximation: FD2") {
@@ -310,11 +353,11 @@ void RunTestConfigs(std::span<TestConfig<Dim>> configs,
                 }
 
                 auto calc = [&]() {
-                    return mrc(phi, rhs, tc.bcs, coeffs);
+                    return mrc(phi, local_rhs, tc.bcs, coeffs);
                 };
 
                 RunApis<T, Dim>(phi,
-                                rhs,
+                                local_rhs,
                                 ns,
                                 lens,
                                 tc.bcs,
@@ -352,9 +395,13 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
         std::array<T, nx> rhs1d{};
         MaxResiduumCalculator<T, 1> mrc1d(ns1d);
 
-        std::vector<TestConfig<1>> configs = {
-            {"Periodic | Periodic", {{{P, P}}}, {{nx}}},
-            {"Dirichlet | Dirichlet", {{{D, D}}}, {{(nx + 1)}}}};
+        std::vector<TestConfig<T, 1>> configs = {
+            {"Periodic | Periodic", {{{P, P}}}, {{nx}}, nullptr},
+            {"Dirichlet | Dirichlet", {{{D, D}}}, {{(nx + 1)}}, nullptr},
+            {"Neumann | Neumann",
+             {{{N, N}}},
+             {{(nx - 1)}},
+             MakeNeumannRHSCorrector<T, 1>(ns1d)}};
 
         Initialize<T>(phi1d, rhs1d, seed);
         RunTestConfigs<T, 1>(configs, phi1d, rhs1d, ns1d, lens1d, mrc1d);
@@ -367,14 +414,19 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
         std::array<T, nx * ny> rhs2d{};
         MaxResiduumCalculator<T, 2> mrc2d(ns2d);
 
-        std::vector<TestConfig<2>> configs = {
+        std::vector<TestConfig<T, 2>> configs = {
             {"Periodic | Periodic | Periodic | Periodic",
              {{{P, P}, {P, P}}},
-             {{nx, ny}}},
+             {{nx, ny}},
+             nullptr},
             {"Dirichlet | Dirichlet | Dirichlet | Dirichlet",
              {{{D, D}, {D, D}}},
-             {{(nx + 1), (ny + 1)}}},
-        };
+             {{(nx + 1), (ny + 1)}},
+             nullptr},
+            {"Neumann | Neumann | Neumann | Neumann",
+             {{{N, N}, {N, N}}},
+             {{(nx - 1), (ny - 1)}},
+             MakeNeumannRHSCorrector<T, 2>(ns2d)}};
 
         Initialize<T>(phi2d, rhs2d, seed);
         RunTestConfigs<T, 2>(configs, phi2d, rhs2d, ns2d, lens2d, mrc2d);
@@ -387,15 +439,20 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
         std::array<T, nx * ny * nz> rhs3d{};
         MaxResiduumCalculator<T, 3> mrc3d(ns3d);
 
-        std::vector<TestConfig<3>> configs = {
+        std::vector<TestConfig<T, 3>> configs = {
             {"Periodic | Periodic | Periodic | Periodic | Periodic | Periodic",
              {{{P, P}, {P, P}, {P, P}}},
-             {{nx, ny, nz}}},
+             {{nx, ny, nz}},
+             nullptr},
             {"Dirichlet | Dirichlet | Dirichlet | Dirichlet | Dirichlet | "
              "Dirichlet",
              {{{D, D}, {D, D}, {D, D}}},
-             {{(nx + 1), (ny + 1), (nz + 1)}}},
-        };
+             {{(nx + 1), (ny + 1), (nz + 1)}},
+             nullptr},
+            {"Neumann | Neumann | Neumann | Neumann | Neumann | Neumann",
+             {{{N, N}, {N, N}, {N, N}}},
+             {{(nx - 1), (ny - 1), (nz - 1)}},
+             MakeNeumannRHSCorrector<T, 3>(ns3d)}};
 
         Initialize<T>(phi3d, rhs3d, seed);
         RunTestConfigs<T, 3>(configs, phi3d, rhs3d, ns3d, lens3d, mrc3d);
