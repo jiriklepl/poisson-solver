@@ -521,6 +521,9 @@ program testpoisson
   call Test1D([(PoisSolver_Neumann, i = 1,2)])
 
   dx = lenx / nx
+  call Test1D([(PoisSolver_DirichletStag, i = 1,2)])
+
+  dx = lenx / nx
   dy = leny / ny
   call Test2D([(PoisSolver_Periodic, i = 1,4)])
 
@@ -541,6 +544,10 @@ program testpoisson
   end do
   RHS2D = RHS2D - avg/(real(nx-1,rp)*real(ny-1,rp))
   call Test2D([(PoisSolver_Neumann, i = 1,4)])
+
+  dx = lenx / nx
+  dy = leny / ny
+  call Test2D([(PoisSolver_DirichletStag, i = 1,4)])
 
   dx = lenx / nx
   dy = leny / ny
@@ -569,4 +576,9 @@ program testpoisson
   end do
   RHS3D = RHS3D - avg/(real(nx-1,rp)*real(ny-1,rp)*real(nz-1,rp))
   call Test3D([(PoisSolver_Neumann, i = 1,6)])
+
+  dx = lenx / nx
+  dy = leny / ny
+  dz = lenz / nz
+  call Test3D([(PoisSolver_DirichletStag, i = 1,6)])
 end program testpoisson

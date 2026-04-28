@@ -397,7 +397,8 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
             {"Neumann | Neumann",
              {{{N, N}}},
              {{(nx - 1)}},
-             MakeNeumannRhsCorrector<T, 1>(ns1d)}};
+             MakeNeumannRhsCorrector<T, 1>(ns1d)},
+            {"DirichletStag | DirichletStag", {{{DS, DS}}}, {{nx}}, nullptr}};
 
         Initialize<T>(phi1d, rhs1d, seed);
         RunTestConfigs<T, 1>(configs, phi1d, rhs1d, ns1d, lens1d, mrc1d);
@@ -422,7 +423,11 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
             {"Neumann | Neumann | Neumann | Neumann",
              {{{N, N}, {N, N}}},
              {{(nx - 1), (ny - 1)}},
-             MakeNeumannRhsCorrector<T, 2>(ns2d)}};
+             MakeNeumannRhsCorrector<T, 2>(ns2d)},
+            {"DirichletStag | DirichletStag | DirichletStag | DirichletStag",
+             {{{DS, DS}, {DS, DS}}},
+             {{nx, ny}},
+             nullptr}};
 
         Initialize<T>(phi2d, rhs2d, seed);
         RunTestConfigs<T, 2>(configs, phi2d, rhs2d, ns2d, lens2d, mrc2d);
@@ -448,7 +453,14 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
             {"Neumann | Neumann | Neumann | Neumann | Neumann | Neumann",
              {{{N, N}, {N, N}, {N, N}}},
              {{(nx - 1), (ny - 1), (nz - 1)}},
-             MakeNeumannRhsCorrector<T, 3>(ns3d)}};
+             MakeNeumannRhsCorrector<T, 3>(ns3d)},
+            {"DirichletStag | DirichletStag | DirichletStag | DirichletStag | "
+             "DirichletStag | "
+             "DirichletStag",
+             {{{DS, DS}, {DS, DS}, {DS, DS}}},
+             {{nx, ny, nz}},
+             nullptr},
+        };
 
         Initialize<T>(phi3d, rhs3d, seed);
         RunTestConfigs<T, 3>(configs, phi3d, rhs3d, ns3d, lens3d, mrc3d);
