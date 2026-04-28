@@ -16,7 +16,9 @@
 #include <numeric>
 #include <random>
 #include <stdexcept>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace ps = poisson_solver;
 using BC = ps::BoundaryCondition;
@@ -275,6 +277,56 @@ void RunApis(std::span<T> phi,
     }
 }
 
+template <std::size_t Dim>
+struct TestConfig {
+    std::string name;
+    std::array<ps::BCPair, Dim> bcs;
+    std::array<std::size_t, Dim> dx_divisors;
+};
+
+template <std::floating_point T, std::size_t Dim>
+void RunTestConfigs(std::span<TestConfig<Dim>> configs,
+                    std::span<T> phi,
+                    std::span<T> rhs,
+                    std::array<std::size_t, Dim> ns,
+                    std::array<T, Dim> lens,
+                    MaxResiduumCalculator<T, Dim> mrc) {
+    for (const auto &tc : configs) {
+        SUBCASE("Boundary: " + tc.name) {
+            std::array<T, Dim> dxs{};
+            std::array<T, Dim> inv_dxs_squared{};
+            for (std::size_t d = 0; d < Dim; ++d) {
+                dxs[d] = lens[d] / tc.dx_divisors[d];
+                inv_dxs_squared[d] = 1.0 / (dxs[d] * dxs[d]);
+            }
+
+            // TODO: Test for Spectral approx
+
+            SUBCASE("Approximation: FD2") {
+                std::array<T, 2 * Dim> coeffs{};
+                for (std::size_t d = 0; d < Dim; ++d) {
+                    coeffs[2 * d] = inv_dxs_squared[d];
+                    coeffs[2 * d + 1] = inv_dxs_squared[d];
+                }
+
+                auto calc = [&]() {
+                    return mrc(phi, rhs, tc.bcs, coeffs);
+                };
+
+                RunApis<T, Dim>(phi,
+                                rhs,
+                                ns,
+                                lens,
+                                tc.bcs,
+                                ps::FiniteDifference2Approximation<T>{},
+                                kFD2,
+                                calc);
+            }
+
+            // TODO: Test for FD4
+        }
+    }
+}
 }  // namespace
 
 int main(int argc, char *argv[]) {
@@ -294,214 +346,58 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
     constexpr T leny = lenx * 1.1, lenz = lenx / 1.1;
 
     SUBCASE("1D") {
-        std::array<T, nx> phi{};
-        std::array<T, nx> rhs{};
-        Initialize<T>(phi, rhs, seed);
-        std::array<std::size_t, 1> ns{nx};
-        MaxResiduumCalculator<T, 1> mrc(ns);
+        constexpr std::array<std::size_t, 1> ns1d{nx};
+        constexpr std::array<T, 1> lens1d = {lenx};
+        std::array<T, nx> phi1d{};
+        std::array<T, nx> rhs1d{};
+        MaxResiduumCalculator<T, 1> mrc1d(ns1d);
 
-        SUBCASE("Boundary: Periodic | Periodic") {
-            constexpr T dx = lenx / nx;
-            constexpr T inv_dx_squared = 1.0 / (dx * dx);
-            std::array<ps::BCPair, 1> bcs = {{{P, P}}};
+        std::vector<TestConfig<1>> configs = {
+            {"Periodic | Periodic", {{{P, P}}}, {{nx}}},
+            {"Dirichlet | Dirichlet", {{{D, D}}}, {{(nx + 1)}}}};
 
-            // TODO: Test for Spectral approx
-
-            SUBCASE("Approximation: FD2") {
-                auto calc = [&]() {
-                    return mrc(phi, rhs, bcs, {inv_dx_squared, inv_dx_squared});
-                };
-                RunApis<T, 1>(phi,
-                              rhs,
-                              ns,
-                              {lenx},
-                              bcs,
-                              ps::FiniteDifference2Approximation<T>{},
-                              kFD2,
-                              calc);
-            }
-
-            // TODO: Test for FD4
-        }
-
-        SUBCASE("Boundary: Dirichlet | Dirichlet") {
-            constexpr T dx = lenx / (nx + 1);
-            constexpr T inv_dx_squared = 1.0 / (dx * dx);
-            std::array<ps::BCPair, 1> bcs = {{{D, D}}};
-
-            // TODO: Test for Spectral approx
-
-            SUBCASE("Approximation: FD2") {
-                auto calc = [&]() {
-                    return mrc(phi, rhs, bcs, {inv_dx_squared, inv_dx_squared});
-                };
-                RunApis<T, 1>(phi,
-                              rhs,
-                              ns,
-                              {lenx},
-                              bcs,
-                              ps::FiniteDifference2Approximation<T>{},
-                              kFD2,
-                              calc);
-            }
-
-            // TODO: Test for FD4
-        }
-
-        // TODO: Test for other BCs
+        Initialize<T>(phi1d, rhs1d, seed);
+        RunTestConfigs<T, 1>(configs, phi1d, rhs1d, ns1d, lens1d, mrc1d);
     }
 
     SUBCASE("2D") {
-        std::array<T, nx * ny> phi{};
-        std::array<T, nx * ny> rhs{};
-        Initialize<T>(phi, rhs, seed);
-        std::array<std::size_t, 2> ns{nx, ny};
-        MaxResiduumCalculator<T, 2> mrc(ns);
+        constexpr std::array<std::size_t, 2> ns2d{nx, ny};
+        constexpr std::array<T, 2> lens2d = {lenx, leny};
+        std::array<T, nx * ny> phi2d{};
+        std::array<T, nx * ny> rhs2d{};
+        MaxResiduumCalculator<T, 2> mrc2d(ns2d);
 
-        SUBCASE("Boundary: Periodic | Periodic | Periodic | Periodic") {
-            constexpr T dx = lenx / nx, dy = leny / ny;
-            constexpr T inv_dx_squared = 1.0 / (dx * dx);
-            constexpr T inv_dy_squared = 1.0 / (dy * dy);
-            std::array<ps::BCPair, 2> bcs = {{{P, P}, {P, P}}};
+        std::vector<TestConfig<2>> configs = {
+            {"Periodic | Periodic | Periodic | Periodic",
+             {{{P, P}, {P, P}}},
+             {{nx, ny}}},
+            {"Dirichlet | Dirichlet | Dirichlet | Dirichlet",
+             {{{D, D}, {D, D}}},
+             {{(nx + 1), (ny + 1)}}},
+        };
 
-            // TODO: Test for Spectral approx
-
-            SUBCASE("Approximation: FD2") {
-                auto calc = [&]() {
-                    return mrc(phi,
-                               rhs,
-                               bcs,
-                               {inv_dx_squared,
-                                inv_dx_squared,
-                                inv_dy_squared,
-                                inv_dy_squared});
-                };
-                RunApis<T, 2>(phi,
-                              rhs,
-                              ns,
-                              {lenx, leny},
-                              bcs,
-                              ps::FiniteDifference2Approximation<T>{},
-                              kFD2,
-                              calc);
-            }
-            // TODO: Test for FD4
-        }
-
-        SUBCASE("Boundary: Dirichlet | Dirichlet | Dirichlet | Dirichlet") {
-            constexpr T dx = lenx / (nx + 1), dy = leny / (ny + 1);
-            constexpr T inv_dx_squared = 1.0 / (dx * dx);
-            constexpr T inv_dy_squared = 1.0 / (dy * dy);
-            std::array<ps::BCPair, 2> bcs = {{{D, D}, {D, D}}};
-
-            // TODO: Test for Spectral approx
-
-            SUBCASE("Approximation: FD2") {
-                auto calc = [&]() {
-                    return mrc(phi,
-                               rhs,
-                               bcs,
-                               {inv_dx_squared,
-                                inv_dx_squared,
-                                inv_dy_squared,
-                                inv_dy_squared});
-                };
-                RunApis<T, 2>(phi,
-                              rhs,
-                              ns,
-                              {lenx, leny},
-                              bcs,
-                              ps::FiniteDifference2Approximation<T>{},
-                              kFD2,
-                              calc);
-            }
-
-            // TODO: Test for FD4
-        }
-
-        // TODO: Test for other BCs
+        Initialize<T>(phi2d, rhs2d, seed);
+        RunTestConfigs<T, 2>(configs, phi2d, rhs2d, ns2d, lens2d, mrc2d);
     }
 
     SUBCASE("3D") {
-        std::array<T, nx * ny * nz> phi{};
-        std::array<T, nx * ny * nz> rhs{};
-        Initialize<T>(phi, rhs, seed);
-        std::array<std::size_t, 3> ns{nx, ny, nz};
-        MaxResiduumCalculator<T, 3> mrc(ns);
+        constexpr std::array<std::size_t, 3> ns3d{nx, ny, nz};
+        constexpr std::array<T, 3> lens3d = {lenx, leny, lenz};
+        std::array<T, nx * ny * nz> phi3d{};
+        std::array<T, nx * ny * nz> rhs3d{};
+        MaxResiduumCalculator<T, 3> mrc3d(ns3d);
 
-        SUBCASE(
-            "Boundary: Periodic | Periodic | Periodic | Periodic | Periodic | "
-            "Periodic") {
-            constexpr T dx = lenx / nx, dy = leny / ny, dz = lenz / nz;
-            constexpr T inv_dx_squared = 1.0 / (dx * dx);
-            constexpr T inv_dy_squared = 1.0 / (dy * dy);
-            constexpr T inv_dz_squared = 1.0 / (dz * dz);
-            std::array<ps::BCPair, 3> bcs = {{{P, P}, {P, P}, {P, P}}};
+        std::vector<TestConfig<3>> configs = {
+            {"Periodic | Periodic | Periodic | Periodic | Periodic | Periodic",
+             {{{P, P}, {P, P}, {P, P}}},
+             {{nx, ny, nz}}},
+            {"Dirichlet | Dirichlet | Dirichlet | Dirichlet | Dirichlet | "
+             "Dirichlet",
+             {{{D, D}, {D, D}, {D, D}}},
+             {{(nx + 1), (ny + 1), (nz + 1)}}},
+        };
 
-            // TODO: Test for Spectral approx
-
-            SUBCASE("Approximation: FD2") {
-                auto calc = [&]() {
-                    return mrc(phi,
-                               rhs,
-                               bcs,
-                               {inv_dx_squared,
-                                inv_dx_squared,
-                                inv_dy_squared,
-                                inv_dy_squared,
-                                inv_dz_squared,
-                                inv_dz_squared});
-                };
-                RunApis<T, 3>(phi,
-                              rhs,
-                              ns,
-                              {lenx, leny, lenz},
-                              bcs,
-                              ps::FiniteDifference2Approximation<T>{},
-                              kFD2,
-                              calc);
-            }
-
-            // TODO: Test for FD4
-        }
-
-        SUBCASE(
-            "Boundary: Dirichlet | Dirichlet | Dirichlet | Dirichlet | "
-            "Dirichlet | Dirichlet") {
-            constexpr T dx = lenx / (nx + 1), dy = leny / (ny + 1),
-                        dz = lenz / (nz + 1);
-            constexpr T inv_dx_squared = 1.0 / (dx * dx);
-            constexpr T inv_dy_squared = 1.0 / (dy * dy);
-            constexpr T inv_dz_squared = 1.0 / (dz * dz);
-            std::array<ps::BCPair, 3> bcs = {{{D, D}, {D, D}, {D, D}}};
-
-            // TODO: Test for Spectral approx
-
-            SUBCASE("Approximation: FD2") {
-                auto calc = [&]() {
-                    return mrc(phi,
-                               rhs,
-                               bcs,
-                               {inv_dx_squared,
-                                inv_dx_squared,
-                                inv_dy_squared,
-                                inv_dy_squared,
-                                inv_dz_squared,
-                                inv_dz_squared});
-                };
-                RunApis<T, 3>(phi,
-                              rhs,
-                              ns,
-                              {lenx, leny, lenz},
-                              bcs,
-                              ps::FiniteDifference2Approximation<T>{},
-                              kFD2,
-                              calc);
-            }
-
-            // TODO: Test for FD4
-        }
-
-        // TODO: Test for other BCs
+        Initialize<T>(phi3d, rhs3d, seed);
+        RunTestConfigs<T, 3>(configs, phi3d, rhs3d, ns3d, lens3d, mrc3d);
     }
 }
