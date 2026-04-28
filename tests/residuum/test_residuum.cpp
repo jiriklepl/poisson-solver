@@ -31,6 +31,20 @@ constexpr auto N = BC::kNeumann;
 constexpr auto DS = BC::kDirichletStag;
 constexpr auto NS = BC::kNeumannStag;
 
+template <std::floating_point T>
+struct ResiduumResult {
+    bool success;
+    T max_residuum;
+};
+
+template <std::floating_point T, std::size_t Dim>
+struct TestConfig {
+    std::string name{};
+    std::array<ps::BCPair, Dim> bcs{};
+    std::array<std::size_t, Dim> dx_divisors{};
+    std::function<void(std::span<T>)> rhs_adjust = nullptr;
+};
+
 template <std::size_t Dim>
 std::array<std::size_t, Dim> FlatToMultidimIdx(
     std::size_t idx, std::array<std::size_t, Dim> ns) {
@@ -43,48 +57,6 @@ std::array<std::size_t, Dim> FlatToMultidimIdx(
 };
 
 template <std::floating_point T, std::size_t Dim>
-std::function<void(std::span<T>)> MakeNeumannRHSCorrector(
-    std::array<std::size_t, Dim> ns) {
-    return [ns](std::span<T> rhs) {
-        T sum = 0.0;
-        std::size_t num_cells = 1.0;
-
-        // Calculate the total number of "cells" (N-1 per dimension)
-        for (std::size_t d = 0; d < Dim; ++d) {
-            num_cells *= ns[d] - 1;
-        }
-
-        for (std::size_t i = 0; i < rhs.size(); ++i) {
-            T p = rhs[i];
-
-            auto midx = FlatToMultidimIdx<Dim>(i, ns);
-
-            // Halve the value for every dimension's boundary it touches
-            for (std::size_t d = 0; d < Dim; ++d) {
-                if (midx[d] == 0 || midx[d] == ns[d] - 1) {
-                    p /= static_cast<T>(2.0);
-                }
-            }
-
-            sum += p;
-        }
-
-        T mean = sum / num_cells;
-
-        // Subtract the calculated mean from every node
-        for (std::size_t i = 0; i < rhs.size(); ++i) {
-            rhs[i] -= mean;
-        }
-    };
-}
-
-template <std::floating_point T>
-struct ResiduumResult {
-    bool success;
-    T max_residuum;
-};
-
-template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 class MaxResiduumCalculator {
 public:
@@ -92,9 +64,9 @@ public:
         : ns_(ns) {}
 
     T operator()(std::span<T> phi,
-                 std::span<T> rhs,
+                 std::span<const T> rhs,
                  std::array<ps::BCPair, Dim> bcs,
-                 std::array<T, 2 * Dim> coeffs) {
+                 std::array<T, 2 * Dim> coeffs) const {
         if (rhs.size() != phi.size()) {
             throw std::runtime_error("Incorrect size of phi or rhs.");
         }
@@ -166,7 +138,7 @@ private:
                        BC bc,
                        T coeff,
                        T &neighbor_sum,
-                       T &coeff_center) {
+                       T &coeff_center) const {
         switch (bc) {
             case P: {
                 auto wrap_idx = midx;
@@ -206,18 +178,6 @@ private:
     }
 };
 
-template <std::floating_point T, std::size_t Dim>
-ResiduumResult<T> ResiduumBelowThreshold(T residuum,
-                                         std::array<std::size_t, Dim> ns) {
-    constexpr T fudge_factor = static_cast<T>(100.0);
-    T max_residuum =
-        std::accumulate(
-            ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>()) *
-        fudge_factor * std::numeric_limits<T>::epsilon();
-    bool success = residuum < max_residuum;
-    return {.success = success, .max_residuum = max_residuum};
-}
-
 BoundaryCondition ToCBoundary(BC cxx_bc) {
     using CxxBC = ps::BoundaryCondition;
 
@@ -243,16 +203,64 @@ BoundaryCondition ToCBoundary(BC cxx_bc) {
     }
 }
 
+template <std::floating_point T, std::size_t Dim>
+std::function<void(std::span<T>)> MakeNeumannRhsCorrector(
+    std::array<std::size_t, Dim> ns) {
+    return [ns](std::span<T> rhs) {
+        T sum = 0.0;
+        std::size_t num_cells = 1.0;
+
+        // Calculate the total number of "cells" (N-1 per dimension)
+        for (std::size_t d = 0; d < Dim; ++d) {
+            num_cells *= ns[d] - 1;
+        }
+
+        for (std::size_t i = 0; i < rhs.size(); ++i) {
+            T p = rhs[i];
+
+            auto midx = FlatToMultidimIdx<Dim>(i, ns);
+
+            // Halve the value for every dimension's boundary it touches
+            for (std::size_t d = 0; d < Dim; ++d) {
+                if (midx[d] == 0 || midx[d] == ns[d] - 1) {
+                    p /= static_cast<T>(2.0);
+                }
+            }
+
+            sum += p;
+        }
+
+        T mean = sum / num_cells;
+
+        // Subtract the calculated mean from every node
+        for (std::size_t i = 0; i < rhs.size(); ++i) {
+            rhs[i] -= mean;
+        }
+    };
+}
+
+template <std::floating_point T, std::size_t Dim>
+ResiduumResult<T> ResiduumBelowThreshold(T residuum,
+                                         std::array<std::size_t, Dim> ns) {
+    constexpr T fudge_factor = static_cast<T>(100.0);
+    T max_residuum =
+        std::accumulate(
+            ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>()) *
+        fudge_factor * std::numeric_limits<T>::epsilon();
+    bool success = residuum < max_residuum;
+    return {.success = success, .max_residuum = max_residuum};
+}
+
 // Runs tests for both the C++ and C APIs
 template <std::floating_point T, std::size_t Dim>
 void RunApis(std::span<T> phi,
-             std::span<T> rhs,
+             std::span<const T> rhs,
              std::array<std::size_t, Dim> ns,
              std::array<T, Dim> lens,
              std::array<ps::BCPair, Dim> bcs,
              const ps::IApproximation<T> &approx,
              Approximation c_approx,
-             std::function<T()> calc_residuum) {
+             const std::function<T()> &calc_residuum) {
     SUBCASE("API: C++") {
         ps::Solver<T, Dim, ps::VkFFTPolicy> solver(ns, lens, bcs, approx);
         solver.Execute(phi, rhs);
@@ -314,29 +322,14 @@ void RunApis(std::span<T> phi,
 }
 
 template <std::floating_point T, std::size_t Dim>
-struct TestConfig {
-    std::string name{};
-    std::array<ps::BCPair, Dim> bcs{};
-    std::array<std::size_t, Dim> dx_divisors{};
-    std::function<void(std::span<T>)> rhs_adjust = nullptr;
-};
-
-template <std::floating_point T, std::size_t Dim>
-void RunTestConfigs(std::span<TestConfig<T, Dim>> configs,
+void RunTestConfigs(std::span<const TestConfig<T, Dim>> configs,
                     std::span<T> phi,
-                    std::span<T> rhs,
+                    std::span<const T> rhs,
                     std::array<std::size_t, Dim> ns,
                     std::array<T, Dim> lens,
                     MaxResiduumCalculator<T, Dim> mrc) {
     for (const auto &tc : configs) {
         SUBCASE("Boundary: " + tc.name) {
-            std::array<T, Dim> dxs{};
-            std::array<T, Dim> inv_dxs_squared{};
-            for (std::size_t d = 0; d < Dim; ++d) {
-                dxs[d] = lens[d] / tc.dx_divisors[d];
-                inv_dxs_squared[d] = 1.0 / (dxs[d] * dxs[d]);
-            }
-
             std::vector<T> local_rhs(rhs.begin(), rhs.end());
 
             if (tc.rhs_adjust) {
@@ -348,8 +341,11 @@ void RunTestConfigs(std::span<TestConfig<T, Dim>> configs,
             SUBCASE("Approximation: FD2") {
                 std::array<T, 2 * Dim> coeffs{};
                 for (std::size_t d = 0; d < Dim; ++d) {
-                    coeffs[2 * d] = inv_dxs_squared[d];
-                    coeffs[2 * d + 1] = inv_dxs_squared[d];
+                    T dx = lens[d] / tc.dx_divisors[d];
+                    T inv_dx2 = static_cast<T>(1.0) / (dx * dx);
+
+                    coeffs[2 * d] = inv_dx2;
+                    coeffs[2 * d + 1] = inv_dx2;
                 }
 
                 auto calc = [&]() {
@@ -401,7 +397,7 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
             {"Neumann | Neumann",
              {{{N, N}}},
              {{(nx - 1)}},
-             MakeNeumannRHSCorrector<T, 1>(ns1d)}};
+             MakeNeumannRhsCorrector<T, 1>(ns1d)}};
 
         Initialize<T>(phi1d, rhs1d, seed);
         RunTestConfigs<T, 1>(configs, phi1d, rhs1d, ns1d, lens1d, mrc1d);
@@ -426,7 +422,7 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
             {"Neumann | Neumann | Neumann | Neumann",
              {{{N, N}, {N, N}}},
              {{(nx - 1), (ny - 1)}},
-             MakeNeumannRHSCorrector<T, 2>(ns2d)}};
+             MakeNeumannRhsCorrector<T, 2>(ns2d)}};
 
         Initialize<T>(phi2d, rhs2d, seed);
         RunTestConfigs<T, 2>(configs, phi2d, rhs2d, ns2d, lens2d, mrc2d);
@@ -452,7 +448,7 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
             {"Neumann | Neumann | Neumann | Neumann | Neumann | Neumann",
              {{{N, N}, {N, N}, {N, N}}},
              {{(nx - 1), (ny - 1), (nz - 1)}},
-             MakeNeumannRHSCorrector<T, 3>(ns3d)}};
+             MakeNeumannRhsCorrector<T, 3>(ns3d)}};
 
         Initialize<T>(phi3d, rhs3d, seed);
         RunTestConfigs<T, 3>(configs, phi3d, rhs3d, ns3d, lens3d, mrc3d);
