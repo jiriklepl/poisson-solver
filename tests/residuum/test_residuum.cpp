@@ -239,6 +239,16 @@ std::function<void(std::span<T>)> MakeNeumannRhsCorrector(
     };
 }
 
+template <std::floating_point T>
+std::function<void(std::span<T>)> MakeNeumannStagRhsCorrector() {
+    return [](std::span<T> rhs) {
+        T sum = std::accumulate(rhs.begin(), rhs.end(), T{0.0});
+        std::ranges::for_each(rhs, [sum](T &elem) {
+            elem -= sum;
+        });
+    };
+}
+
 template <std::floating_point T, std::size_t Dim>
 ResiduumResult<T> ResiduumBelowThreshold(T residuum,
                                          std::array<std::size_t, Dim> ns) {
@@ -398,7 +408,11 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
              {{{N, N}}},
              {{(nx - 1)}},
              MakeNeumannRhsCorrector<T, 1>(ns1d)},
-            {"DirichletStag | DirichletStag", {{{DS, DS}}}, {{nx}}, nullptr}};
+            {"DirichletStag | DirichletStag", {{{DS, DS}}}, {{nx}}, nullptr},
+            {"NeumannStag | NeumannStag",
+             {{{NS, NS}}},
+             {{nx}},
+             MakeNeumannStagRhsCorrector<T>()}};
 
         Initialize<T>(phi1d, rhs1d, seed);
         RunTestConfigs<T, 1>(configs, phi1d, rhs1d, ns1d, lens1d, mrc1d);
@@ -427,7 +441,11 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
             {"DirichletStag | DirichletStag | DirichletStag | DirichletStag",
              {{{DS, DS}, {DS, DS}}},
              {{nx, ny}},
-             nullptr}};
+             nullptr},
+            {"NeumannStag | NeumannStag | NeumannStag | NeumannStag",
+             {{{NS, NS}, {NS, NS}}},
+             {{nx, ny}},
+             MakeNeumannStagRhsCorrector<T>()}};
 
         Initialize<T>(phi2d, rhs2d, seed);
         RunTestConfigs<T, 2>(configs, phi2d, rhs2d, ns2d, lens2d, mrc2d);
@@ -460,7 +478,12 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
              {{{DS, DS}, {DS, DS}, {DS, DS}}},
              {{nx, ny, nz}},
              nullptr},
-        };
+            {"NeumannStag | NeumannStag | NeumannStag | NeumannStag | "
+             "NeumannStag | "
+             "NeumannStag",
+             {{{NS, NS}, {NS, NS}, {NS, NS}}},
+             {{nx, ny, nz}},
+             MakeNeumannStagRhsCorrector<T>()}};
 
         Initialize<T>(phi3d, rhs3d, seed);
         RunTestConfigs<T, 3>(configs, phi3d, rhs3d, ns3d, lens3d, mrc3d);
