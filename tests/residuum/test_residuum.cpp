@@ -412,7 +412,11 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
             {"NeumannStag | NeumannStag",
              {{{NS, NS}}},
              {{nx}},
-             MakeNeumannStagRhsCorrector<T>()}};
+             MakeNeumannStagRhsCorrector<T>()},
+            {"NeumannStag | DirichletStag", {{{NS, DS}}}, {{nx}}, nullptr},
+            {"DirichletStag | NeumannStag", {{{DS, NS}}}, {{nx}}, nullptr},
+            {"Neumann | Dirichlet", {{{D, N}}}, {{nx}}, nullptr},
+            {"Dirichlet | Neumann", {{{N, D}}}, {{nx}}, nullptr}};
 
         Initialize<T>(phi1d, rhs1d, seed);
         RunTestConfigs<T, 1>(configs, phi1d, rhs1d, ns1d, lens1d, mrc1d);

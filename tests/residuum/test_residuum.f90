@@ -528,6 +528,18 @@ program testpoisson
   call Test1D([(PoisSolver_NeumannStag, i = 1,2)])
 
   dx = lenx / nx
+  call Test1D([PoisSolver_NeumannStag, PoisSolver_DirichletStag])
+
+  dx = lenx / nx
+  call Test1D([PoisSolver_DirichletStag, PoisSolver_NeumannStag])
+
+  dx = lenx / nx
+  call Test1D([PoisSolver_Neumann, PoisSolver_Dirichlet])
+
+  dx = lenx / nx
+  call Test1D([PoisSolver_Dirichlet, PoisSolver_Neumann])
+
+  dx = lenx / nx
   dy = leny / ny
   call Test2D([(PoisSolver_Periodic, i = 1,4)])
 
