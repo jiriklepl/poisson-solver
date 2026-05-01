@@ -329,7 +329,8 @@ private:
             return &Solver::SolveFullDirichlet;
         } else if (all_of(bcs, IsNeumann) || all_of(bcs, IsNeumannStag)) {
             return &Solver::SolveFullNeumann;
-        } else if (none_of(bcs, IsPeriodic) && any_of(bcs, IsDirichletOrStag)) {
+        } else if (none_of(bcs, HasPeriodic) &&
+                   any_of(bcs, HasDirichletOrStag)) {
             return &Solver::SolveFullDirichlet;
         } else {
             throw std::invalid_argument(
@@ -365,7 +366,7 @@ private:
             return &Solver::SolveFullNeumann;
         } else if (IsPeriodic(bcx) && IsPeriodic(bcy) && IsNeumannOrStag(bcz)) {
             return &Solver::SolvePPNs;
-        } else if (IsPeriodic(bcx) && IsPeriodic(bcy) && !IsPeriodic(bcz) &&
+        } else if (IsPeriodic(bcx) && IsPeriodic(bcy) && !HasPeriodic(bcz) &&
                    HasDirichletOrStag(bcz)) {
             return &Solver::SolvePPD;
         } else if (IsNeumannOrStag(bcx) && IsPeriodic(bcy) && IsPeriodic(bcz)) {

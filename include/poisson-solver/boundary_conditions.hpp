@@ -52,6 +52,11 @@ constexpr bool IsNeumannOrStag(BCPair bcp) {
     return IsNeumann(bcp) || IsNeumannStag(bcp);
 }
 
+constexpr bool HasPeriodic(BCPair bcp) {
+    using BC = BoundaryCondition;
+    return bcp.first == BC::kPeriodic || bcp.second == BC::kPeriodic;
+}
+
 constexpr bool HasDirichlet(BCPair bcp) {
     using BC = BoundaryCondition;
     return bcp.first == BC::kDirichlet || bcp.second == BC::kDirichlet;
