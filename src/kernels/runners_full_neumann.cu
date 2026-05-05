@@ -14,44 +14,23 @@ void RunDivideWorkspaceByDenomsFullNeumann(T *real_workspace,
         real_workspace, ns, denoms);
 }
 
-// Explicit instantiations
-// Doubles
-template void RunDivideWorkspaceByDenomsFullNeumann<double, 1>(
-    double *real_workspace,
-    std::array<std::size_t, 1> ns,
-    std::array<const double *, 1> denoms,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunDivideWorkspaceByDenomsFullNeumann<double, 2>(
-    double *real_workspace,
-    std::array<std::size_t, 2> ns,
-    std::array<const double *, 2> denoms,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunDivideWorkspaceByDenomsFullNeumann<double, 3>(
-    double *real_workspace,
-    std::array<std::size_t, 3> ns,
-    std::array<const double *, 3> denoms,
-    dim3 grid_size,
-    dim3 block_size);
+// === Explicit Instantiations ===
+#define INSTANTIATE_DIVISION(TYPE, DIM)                             \
+    template void RunDivideWorkspaceByDenomsFullNeumann<TYPE, DIM>( \
+        TYPE * real_workspace,                                      \
+        std::array<std::size_t, DIM> ns,                            \
+        std::array<const TYPE *, DIM> denoms,                       \
+        dim3 grid_size,                                             \
+        dim3 block_size);
 
-// Floats
-template void RunDivideWorkspaceByDenomsFullNeumann<float, 1>(
-    float *real_workspace,
-    std::array<std::size_t, 1> ns,
-    std::array<const float *, 1> denoms,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunDivideWorkspaceByDenomsFullNeumann<float, 2>(
-    float *real_workspace,
-    std::array<std::size_t, 2> ns,
-    std::array<const float *, 2> denoms,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunDivideWorkspaceByDenomsFullNeumann<float, 3>(
-    float *real_workspace,
-    std::array<std::size_t, 3> ns,
-    std::array<const float *, 3> denoms,
-    dim3 grid_size,
-    dim3 block_size);
+#define INSTANTIATE_DIVISION_ALL_DIMS(TYPE) \
+    INSTANTIATE_DIVISION(TYPE, 1)           \
+    INSTANTIATE_DIVISION(TYPE, 2)           \
+    INSTANTIATE_DIVISION(TYPE, 3)
+
+INSTANTIATE_DIVISION_ALL_DIMS(float)
+INSTANTIATE_DIVISION_ALL_DIMS(double)
+
+#undef INSTANTIATE_DIVISION_ALL_DIMS
+#undef INSTANTIATE_DIVISION
 }  // namespace poisson_solver

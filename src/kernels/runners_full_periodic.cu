@@ -36,122 +36,48 @@ void RunNormalization(T *phi,
         phi, cmplx_workspace, ns, norm_factor);
 }
 
-// Explicit instantiations
-// Doubles
-template void RunInitWorkspaceFullPeriodic<double, 1>(
-    CuComplexTrait_t<double> *cmplx_workspace,
-    const double *rhs,
-    std::array<std::size_t, 1> ns,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunInitWorkspaceFullPeriodic<double, 2>(
-    CuComplexTrait_t<double> *cmplx_workspace,
-    const double *rhs,
-    std::array<std::size_t, 2> ns,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunInitWorkspaceFullPeriodic<double, 3>(
-    CuComplexTrait_t<double> *cmplx_workspace,
-    const double *rhs,
-    std::array<std::size_t, 3> ns,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunDivideWorkspaceByDenomsFullPeriodic<double, 1>(
-    CuComplexTrait_t<double> *cmplx_workspace,
-    std::array<std::size_t, 1> ns,
-    std::array<const double *, 1> denoms,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunDivideWorkspaceByDenomsFullPeriodic<double, 2>(
-    CuComplexTrait_t<double> *cmplx_workspace,
-    std::array<std::size_t, 2> ns,
-    std::array<const double *, 2> denoms,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunDivideWorkspaceByDenomsFullPeriodic<double, 3>(
-    CuComplexTrait_t<double> *cmplx_workspace,
-    std::array<std::size_t, 3> ns,
-    std::array<const double *, 3> denoms,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunNormalization<double, 1>(
-    double *phi,
-    const CuComplexTrait_t<double> *cmplx_workspace,
-    std::array<std::size_t, 1> ns,
-    double norm_factor,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunNormalization<double, 2>(
-    double *phi,
-    const CuComplexTrait_t<double> *cmplx_workspace,
-    std::array<std::size_t, 2> ns,
-    double norm_factor,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunNormalization<double, 3>(
-    double *phi,
-    const CuComplexTrait_t<double> *cmplx_workspace,
-    std::array<std::size_t, 3> ns,
-    double norm_factor,
-    dim3 grid_size,
-    dim3 block_size);
+// === Explicit Instantiations ===
+#define INSTANTIATE_INITIALIZATION(TYPE, DIM)              \
+    template void RunInitWorkspaceFullPeriodic<TYPE, DIM>( \
+        CuComplexTrait_t<TYPE> * cmplx_workspace,          \
+        const TYPE *rhs,                                   \
+        std::array<std::size_t, DIM> ns,                   \
+        dim3 grid_size,                                    \
+        dim3 block_size);
 
-// Floats
-template void RunInitWorkspaceFullPeriodic<float, 1>(
-    CuComplexTrait_t<float> *cmplx_workspace,
-    const float *rhs,
-    std::array<std::size_t, 1> ns,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunInitWorkspaceFullPeriodic<float, 2>(
-    CuComplexTrait_t<float> *cmplx_workspace,
-    const float *rhs,
-    std::array<std::size_t, 2> ns,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunInitWorkspaceFullPeriodic<float, 3>(
-    CuComplexTrait_t<float> *cmplx_workspace,
-    const float *rhs,
-    std::array<std::size_t, 3> ns,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunDivideWorkspaceByDenomsFullPeriodic<float, 1>(
-    CuComplexTrait_t<float> *cmplx_workspace,
-    std::array<std::size_t, 1> ns,
-    std::array<const float *, 1> denoms,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunDivideWorkspaceByDenomsFullPeriodic<float, 2>(
-    CuComplexTrait_t<float> *cmplx_workspace,
-    std::array<std::size_t, 2> ns,
-    std::array<const float *, 2> denoms,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunDivideWorkspaceByDenomsFullPeriodic<float, 3>(
-    CuComplexTrait_t<float> *cmplx_workspace,
-    std::array<std::size_t, 3> ns,
-    std::array<const float *, 3> denoms,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunNormalization<float, 1>(
-    float *phi,
-    const CuComplexTrait_t<float> *cmplx_workspace,
-    std::array<std::size_t, 1> ns,
-    float norm_factor,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunNormalization<float, 2>(
-    float *phi,
-    const CuComplexTrait_t<float> *cmplx_workspace,
-    std::array<std::size_t, 2> ns,
-    float norm_factor,
-    dim3 grid_size,
-    dim3 block_size);
-template void RunNormalization<float, 3>(
-    float *phi,
-    const CuComplexTrait_t<float> *cmplx_workspace,
-    std::array<std::size_t, 3> ns,
-    float norm_factor,
-    dim3 grid_size,
-    dim3 block_size);
+#define INSTANTIATE_DIVISION(TYPE, DIM)                              \
+    template void RunDivideWorkspaceByDenomsFullPeriodic<TYPE, DIM>( \
+        CuComplexTrait_t<TYPE> * cmplx_workspace,                    \
+        std::array<std::size_t, DIM> ns,                             \
+        std::array<const TYPE *, DIM> denoms,                        \
+        dim3 grid_size,                                              \
+        dim3 block_size);
+
+#define INSTANTIATE_NORMALIZATION(TYPE, DIM)           \
+    template void RunNormalization<TYPE, DIM>(         \
+        TYPE * phi,                                    \
+        const CuComplexTrait_t<TYPE> *cmplx_workspace, \
+        std::array<std::size_t, DIM> ns,               \
+        TYPE norm_factor,                              \
+        dim3 grid_size,                                \
+        dim3 block_size);
+
+#define INSTANTIATE_INIT_DIV_NORM(TYPE, DIM) \
+    INSTANTIATE_INITIALIZATION(TYPE, DIM)    \
+    INSTANTIATE_DIVISION(TYPE, DIM)          \
+    INSTANTIATE_NORMALIZATION(TYPE, DIM)
+
+#define INSTANTIATE_INIT_DIV_NORM_ALL_DIMS(TYPE) \
+    INSTANTIATE_INIT_DIV_NORM(TYPE, 1)           \
+    INSTANTIATE_INIT_DIV_NORM(TYPE, 2)           \
+    INSTANTIATE_INIT_DIV_NORM(TYPE, 3)
+
+INSTANTIATE_INIT_DIV_NORM_ALL_DIMS(float)
+INSTANTIATE_INIT_DIV_NORM_ALL_DIMS(double)
+
+#undef INSTANTIATE_INIT_DIV_NORM_ALL_DIMS
+#undef INSTANTIATE_INIT_DIV_NORM
+#undef INSTANTIATE_NORMALIZATION
+#undef INSTANTIATE_DIVISION
+#undef INSTANTIATE_INITIALIZATION
 }  // namespace poisson_solver
