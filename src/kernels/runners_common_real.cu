@@ -1,3 +1,4 @@
+#include "poisson-solver/cuch.hpp"
 #include "poisson-solver/kernels/common_real.cuh"
 #include "poisson-solver/kernels/runners_common_real.hpp"
 
@@ -13,6 +14,7 @@ void RunNormalization(T *phi,
                       dim3 block_size) {
     NormalizeRealWorkspaceToPhi<<<grid_size, block_size>>>(
         phi, real_workspace, ns, norm_factor);
+    CUCH(cudaGetLastError());
 }
 
 // === Explicit Instantiations ===

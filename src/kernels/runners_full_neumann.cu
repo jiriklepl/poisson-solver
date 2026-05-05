@@ -1,3 +1,4 @@
+#include "poisson-solver/cuch.hpp"
 #include "poisson-solver/kernels/full_neumann.cuh"
 #include "poisson-solver/kernels/runners_full_neumann.hpp"
 
@@ -12,6 +13,7 @@ void RunDivideWorkspaceByDenomsFullNeumann(T *real_workspace,
                                            dim3 block_size) {
     DivideWorkspaceByDenomsFullNeumann<<<grid_size, block_size>>>(
         real_workspace, ns, denoms);
+    CUCH(cudaGetLastError());
 }
 
 // === Explicit Instantiations ===

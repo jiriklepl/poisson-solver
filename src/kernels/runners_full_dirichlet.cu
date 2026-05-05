@@ -1,3 +1,4 @@
+#include "poisson-solver/cuch.hpp"
 #include "poisson-solver/kernels/full_dirichlet.cuh"
 #include "poisson-solver/kernels/runners_full_dirichlet.hpp"
 
@@ -12,6 +13,7 @@ void RunDivideWorkspaceByDenomsFullDirichlet(T *real_workspace,
                                              dim3 block_size) {
     DivideWorkspaceByDenomsFullDirichlet<<<grid_size, block_size>>>(
         real_workspace, ns, denoms);
+    CUCH(cudaGetLastError());
 }
 
 // === Explicit Instantiations ===

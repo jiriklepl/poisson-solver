@@ -204,7 +204,7 @@ private:
                                      ns_,
                                      grid_size_,
                                      block_size_);
-        CUCH(cudaGetLastError());
+
         FFTPolicy<T, Dim>::Forward(cu_cmplx_workspace_.value().get(),
                                    fft_plan_);
 
@@ -214,7 +214,6 @@ private:
             cu_denom_observers_,
             grid_size_,
             block_size_);
-        CUCH(cudaGetLastError());
 
         FFTPolicy<T, Dim>::Backward(cu_cmplx_workspace_.value().get(),
                                     fft_plan_);
@@ -224,7 +223,6 @@ private:
                          norm_factor_,
                          grid_size_,
                          block_size_);
-        CUCH(cudaGetLastError());
     }
 
     void SolveFullDirichlet(std::span<T> phi, std::span<const T> rhs) {
@@ -241,7 +239,6 @@ private:
             cu_denom_observers_,
             grid_size_,
             block_size_);
-        CUCH(cudaGetLastError());
 
         FFTPolicy<T, Dim>::Backward(cu_real_workspace_.value().get(),
                                     fft_plan_);
@@ -251,7 +248,6 @@ private:
                          norm_factor_,
                          grid_size_,
                          block_size_);
-        CUCH(cudaGetLastError());
     }
 
     void SolveFullNeumann(std::span<T> phi, std::span<const T> rhs) {
@@ -267,7 +263,6 @@ private:
                                               cu_denom_observers_,
                                               grid_size_,
                                               block_size_);
-        CUCH(cudaGetLastError());
 
         FFTPolicy<T, Dim>::Backward(cu_real_workspace_.value().get(),
                                     fft_plan_);
@@ -277,7 +272,6 @@ private:
                          norm_factor_,
                          grid_size_,
                          block_size_);
-        CUCH(cudaGetLastError());
     }
 
     void SolvePPNs(std::span<T> phi, std::span<const T> rhs) {

@@ -1,3 +1,4 @@
+#include "poisson-solver/cuch.hpp"
 #include "poisson-solver/kernels/full_periodic.cuh"
 #include "poisson-solver/kernels/runners_full_periodic.hpp"
 
@@ -12,6 +13,7 @@ void RunInitWorkspaceFullPeriodic(CuComplexTrait_t<T> *cmplx_workspace,
                                   dim3 block_size) {
     InitWorkspaceFullPeriodic<<<grid_size, block_size>>>(
         cmplx_workspace, rhs, ns);
+    CUCH(cudaGetLastError());
 }
 
 template <std::floating_point T, std::size_t Dim>
