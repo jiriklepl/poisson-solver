@@ -2,7 +2,7 @@
 #define AXIS_STRATEGIES_HPP
 
 #include "poisson-solver/boundary_conditions.hpp"
-#include "poisson-solver/helpers.hpp"
+#include "poisson-solver/detail/helpers.hpp"
 
 #include <concepts>
 #include <cstddef>
@@ -13,7 +13,7 @@
 // conditions of an axis. Valid boundary conditions on an axis are explicitly
 // enumerated in the `GetAxisStrategy` function.
 
-namespace poisson_solver {
+namespace poisson_solver::detail {
 template <std::floating_point T>
 class IAxisStrategy {
 public:
@@ -162,6 +162,6 @@ static std::unique_ptr<IAxisStrategy<T>> GetAxisStrategy(BCPair bcs) {
         throw std::invalid_argument("Invalid boundary condition combination.");
     }
 }
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail
 
 #endif  // AXIS_STRATEGIES_HPP

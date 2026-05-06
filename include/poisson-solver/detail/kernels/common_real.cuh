@@ -1,8 +1,8 @@
 #ifndef COMMON_REAL_CUH
 #define COMMON_REAL_CUH
 
-#include "poisson-solver/helpers.hpp"
-#include "poisson-solver/kernels/common.cuh"
+#include "poisson-solver/detail/helpers.hpp"
+#include "poisson-solver/detail/kernels/common.cuh"
 
 #include <array>
 #include <concepts>
@@ -12,7 +12,7 @@
 // Functionality shared among all real solvers (e.g. full dirichlet, full
 // neumann)
 
-namespace poisson_solver {
+namespace poisson_solver::detail::kernels {
 template <std::floating_point T, std::size_t Dim>
 __global__ void NormalizeRealWorkspaceToPhi(T *phi,
                                             const T *real_workspace,
@@ -23,6 +23,6 @@ __global__ void NormalizeRealWorkspaceToPhi(T *phi,
         phi[idx] = real_workspace[idx] / norm_factor;
     });
 }
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail::kernels
 
 #endif  // COMMON_REAL_CUH

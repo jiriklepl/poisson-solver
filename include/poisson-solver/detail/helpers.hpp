@@ -3,7 +3,7 @@
 
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
-#include "poisson-solver/cuch.hpp"
+#include "poisson-solver/detail/cuch.hpp"
 
 #include <concepts>
 #include <cstddef>
@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace poisson_solver {
+namespace poisson_solver::detail {
 // Forward declarations
 struct CudaFreeDeleter;
 
@@ -49,7 +49,7 @@ struct CudaFreeDeleter {
 // Creates a unique pointer to memory such that it can hold `size` elements of
 // type `T`
 template <typename T>
-CudaUniquePtr<T> make_cuda_unique(std::size_t size) {
+CudaUniquePtr<T> MakeCudaUnique(std::size_t size) {
     T *ptr;
     CUCH(cudaMalloc(&ptr, size * sizeof(T)));
     return CudaUniquePtr<T>(ptr);
@@ -71,6 +71,6 @@ struct CuComplexTrait<double> {
 
 template <std::floating_point T>
 using CuComplexTrait_t = typename CuComplexTrait<T>::Type;
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail
 
 #endif  // HELPERS_HPP

@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <span>
 
-namespace poisson_solver {
+namespace poisson_solver::detail {
 template <std::floating_point T>
 class ISolver {
 public:
@@ -40,6 +40,6 @@ public:
 private:
     Solver<T, Dim, FFTPolicy> solver_;
 };
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail
 
 #endif  // C_SOLVER_WRAPPER_HPP

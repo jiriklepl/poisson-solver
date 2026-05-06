@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 
-namespace poisson_solver {
+namespace poisson_solver::detail::kernels {
 // Returns indices of the current thread
 template <std::size_t Dim>
 __device__ std::array<std::size_t, Dim> GetIdxs() {
@@ -66,6 +66,6 @@ __device__ void ApplyStrideLoop(std::array<std::size_t, Dim> ns, Func f) {
     auto strides = GetStrides<Dim>();
     ApplyStrideLoopImpl<Dim, 0>(indices, starts, ns, strides, f);
 }
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail::kernels
 
 #endif  // COMMON_CUH

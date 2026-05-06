@@ -1,10 +1,10 @@
-#include "poisson-solver/cuch.hpp"
-#include "poisson-solver/kernels/full_neumann.cuh"
-#include "poisson-solver/kernels/runners_full_neumann.hpp"
+#include "poisson-solver/detail/cuch.hpp"
+#include "poisson-solver/detail/kernels/full_neumann.cuh"
+#include "poisson-solver/detail/kernels/runners_full_neumann.hpp"
 
 #include <concepts>
 
-namespace poisson_solver {
+namespace poisson_solver::detail::kernels::full_neumann {
 template <std::floating_point T, std::size_t Dim>
 void RunDivideWorkspaceByDenomsFullNeumann(T *real_workspace,
                                            std::array<std::size_t, Dim> ns,
@@ -35,4 +35,4 @@ INSTANTIATE_DIVISION_ALL_DIMS(double)
 
 #undef INSTANTIATE_DIVISION_ALL_DIMS
 #undef INSTANTIATE_DIVISION
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail::kernels::full_neumann

@@ -3,8 +3,8 @@
 #include "initialization.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/c_binding.h"
+#include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/fft_policies.hpp"
-#include "poisson-solver/helpers.hpp"
 #include "poisson-solver/solver.hpp"
 
 #include <algorithm>
@@ -21,6 +21,7 @@
 #include <vector>
 
 namespace ps = poisson_solver;
+namespace psd = ps::detail;
 using BC = ps::BoundaryCondition;
 using namespace tests;
 
@@ -174,7 +175,7 @@ private:
     }
 
     std::size_t MultidimToFlatIdx(std::array<std::size_t, Dim> idx) const {
-        return ps::FlatIndex<Dim>(idx, ns_);
+        return psd::FlatIndex<Dim>(idx, ns_);
     }
 };
 

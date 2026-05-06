@@ -1,10 +1,10 @@
-#include "poisson-solver/cuch.hpp"
-#include "poisson-solver/kernels/common_real.cuh"
-#include "poisson-solver/kernels/runners_common_real.hpp"
+#include "poisson-solver/detail/cuch.hpp"
+#include "poisson-solver/detail/kernels/common_real.cuh"
+#include "poisson-solver/detail/kernels/runners_common_real.hpp"
 
 #include <concepts>
 
-namespace poisson_solver {
+namespace poisson_solver::detail::kernels {
 template <std::floating_point T, std::size_t Dim>
 void RunNormalization(T *phi,
                       const T *real_workspace,
@@ -36,4 +36,4 @@ INSTANTIATE_NORMALIZATION_ALL_DIMS(double)
 
 #undef INSTANTIATE_NORMALIZATION_ALL_DIMS
 #undef INSTANTIATE_NORMALIZATION
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail::kernels

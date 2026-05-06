@@ -1,10 +1,10 @@
-#include "poisson-solver/cuch.hpp"
-#include "poisson-solver/kernels/full_periodic.cuh"
-#include "poisson-solver/kernels/runners_full_periodic.hpp"
+#include "poisson-solver/detail/cuch.hpp"
+#include "poisson-solver/detail/kernels/full_periodic.cuh"
+#include "poisson-solver/detail/kernels/runners_full_periodic.hpp"
 
 #include <concepts>
 
-namespace poisson_solver {
+namespace poisson_solver::detail::kernels::full_periodic {
 template <std::floating_point T, std::size_t Dim>
 void RunInitWorkspaceFullPeriodic(CuComplexTrait_t<T> *cmplx_workspace,
                                   const T *rhs,
@@ -82,4 +82,4 @@ INSTANTIATE_INIT_DIV_NORM_ALL_DIMS(double)
 #undef INSTANTIATE_NORMALIZATION
 #undef INSTANTIATE_DIVISION
 #undef INSTANTIATE_INITIALIZATION
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail::kernels::full_periodic

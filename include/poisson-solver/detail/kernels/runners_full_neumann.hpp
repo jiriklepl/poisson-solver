@@ -6,13 +6,13 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 
-namespace poisson_solver {
+namespace poisson_solver::detail::kernels::full_neumann {
 template <std::floating_point T, std::size_t Dim>
 void RunDivideWorkspaceByDenomsFullNeumann(T *real_workspace,
                                            std::array<std::size_t, Dim> ns,
                                            std::array<const T *, Dim> denoms,
                                            dim3 grid_size,
                                            dim3 block_size);
-}
+}  // namespace poisson_solver::detail::kernels::full_neumann
 
 #endif  // RUNNERS_FULL_NEUMANN_HPP

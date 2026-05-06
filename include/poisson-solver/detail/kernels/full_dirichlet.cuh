@@ -1,27 +1,22 @@
-#ifndef FULL_NEUMANN_CUH
-#define FULL_NEUMANN_CUH
+#ifndef FULL_DIRICHLET_CUH
+#define FULL_DIRICHLET_CUH
 
-#include "poisson-solver/helpers.hpp"
-#include "poisson-solver/kernels/common.cuh"
+#include "poisson-solver/detail/helpers.hpp"
+#include "poisson-solver/detail/kernels/common.cuh"
 
 #include <array>
 #include <concepts>
 #include <cstddef>
 #include <cuda_runtime.h>
 
-namespace poisson_solver {
+namespace poisson_solver::detail::kernels::full_dirichlet {
 template <std::floating_point T, std::size_t Dim>
-__global__ void DivideWorkspaceByDenomsFullNeumann(
+__global__ void DivideWorkspaceByDenomsFullDirichlet(
     T *real_workspace,
     std::array<std::size_t, Dim> ns,
     std::array<const T *, Dim> denoms) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
-
-        if (idx == 0) {
-            real_workspace[idx] = 0;
-            return;
-        }
 
         T denom = 0;
         for (std::size_t i = 0; i < Dim; ++i) {
@@ -30,6 +25,6 @@ __global__ void DivideWorkspaceByDenomsFullNeumann(
         real_workspace[idx] /= denom;
     });
 }
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail::kernels::full_dirichlet
 
-#endif  // FULL_NEUMANN_CUH
+#endif  // FULL_DIRICHLET_CUH

@@ -1,15 +1,15 @@
 #ifndef FULL_PERIODIC_CUH
 #define FULL_PERIODIC_CUH
 
-#include "poisson-solver/helpers.hpp"
-#include "poisson-solver/kernels/common.cuh"
+#include "poisson-solver/detail/helpers.hpp"
+#include "poisson-solver/detail/kernels/common.cuh"
 
 #include <array>
 #include <concepts>
 #include <cstddef>
 #include <cuda_runtime.h>
 
-namespace poisson_solver {
+namespace poisson_solver::detail::kernels::full_periodic {
 template <std::floating_point T>
 __device__ CuComplexTrait_t<T> MakeCuComplex(T r, T i);
 
@@ -66,6 +66,6 @@ __global__ void NormalizeWorkspaceToPhiFullPeriodic(
         phi[idx] = cmplx_workspace[idx].x / norm_factor;
     });
 }
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail::kernels::full_periodic
 
 #endif  // FULL_PERIODIC_CUH

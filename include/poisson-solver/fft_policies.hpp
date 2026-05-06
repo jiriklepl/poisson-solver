@@ -2,7 +2,7 @@
 #define FFT_POLICIES_HPP
 
 #include "poisson-solver/boundary_conditions.hpp"
-#include "poisson-solver/helpers.hpp"
+#include "poisson-solver/detail/helpers.hpp"
 
 #include <array>
 #include <concepts>
@@ -14,7 +14,7 @@
 #include <heffte.h>
 #include <mpi.h>
 #else
-#include "poisson-solver/cuch.hpp"
+#include "poisson-solver/detail/cuch.hpp"
 
 #include <algorithm>
 #include <cuda.h>
@@ -29,8 +29,9 @@ namespace poisson_solver {
 // Restricts workspace to be a real or complex workspace
 template <typename Workspace, typename T>
 concept ValidWorkspace =
-    std::floating_point<T> && (std::is_same_v<Workspace, T> ||
-                               std::is_same_v<Workspace, CuComplexTrait_t<T>>);
+    std::floating_point<T> &&
+    (std::is_same_v<Workspace, T> ||
+     std::is_same_v<Workspace, detail::CuComplexTrait_t<T>>);
 
 #ifdef USE_MPI
 

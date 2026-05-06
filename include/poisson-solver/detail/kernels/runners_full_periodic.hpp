@@ -5,7 +5,7 @@
 #include <concepts>
 #include <cuda_runtime.h>
 
-namespace poisson_solver {
+namespace poisson_solver::detail::kernels::full_periodic {
 // Initializes the complex workspace `cmplx_workspace` with values from `rhs`
 template <std::floating_point T, std::size_t Dim>
 void RunInitWorkspaceFullPeriodic(CuComplexTrait_t<T> *cmplx_workspace,
@@ -30,6 +30,6 @@ void RunNormalization(T *phi,
                       T norm_factor,
                       dim3 grid_size,
                       dim3 block_size);
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail::kernels::full_periodic
 
 #endif  // RUNNERS_FULL_PERIODIC_HPP

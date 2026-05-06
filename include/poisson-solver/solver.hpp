@@ -2,14 +2,14 @@
 #define SOLVER_HPP
 
 #include "poisson-solver/approximations.hpp"
-#include "poisson-solver/axis_strategies.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
+#include "poisson-solver/detail/axis_strategies.hpp"
+#include "poisson-solver/detail/helpers.hpp"
+#include "poisson-solver/detail/kernels/runners_common_real.hpp"
+#include "poisson-solver/detail/kernels/runners_full_dirichlet.hpp"
+#include "poisson-solver/detail/kernels/runners_full_neumann.hpp"
+#include "poisson-solver/detail/kernels/runners_full_periodic.hpp"
 #include "poisson-solver/fft_policies.hpp"
-#include "poisson-solver/helpers.hpp"
-#include "poisson-solver/kernels/runners_common_real.hpp"
-#include "poisson-solver/kernels/runners_full_dirichlet.hpp"
-#include "poisson-solver/kernels/runners_full_neumann.hpp"
-#include "poisson-solver/kernels/runners_full_periodic.hpp"
 
 #include <algorithm>
 #include <array>
@@ -48,6 +48,8 @@ public:
           norm_factor_(CalculateNormFactor(ns_, bcs_)),
           block_size_(cuda_block_size),
           grid_size_(CalculateGridSize(ns, block_size_)) {
+        using detail::MakeCudaUnique;
+
         // TODO: We can calculate them directly on the GPU, no?
         CalculateEigenvalues(denoms_[0], lens[0], ns_[0], bcs_[0], approx);
         if constexpr (Dim >= 2) {
@@ -57,10 +59,10 @@ public:
             CalculateEigenvalues(denoms_[2], lens[2], ns_[2], bcs_[2], approx);
         }
 
-        cu_phi_ = make_cuda_unique<T>(cnt_);
+        cu_phi_ = MakeCudaUnique<T>(cnt_);
         AllocateCudaWorkspaceAndRhs();
         for (std::size_t i = 0; i < Dim; ++i) {
-            cu_denoms_[i] = make_cuda_unique<T>(ns_[i]);
+            cu_denoms_[i] = MakeCudaUnique<T>(ns_[i]);
 
             // Eigenvals don't change between iterations.
             // Thus can be copied immediately.
@@ -105,7 +107,7 @@ private:
 
     // === Physics and math ===
     std::array<std::vector<T>, Dim> denoms_;
-    std::array<CudaUniquePtr<T>, Dim> cu_denoms_;
+    std::array<detail::CudaUniquePtr<T>, Dim> cu_denoms_;
     std::array<const T *, Dim> cu_denom_observers_;
     T norm_factor_;
     SolveFunction solve_;
@@ -113,12 +115,13 @@ private:
     // === FFT ===
     typename FFTPolicy<T, Dim>::Plan fft_plan_;
     // RHS needed only in case we initialize complex workspace from it.
-    std::optional<CudaUniquePtr<T>> cu_rhs_;
-    CudaUniquePtr<T> cu_phi_;
+    std::optional<detail::CudaUniquePtr<T>> cu_rhs_;
+    detail::CudaUniquePtr<T> cu_phi_;
 
     // Only one of those is used
-    std::optional<CudaUniquePtr<CuComplexTrait_t<T>>> cu_cmplx_workspace_;
-    std::optional<CudaUniquePtr<T>> cu_real_workspace_;
+    std::optional<detail::CudaUniquePtr<detail::CuComplexTrait_t<T>>>
+        cu_cmplx_workspace_;
+    std::optional<detail::CudaUniquePtr<T>> cu_real_workspace_;
 
     // === Device settings ===
     dim3 block_size_;
@@ -132,6 +135,8 @@ private:
 
     static T CalculateNormFactor(std::array<std::size_t, Dim> ns,
                                  std::array<BCPair, Dim> bcs) {
+        using detail::GetAxisStrategy;
+
         T factor = 1.0;
         for (std::size_t i = 0; i < Dim; ++i) {
             auto strategy = GetAxisStrategy<T>(bcs[i]);
@@ -169,6 +174,8 @@ private:
                                      std::size_t n,
                                      BCPair bc,
                                      const IApproximation<T> &approx) {
+        using detail::GetAxisStrategy;
+
         auto strategy = GetAxisStrategy<T>(bc);
         eigenvals.resize(n);
 
@@ -184,16 +191,21 @@ private:
     }
 
     void AllocateCudaWorkspaceAndRhs() {
+        using detail::CuComplexTrait_t;
+        using detail::MakeCudaUnique;
+
         // TODO: Only allocate one of those depending on the BCs (or solve
         // method? could be cleaner). For now both are allocated as idk when
         // specifically each is needed.
-        cu_cmplx_workspace_ = make_cuda_unique<CuComplexTrait_t<T>>(cnt_);
-        cu_real_workspace_ = make_cuda_unique<T>(cnt_);
+        cu_cmplx_workspace_ = MakeCudaUnique<CuComplexTrait_t<T>>(cnt_);
+        cu_real_workspace_ = MakeCudaUnique<T>(cnt_);
         // TODO: rhs is needed only in case that complex workspace is needed.
-        cu_rhs_ = make_cuda_unique<T>(cnt_);
+        cu_rhs_ = MakeCudaUnique<T>(cnt_);
     }
 
     void SolveFullPeriodic(std::span<T> phi, std::span<const T> rhs) {
+        using namespace detail::kernels::full_periodic;
+
         CUCH(cudaMemcpy(cu_rhs_.value().get(),
                         rhs.data(),
                         cnt_ * sizeof(T),
@@ -226,6 +238,9 @@ private:
     }
 
     void SolveFullDirichlet(std::span<T> phi, std::span<const T> rhs) {
+        using namespace detail::kernels::full_dirichlet;
+        using detail::kernels::RunNormalization;
+
         CUCH(cudaMemcpy(cu_real_workspace_.value().get(),
                         rhs.data(),
                         cnt_ * sizeof(T),
@@ -251,6 +266,9 @@ private:
     }
 
     void SolveFullNeumann(std::span<T> phi, std::span<const T> rhs) {
+        using namespace detail::kernels::full_neumann;
+        using detail::kernels::RunNormalization;
+
         CUCH(cudaMemcpy(cu_real_workspace_.value().get(),
                         rhs.data(),
                         cnt_ * sizeof(T),

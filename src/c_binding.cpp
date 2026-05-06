@@ -2,7 +2,7 @@
 
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
-#include "poisson-solver/c_solver_wrapper.hpp"
+#include "poisson-solver/detail/c_solver_wrapper.hpp"
 #include "poisson-solver/fft_policies.hpp"
 
 #include <array>
@@ -14,6 +14,7 @@
 // Here is the mapping between the C interface and C++ implementation.
 
 namespace ps = poisson_solver;
+namespace psd = ps::detail;
 
 namespace {
 template <std::floating_point T>
@@ -69,8 +70,8 @@ void PoissonSolver1DNew(PoissonSolver *solver_out,
                         const BoundaryCondition bcs[2],
                         const ps::IApproximation<double> &approx) {
     ps::BCPair bcp = ToCxxBCPair(bcs[0], bcs[1]);
-    ps::ISolver<double> *solver_handle =
-        new ps::SolverWrapper<double, 1, ps::VkFFTPolicy>(
+    psd::ISolver<double> *solver_handle =
+        new psd::SolverWrapper<double, 1, ps::VkFFTPolicy>(
             {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -86,8 +87,8 @@ void PoissonSolver2DNew(PoissonSolver *solver_out,
                         const ps::IApproximation<double> &approx) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
-    ps::ISolver<double> *solver_handle =
-        new ps::SolverWrapper<double, 2, ps::VkFFTPolicy>(
+    psd::ISolver<double> *solver_handle =
+        new psd::SolverWrapper<double, 2, ps::VkFFTPolicy>(
             {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
             {lens[0], lens[1]},
             {bcp1, bcp2},
@@ -107,8 +108,8 @@ void PoissonSolver3DNew(PoissonSolver *solver_out,
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
-    ps::ISolver<double> *solver_handle =
-        new ps::SolverWrapper<double, 3, ps::VkFFTPolicy>(
+    psd::ISolver<double> *solver_handle =
+        new psd::SolverWrapper<double, 3, ps::VkFFTPolicy>(
             {static_cast<std::size_t>(ns[0]),
              static_cast<std::size_t>(ns[1]),
              static_cast<std::size_t>(ns[2])},
@@ -149,13 +150,13 @@ void PoissonSolverNew(PoissonSolver *solver_out,
 void PoissonSolverExecute(PoissonSolver *solver,
                           double *phi,
                           const double *rhs) {
-    static_cast<ps::ISolver<double> *>(solver->handle)
+    static_cast<psd::ISolver<double> *>(solver->handle)
         ->Execute(std::span{phi, solver->grid_size},
                   std::span{rhs, solver->grid_size});
 }
 
 void PoissonSolverFinalize(PoissonSolver *solver) {
-    delete static_cast<ps::ISolver<double> *>(solver->handle);
+    delete static_cast<psd::ISolver<double> *>(solver->handle);
     solver->handle = nullptr;
     solver->grid_size = 0;
 }
@@ -168,8 +169,8 @@ void PoissonSolver1DNewFloat(PoissonSolver *solver_out,
                              const BoundaryCondition bcs[2],
                              const ps::IApproximation<float> &approx) {
     ps::BCPair bcp = ToCxxBCPair(bcs[0], bcs[1]);
-    ps::ISolver<float> *solver_handle =
-        new ps::SolverWrapper<float, 1, ps::VkFFTPolicy>(
+    psd::ISolver<float> *solver_handle =
+        new psd::SolverWrapper<float, 1, ps::VkFFTPolicy>(
             {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -185,8 +186,8 @@ void PoissonSolver2DNewFloat(PoissonSolver *solver_out,
                              const ps::IApproximation<float> &approx) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
-    ps::ISolver<float> *solver_handle =
-        new ps::SolverWrapper<float, 2, ps::VkFFTPolicy>(
+    psd::ISolver<float> *solver_handle =
+        new psd::SolverWrapper<float, 2, ps::VkFFTPolicy>(
             {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
             {lens[0], lens[1]},
             {bcp1, bcp2},
@@ -206,8 +207,8 @@ void PoissonSolver3DNewFloat(PoissonSolver *solver_out,
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
-    ps::ISolver<float> *solver_handle =
-        new ps::SolverWrapper<float, 3, ps::VkFFTPolicy>(
+    psd::ISolver<float> *solver_handle =
+        new psd::SolverWrapper<float, 3, ps::VkFFTPolicy>(
             {static_cast<std::size_t>(ns[0]),
              static_cast<std::size_t>(ns[1]),
              static_cast<std::size_t>(ns[2])},
@@ -248,13 +249,13 @@ void PoissonSolverNewFloat(PoissonSolver *solver_out,
 void PoissonSolverExecuteFloat(PoissonSolver *solver,
                                float *phi,
                                const float *rhs) {
-    static_cast<ps::ISolver<float> *>(solver->handle)
+    static_cast<psd::ISolver<float> *>(solver->handle)
         ->Execute(std::span{phi, solver->grid_size},
                   std::span{rhs, solver->grid_size});
 }
 
 void PoissonSolverFinalizeFloat(PoissonSolver *solver) {
-    delete static_cast<ps::ISolver<float> *>(solver->handle);
+    delete static_cast<psd::ISolver<float> *>(solver->handle);
     solver->handle = nullptr;
     solver->grid_size = 0;
 }
