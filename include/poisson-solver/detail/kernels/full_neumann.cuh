@@ -11,10 +11,9 @@
 
 namespace poisson_solver::detail::kernels::full_neumann {
 template <std::floating_point T, std::size_t Dim>
-__global__ void DivideWorkspaceByDenomsFullNeumann(
-    T *real_workspace,
-    std::array<std::size_t, Dim> ns,
-    std::array<const T *, Dim> denoms) {
+__global__ void DivideByDenoms(T *real_workspace,
+                               std::array<std::size_t, Dim> ns,
+                               std::array<const T *, Dim> denoms) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
 

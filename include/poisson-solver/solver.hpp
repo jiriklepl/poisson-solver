@@ -5,10 +5,10 @@
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/axis_strategies.hpp"
 #include "poisson-solver/detail/helpers.hpp"
-#include "poisson-solver/detail/kernels/runners_common_real.hpp"
-#include "poisson-solver/detail/kernels/runners_full_dirichlet.hpp"
-#include "poisson-solver/detail/kernels/runners_full_neumann.hpp"
-#include "poisson-solver/detail/kernels/runners_full_periodic.hpp"
+#include "poisson-solver/detail/runners/common_real.hpp"
+#include "poisson-solver/detail/runners/full_dirichlet.hpp"
+#include "poisson-solver/detail/runners/full_neumann.hpp"
+#include "poisson-solver/detail/runners/full_periodic.hpp"
 #include "poisson-solver/fft_policies.hpp"
 
 #include <algorithm>
@@ -119,7 +119,7 @@ private:
     detail::CudaUniquePtr<T> cu_phi_;
 
     // Only one of those is used
-    std::optional<detail::CudaUniquePtr<detail::CuComplexTrait_t<T>>>
+    std::optional<detail::CudaUniquePtr<detail::CuComplexTrait<T>>>
         cu_cmplx_workspace_;
     std::optional<detail::CudaUniquePtr<T>> cu_real_workspace_;
 
@@ -191,55 +191,54 @@ private:
     }
 
     void AllocateCudaWorkspaceAndRhs() {
-        using detail::CuComplexTrait_t;
+        using detail::CuComplexTrait;
         using detail::MakeCudaUnique;
 
         // TODO: Only allocate one of those depending on the BCs (or solve
         // method? could be cleaner). For now both are allocated as idk when
         // specifically each is needed.
-        cu_cmplx_workspace_ = MakeCudaUnique<CuComplexTrait_t<T>>(cnt_);
+        cu_cmplx_workspace_ = MakeCudaUnique<CuComplexTrait<T>>(cnt_);
         cu_real_workspace_ = MakeCudaUnique<T>(cnt_);
         // TODO: rhs is needed only in case that complex workspace is needed.
         cu_rhs_ = MakeCudaUnique<T>(cnt_);
     }
 
     void SolveFullPeriodic(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::kernels::full_periodic;
+        using namespace detail::runners::full_periodic;
 
         CUCH(cudaMemcpy(cu_rhs_.value().get(),
                         rhs.data(),
                         cnt_ * sizeof(T),
                         cudaMemcpyHostToDevice));
 
-        RunInitWorkspaceFullPeriodic(cu_cmplx_workspace_.value().get(),
-                                     cu_rhs_.value().get(),
-                                     ns_,
-                                     grid_size_,
-                                     block_size_);
+        Init(cu_cmplx_workspace_.value().get(),
+             cu_rhs_.value().get(),
+             ns_,
+             grid_size_,
+             block_size_);
 
         FFTPolicy<T, Dim>::Forward(cu_cmplx_workspace_.value().get(),
                                    fft_plan_);
 
-        RunDivideWorkspaceByDenomsFullPeriodic(
-            cu_cmplx_workspace_.value().get(),
-            ns_,
-            cu_denom_observers_,
-            grid_size_,
-            block_size_);
+        DivideByDenoms(cu_cmplx_workspace_.value().get(),
+                       ns_,
+                       cu_denom_observers_,
+                       grid_size_,
+                       block_size_);
 
         FFTPolicy<T, Dim>::Backward(cu_cmplx_workspace_.value().get(),
                                     fft_plan_);
-        RunNormalization(cu_phi_.get(),
-                         cu_cmplx_workspace_.value().get(),
-                         ns_,
-                         norm_factor_,
-                         grid_size_,
-                         block_size_);
+        Normalize(cu_phi_.get(),
+                  cu_cmplx_workspace_.value().get(),
+                  ns_,
+                  norm_factor_,
+                  grid_size_,
+                  block_size_);
     }
 
     void SolveFullDirichlet(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::kernels::full_dirichlet;
-        using detail::kernels::RunNormalization;
+        using namespace detail::runners::full_dirichlet;
+        using detail::runners::Normalize;
 
         CUCH(cudaMemcpy(cu_real_workspace_.value().get(),
                         rhs.data(),
@@ -248,26 +247,25 @@ private:
 
         FFTPolicy<T, Dim>::Forward(cu_real_workspace_.value().get(), fft_plan_);
 
-        RunDivideWorkspaceByDenomsFullDirichlet(
-            cu_real_workspace_.value().get(),
-            ns_,
-            cu_denom_observers_,
-            grid_size_,
-            block_size_);
+        DivideByDenoms(cu_real_workspace_.value().get(),
+                       ns_,
+                       cu_denom_observers_,
+                       grid_size_,
+                       block_size_);
 
         FFTPolicy<T, Dim>::Backward(cu_real_workspace_.value().get(),
                                     fft_plan_);
-        RunNormalization(cu_phi_.get(),
-                         cu_real_workspace_.value().get(),
-                         ns_,
-                         norm_factor_,
-                         grid_size_,
-                         block_size_);
+        Normalize(cu_phi_.get(),
+                  cu_real_workspace_.value().get(),
+                  ns_,
+                  norm_factor_,
+                  grid_size_,
+                  block_size_);
     }
 
     void SolveFullNeumann(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::kernels::full_neumann;
-        using detail::kernels::RunNormalization;
+        using namespace detail::runners::full_neumann;
+        using detail::runners::Normalize;
 
         CUCH(cudaMemcpy(cu_real_workspace_.value().get(),
                         rhs.data(),
@@ -276,20 +274,20 @@ private:
 
         FFTPolicy<T, Dim>::Forward(cu_real_workspace_.value().get(), fft_plan_);
 
-        RunDivideWorkspaceByDenomsFullNeumann(cu_real_workspace_.value().get(),
-                                              ns_,
-                                              cu_denom_observers_,
-                                              grid_size_,
-                                              block_size_);
+        DivideByDenoms(cu_real_workspace_.value().get(),
+                       ns_,
+                       cu_denom_observers_,
+                       grid_size_,
+                       block_size_);
 
         FFTPolicy<T, Dim>::Backward(cu_real_workspace_.value().get(),
                                     fft_plan_);
-        RunNormalization(cu_phi_.get(),
-                         cu_real_workspace_.value().get(),
-                         ns_,
-                         norm_factor_,
-                         grid_size_,
-                         block_size_);
+        Normalize(cu_phi_.get(),
+                  cu_real_workspace_.value().get(),
+                  ns_,
+                  norm_factor_,
+                  grid_size_,
+                  block_size_);
     }
 
     void SolvePPNs(std::span<T> phi, std::span<const T> rhs) {

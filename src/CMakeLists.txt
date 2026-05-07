@@ -1,10 +1,10 @@
 set(LIB_SRC
     c_binding.cpp
     fortran_binding.f90
-    detail/kernels/runners_common_real.cu
-    detail/kernels/runners_full_periodic.cu
-    detail/kernels/runners_full_dirichlet.cu
-    detail/kernels/runners_full_neumann.cu
+    detail/runners/common_real.cu
+    detail/runners/full_periodic.cu
+    detail/runners/full_dirichlet.cu
+    detail/runners/full_neumann.cu
 )
 
 # Debug files shall have a `_debug` suffix

@@ -57,20 +57,20 @@ CudaUniquePtr<T> MakeCudaUnique(std::size_t size) {
 
 // This type helps to decide the complex type based on the real type
 template <std::floating_point T>
-struct CuComplexTrait;
+struct CuComplexTraitImpl;
 
 template <>
-struct CuComplexTrait<float> {
+struct CuComplexTraitImpl<float> {
     using Type = cuComplex;
 };
 
 template <>
-struct CuComplexTrait<double> {
+struct CuComplexTraitImpl<double> {
     using Type = cuDoubleComplex;
 };
 
 template <std::floating_point T>
-using CuComplexTrait_t = typename CuComplexTrait<T>::Type;
+using CuComplexTrait = typename CuComplexTraitImpl<T>::Type;
 }  // namespace poisson_solver::detail
 
 #endif  // HELPERS_HPP

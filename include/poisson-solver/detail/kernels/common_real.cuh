@@ -14,10 +14,10 @@
 
 namespace poisson_solver::detail::kernels {
 template <std::floating_point T, std::size_t Dim>
-__global__ void NormalizeRealWorkspaceToPhi(T *phi,
-                                            const T *real_workspace,
-                                            std::array<std::size_t, Dim> ns,
-                                            T norm_factor) {
+__global__ void Normalize(T *phi,
+                          const T *real_workspace,
+                          std::array<std::size_t, Dim> ns,
+                          T norm_factor) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
         phi[idx] = real_workspace[idx] / norm_factor;

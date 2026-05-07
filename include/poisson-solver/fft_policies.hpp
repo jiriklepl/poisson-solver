@@ -28,10 +28,9 @@
 namespace poisson_solver {
 // Restricts workspace to be a real or complex workspace
 template <typename Workspace, typename T>
-concept ValidWorkspace =
-    std::floating_point<T> &&
-    (std::is_same_v<Workspace, T> ||
-     std::is_same_v<Workspace, detail::CuComplexTrait_t<T>>);
+concept ValidWorkspace = std::floating_point<T> &&
+                         (std::is_same_v<Workspace, T> ||
+                          std::is_same_v<Workspace, detail::CuComplexTrait<T>>);
 
 #ifdef USE_MPI
 
