@@ -28,7 +28,7 @@
 #include <vector>
 
 namespace poisson_solver {
-// TODO: Works only for all bcs == Periodic
+// TODO: Doesn't work for all 3D cases
 template <std::floating_point T,
           std::size_t Dim,
           template <std::floating_point, std::size_t> typename FFTPolicy>
@@ -42,38 +42,17 @@ public:
            dim3 cuda_block_size = DefaultBlockSize())
         : ns_(ns),
           bcs_(bcs),
-          cnt_(std::reduce(
-              ns_.begin(), ns_.end(), std::size_t{1}, std::multiplies<>{})),
-          denoms_(MakeDenoms(ns_, std::make_index_sequence<Dim>{})),
-          norm_factor_(CalculateNormFactor(ns_, bcs_)),
+          cnt_(ComputeTotalGridSize(ns_)),
+          norm_factor_(ComputeNormFactor(ns_, bcs_)),
           block_size_(cuda_block_size),
-          grid_size_(CalculateGridSize(ns, block_size_)) {
-        using detail::MakeCudaUnique;
+          grid_size_(ComputeGridSize(ns_, block_size_)) {
+        AllocDeviceBuffers();
 
-        // TODO: We can calculate them directly on the GPU, no?
-        CalculateEigenvalues(denoms_[0], lens[0], ns_[0], bcs_[0], approx);
-        if constexpr (Dim >= 2) {
-            CalculateEigenvalues(denoms_[1], lens[1], ns_[1], bcs_[1], approx);
-        }
-        if constexpr (Dim >= 3) {
-            CalculateEigenvalues(denoms_[2], lens[2], ns_[2], bcs_[2], approx);
-        }
-
-        cu_phi_ = MakeCudaUnique<T>(cnt_);
-        AllocateCudaWorkspaceAndRhs();
-        for (std::size_t i = 0; i < Dim; ++i) {
-            cu_denoms_[i] = MakeCudaUnique<T>(ns_[i]);
-
-            // Eigenvals don't change between iterations.
-            // Thus can be copied immediately.
-            CUCH(cudaMemcpy(cu_denoms_[i].get(),
-                            denoms_[i].data(),
-                            ns_[i] * sizeof(T),
-                            cudaMemcpyHostToDevice));
-
-            // Get non-owning C ptr from the smart ptr to pass to CUDA kernels
-            cu_denom_observers_[i] = cu_denoms_[i].get();
-        }
+        // Denoms are constant for the solver lifetime.
+        // They can be copied just once, here.
+        const auto denoms = GetEigenvalues(ns_, lens, bcs_, approx);
+        CopyDenomsToDevice(denoms);
+        cu_denom_observers_ = CreateDenomObservers();
 
         solve_ = GetSolveMethod(bcs);
 
@@ -85,7 +64,7 @@ public:
             throw std::runtime_error("Incorrect size of phi or rhs.");
         }
 
-        solve_(this, phi, rhs);
+        (this->*solve_)(phi, rhs);
         CUCH(cudaMemcpy(phi.data(),
                         cu_phi_.get(),
                         cnt_ * sizeof(T),
@@ -97,8 +76,9 @@ public:
     }
 
 private:
-    using SolveFunction =
-        std::function<void(Solver *, std::span<T>, std::span<const T>)>;
+    using SolveFunction = void (Solver::*)(std::span<T>, std::span<const T>);
+    using HostOneAxisDenoms = std::vector<T>;
+    using HostDenoms = std::array<HostOneAxisDenoms, Dim>;
 
     // === Grid ===
     std::array<std::size_t, Dim> ns_;
@@ -106,14 +86,17 @@ private:
     std::size_t cnt_;
 
     // === Physics and math ===
-    std::array<std::vector<T>, Dim> denoms_;
     std::array<detail::CudaUniquePtr<T>, Dim> cu_denoms_;
+
+    // These will be passed into the kernels.
     std::array<const T *, Dim> cu_denom_observers_;
+
     T norm_factor_;
     SolveFunction solve_;
 
     // === FFT ===
     typename FFTPolicy<T, Dim>::Plan fft_plan_;
+
     // RHS needed only in case we initialize complex workspace from it.
     std::optional<detail::CudaUniquePtr<T>> cu_rhs_;
     detail::CudaUniquePtr<T> cu_phi_;
@@ -127,24 +110,6 @@ private:
     dim3 block_size_;
     dim3 grid_size_;
 
-    template <std::size_t... Is>
-    static std::array<std::vector<T>, Dim> MakeDenoms(
-        const std::array<std::size_t, Dim> &ns, std::index_sequence<Is...>) {
-        return {std::vector<T>(ns[Is])...};
-    }
-
-    static T CalculateNormFactor(std::array<std::size_t, Dim> ns,
-                                 std::array<BCPair, Dim> bcs) {
-        using detail::GetAxisStrategy;
-
-        T factor = 1.0;
-        for (std::size_t i = 0; i < Dim; ++i) {
-            auto strategy = GetAxisStrategy<T>(bcs[i]);
-            factor *= strategy->CalculateNormalizationFactor(ns[i]);
-        }
-        return factor;
-    }
-
     static constexpr dim3 DefaultBlockSize() {
         if constexpr (Dim == 1) {
             return {256};
@@ -155,8 +120,25 @@ private:
         }
     }
 
-    static dim3 CalculateGridSize(const std::array<std::size_t, Dim> &ns,
-                                  dim3 block) {
+    static std::size_t ComputeTotalGridSize(std::array<std::size_t, Dim> ns) {
+        return std::accumulate(
+            ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>{});
+    }
+
+    static T ComputeNormFactor(std::array<std::size_t, Dim> ns,
+                               std::array<BCPair, Dim> bcs) {
+        using detail::GetAxisStrategy;
+
+        T factor = 1.0;
+        for (std::size_t i = 0; i < Dim; ++i) {
+            auto strategy = GetAxisStrategy<T>(bcs[i]);
+            factor *= strategy->CalculateNormalizationFactor(ns[i]);
+        }
+        return factor;
+    }
+
+    static dim3 ComputeGridSize(const std::array<std::size_t, Dim> &ns,
+                                dim3 block) {
         if constexpr (Dim == 1) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x};
         } else if constexpr (Dim == 2) {
@@ -169,28 +151,7 @@ private:
         }
     }
 
-    static void CalculateEigenvalues(std::vector<T> &eigenvals,
-                                     T len,
-                                     std::size_t n,
-                                     BCPair bc,
-                                     const IApproximation<T> &approx) {
-        using detail::GetAxisStrategy;
-
-        auto strategy = GetAxisStrategy<T>(bc);
-        eigenvals.resize(n);
-
-        const T grid_dx = strategy->GetGridDx(len, n);
-        const T dkx = std::numbers::pi_v<T> * grid_dx / len;
-
-        const T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
-
-        for (std::size_t i = 0; i < n; ++i) {
-            eigenvals[i] = approx(strategy->GetApproximationInput(i, n, dkx)) *
-                           inv_grid_dx_squared;
-        }
-    }
-
-    void AllocateCudaWorkspaceAndRhs() {
+    void AllocDeviceWorkspace() {
         using detail::CuComplexTrait;
         using detail::MakeCudaUnique;
 
@@ -199,8 +160,80 @@ private:
         // specifically each is needed.
         cu_cmplx_workspace_ = MakeCudaUnique<CuComplexTrait<T>>(cnt_);
         cu_real_workspace_ = MakeCudaUnique<T>(cnt_);
+    }
+
+    void AllocDeviceRhs() {
+        using detail::MakeCudaUnique;
+
         // TODO: rhs is needed only in case that complex workspace is needed.
         cu_rhs_ = MakeCudaUnique<T>(cnt_);
+    }
+
+    void AllocDevicePhi() {
+        using detail::MakeCudaUnique;
+        cu_phi_ = MakeCudaUnique<T>(cnt_);
+    }
+
+    void AllocDeviceDenoms() {
+        using detail::MakeCudaUnique;
+        for (std::size_t d = 0; d < Dim; ++d) {
+            cu_denoms_[d] = MakeCudaUnique<T>(ns_[d]);
+        }
+    }
+
+    void AllocDeviceBuffers() {
+        AllocDeviceWorkspace();
+        AllocDeviceRhs();
+        AllocDevicePhi();
+        AllocDeviceDenoms();
+    }
+
+    static HostOneAxisDenoms GetOneAxisEigenvalues(
+        T len, std::size_t n, BCPair bcp, const IApproximation<T> &approx) {
+        using detail::GetAxisStrategy;
+
+        HostOneAxisDenoms eigenvals(n);
+        auto strategy = GetAxisStrategy<T>(bcp);
+
+        const T grid_dx = strategy->GetGridDx(len, n);
+        const T dkx = std::numbers::pi_v<T> * grid_dx / len;
+        const T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
+
+        for (std::size_t i = 0; i < n; ++i) {
+            eigenvals[i] = approx(strategy->GetApproximationInput(i, n, dkx)) *
+                           inv_grid_dx_squared;
+        }
+
+        return eigenvals;
+    }
+
+    static HostDenoms GetEigenvalues(std::array<std::size_t, Dim> ns,
+                                     std::array<T, Dim> lens,
+                                     std::array<BCPair, Dim> bcs,
+                                     const IApproximation<T> &approx) {
+        // TODO: This could be done on GPU
+        HostDenoms denoms{};
+        for (std::size_t d = 0; d < Dim; ++d) {
+            denoms[d] = GetOneAxisEigenvalues(ns[d], lens[d], bcs[d], approx);
+        }
+        return denoms;
+    }
+
+    void CopyDenomsToDevice(const HostDenoms &denoms) {
+        for (std::size_t d = 0; d < Dim; ++d) {
+            CUCH(cudaMemcpy(cu_denoms_[d].get(),
+                            denoms[d].data(),
+                            ns_[d] * sizeof(T),
+                            cudaMemcpyHostToDevice));
+        }
+    }
+
+    std::array<const T *, Dim> CreateDenomObservers() {
+        std::array<const T *, Dim> observers{};
+        for (std::size_t d = 0; d < Dim; ++d) {
+            observers[d] = cu_denoms_[d].get();
+        }
+        return observers;
     }
 
     void SolveFullPeriodic(std::span<T> phi, std::span<const T> rhs) {
