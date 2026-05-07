@@ -21,7 +21,7 @@ public:
     virtual T GetApproximationInput(std::size_t i,
                                     std::size_t n,
                                     T dkx) const = 0;
-    virtual T CalculateNormalizationFactor(std::size_t n) const = 0;
+    virtual T ComputeNormalizationFactor(std::size_t n) const = 0;
 
     virtual ~IAxisStrategy() = default;
 };
@@ -39,7 +39,7 @@ public:
         return i < (n / 2) ? i * dkx : (n - i) * dkx;
     }
 
-    virtual T CalculateNormalizationFactor(std::size_t n) const override {
+    virtual T ComputeNormalizationFactor(std::size_t n) const override {
         return n;
     }
 };
@@ -57,7 +57,7 @@ public:
         return (i + 1) * (dkx / 2);
     }
 
-    virtual T CalculateNormalizationFactor(std::size_t n) const override {
+    virtual T ComputeNormalizationFactor(std::size_t n) const override {
         return 2 * (n + 1);
     }
 };
@@ -75,7 +75,7 @@ public:
         return i * (dkx / 2);
     }
 
-    virtual T CalculateNormalizationFactor(std::size_t n) const override {
+    virtual T ComputeNormalizationFactor(std::size_t n) const override {
         return 2 * (n - 1);
     }
 };
@@ -93,7 +93,7 @@ public:
         return (i + 1) * (dkx / 2);
     }
 
-    virtual T CalculateNormalizationFactor(std::size_t n) const override {
+    virtual T ComputeNormalizationFactor(std::size_t n) const override {
         return 2 * n;
     }
 };
@@ -111,7 +111,7 @@ public:
         return i * (dkx / 2);
     }
 
-    virtual T CalculateNormalizationFactor(std::size_t n) const override {
+    virtual T ComputeNormalizationFactor(std::size_t n) const override {
         return 2 * n;
     }
 };
@@ -129,7 +129,7 @@ public:
         return (i + 1 - static_cast<T>(0.5)) * (dkx / 2);
     }
 
-    virtual T CalculateNormalizationFactor(std::size_t n) const override {
+    virtual T ComputeNormalizationFactor(std::size_t n) const override {
         return 2 * n;
     }
 };

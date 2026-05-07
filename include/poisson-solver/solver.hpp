@@ -132,7 +132,7 @@ private:
         T factor = 1.0;
         for (std::size_t i = 0; i < Dim; ++i) {
             auto strategy = GetAxisStrategy<T>(bcs[i]);
-            factor *= strategy->CalculateNormalizationFactor(ns[i]);
+            factor *= strategy->ComputeNormalizationFactor(ns[i]);
         }
         return factor;
     }
