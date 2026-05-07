@@ -50,6 +50,7 @@ public:
 
         // Denoms are constant for the solver lifetime.
         // They can be copied just once, here.
+        // It is important to have buffers already allocated before copying.
         const auto denoms = GetEigenvalues(ns_, lens, bcs_, approx);
         CopyDenomsToDevice(denoms);
         cu_denom_observers_ = CreateDenomObservers();
@@ -137,8 +138,7 @@ private:
         return factor;
     }
 
-    static dim3 ComputeGridSize(const std::array<std::size_t, Dim> &ns,
-                                dim3 block) {
+    static dim3 ComputeGridSize(std::array<std::size_t, Dim> ns, dim3 block) {
         if constexpr (Dim == 1) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x};
         } else if constexpr (Dim == 2) {
