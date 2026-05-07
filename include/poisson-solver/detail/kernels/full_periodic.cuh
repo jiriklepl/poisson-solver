@@ -45,12 +45,9 @@ __global__ void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
             return;
         }
 
-        T denom = 0;
-        for (std::size_t i = 0; i < Dim; ++i) {
-            denom += denoms[i][idxs[i]];
-        }
-        cmplx_workspace[idx].x /= denom;
-        cmplx_workspace[idx].y /= denom;
+        T denom_sum = SumIndexedDenoms(denoms, idxs);
+        cmplx_workspace[idx].x /= denom_sum;
+        cmplx_workspace[idx].y /= denom_sum;
     });
 }
 

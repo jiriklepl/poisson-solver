@@ -22,11 +22,7 @@ __global__ void DivideByDenoms(T *real_workspace,
             return;
         }
 
-        T denom = 0;
-        for (std::size_t i = 0; i < Dim; ++i) {
-            denom += denoms[i][idxs[i]];
-        }
-        real_workspace[idx] /= denom;
+        real_workspace[idx] /= SumIndexedDenoms(denoms, idxs);
     });
 }
 }  // namespace poisson_solver::detail::kernels::full_neumann

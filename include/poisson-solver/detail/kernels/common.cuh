@@ -66,6 +66,16 @@ __device__ void ApplyStrideLoop(std::array<std::size_t, Dim> ns, Func f) {
     auto strides = GetStrides<Dim>();
     ApplyStrideLoopImpl<Dim, 0>(indices, starts, ns, strides, f);
 }
+
+template <std::floating_point T, std::size_t Dim>
+__device__ T SumIndexedDenoms(std::array<const T *, Dim> denoms,
+                              std::array<std::size_t, Dim> idxs) {
+    T res = 0.0;
+    for (std::size_t d = 0; d < Dim; ++d) {
+        res += denoms[d][idxs[d]];
+    }
+    return res;
+}
 }  // namespace poisson_solver::detail::kernels
 
 #endif  // COMMON_CUH
