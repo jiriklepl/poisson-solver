@@ -5,7 +5,6 @@
 #include "poisson-solver/detail/c_solver_wrapper.hpp"
 #include "poisson-solver/fft_policies.hpp"
 
-#include <array>
 #include <concepts>
 #include <memory>
 #include <span>

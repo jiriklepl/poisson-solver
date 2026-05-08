@@ -1,7 +1,11 @@
 #ifndef BOUNDARY_CONDITIONS_HPP
 #define BOUNDARY_CONDITIONS_HPP
 
+#include <array>
+#include <cstddef>
+
 namespace poisson_solver {
+// === Enums ===
 enum class BoundaryCondition {
     kPeriodic,
     kDirichlet,
@@ -10,6 +14,7 @@ enum class BoundaryCondition {
     kNeumannStag
 };
 
+// === Structs ===
 struct BCPair {
     const BoundaryCondition first;
     const BoundaryCondition second;
@@ -17,6 +22,11 @@ struct BCPair {
     bool operator==(const BCPair &) const = default;
 };
 
+// === Aliases ===
+template <std::size_t Dim>
+using BCs = std::array<BCPair, Dim>;
+
+// === Functions ===
 constexpr bool IsPeriodic(BCPair bcp) {
     using BC = BoundaryCondition;
     return bcp.first == BC::kPeriodic && bcp.second == BC::kPeriodic;

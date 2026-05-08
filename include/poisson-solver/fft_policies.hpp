@@ -5,7 +5,6 @@
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 
-#include <array>
 #include <concepts>
 #include <cstddef>
 #include <memory>
@@ -46,7 +45,7 @@ struct HeFFTePolicy {
                      GridSizes<Dim> ns,
                      // TODO: Currently unused but will be needed to determine
                      // the FFT plan type.
-                     std::array<BCPair, Dim> bcs) {
+                     BCs<Dim> bcs) {
         int nx = ns[0];
         int ny = (Dim >= 2) ? ns[1] : 1;
         int nz = (Dim >= 3) ? ns[2] : 1;
@@ -100,9 +99,7 @@ struct VkFFTPolicy {
     static constexpr int ForwardDirection = -1;
     static constexpr int BackwardDirection = 1;
 
-    static void Init(Plan &plan,
-                     GridSizes<Dim> ns,
-                     std::array<BCPair, Dim> bcs) {
+    static void Init(Plan &plan, GridSizes<Dim> ns, BCs<Dim> bcs) {
         // Set dim and axes sizes
         plan.config.FFTdim = Dim;
         for (std::size_t d = 0; d < Dim; ++d) {
@@ -165,7 +162,7 @@ private:
     }
 
     // Sets the FFT type for `bcs` that are not all equal.
-    static void SetFFTType1D(Plan &plan, std::array<BCPair, 1> bcs) {
+    static void SetFFTType1D(Plan &plan, BCs<1> bcs) {
         using BC = BoundaryCondition;
         constexpr BC D = BC::kDirichlet;
         constexpr BC N = BC::kNeumann;
@@ -191,7 +188,7 @@ private:
     }
 
     // Sets the FFT type for `bcs` that are not all equal.
-    static void SetFFTType3D(Plan &plan, std::array<BCPair, 3> bcs) {
+    static void SetFFTType3D(Plan &plan, BCs<3> bcs) {
         // TODO: Finish implementation of all possible types
         throw std::runtime_error("Not implemented.");
     }
@@ -199,7 +196,7 @@ private:
     // Sets the FFT type if all the `bcs` are equal as this behaviour is
     // shared in all dimensions. Returns whether all `bcs` are equal. If not,
     // further processing and FFT type setting should be done.
-    static bool TrySetFullBCsFFTType(Plan &plan, std::array<BCPair, Dim> bcs) {
+    static bool TrySetFullBCsFFTType(Plan &plan, BCs<Dim> bcs) {
         using namespace std::ranges;
 
         if (all_of(bcs, IsPeriodic)) {
@@ -224,7 +221,7 @@ private:
     }
 
     // Sets the FFT type of the plan.
-    static void SetFFTType(Plan &plan, std::array<BCPair, Dim> bcs) {
+    static void SetFFTType(Plan &plan, BCs<Dim> bcs) {
         if (TrySetFullBCsFFTType(plan, bcs))
             return;
 

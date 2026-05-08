@@ -38,7 +38,7 @@ class Solver {
 public:
     Solver(GridSizes<Dim> ns,
            std::array<T, Dim> lens,
-           std::array<BCPair, Dim> bcs,
+           BCs<Dim> bcs,
            const IApproximation<T> &approx = SpectralApproximation<T>{},
            dim3 cuda_block_size = DefaultBlockSize())
         : ns_(ns),
@@ -84,7 +84,7 @@ private:
 
     // === Grid ===
     GridSizes<Dim> ns_;
-    std::array<BCPair, Dim> bcs_;
+    BCs<Dim> bcs_;
     std::size_t cnt_;
 
     // === Physics and math ===
@@ -127,7 +127,7 @@ private:
             ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>{});
     }
 
-    static T ComputeNormFactor(GridSizes<Dim> ns, std::array<BCPair, Dim> bcs) {
+    static T ComputeNormFactor(GridSizes<Dim> ns, BCs<Dim> bcs) {
         using detail::GetAxisStrategy;
 
         T factor = 1.0;
@@ -209,7 +209,7 @@ private:
 
     static HostDenoms GetEigenvalues(GridSizes<Dim> ns,
                                      std::array<T, Dim> lens,
-                                     std::array<BCPair, Dim> bcs,
+                                     BCs<Dim> bcs,
                                      const IApproximation<T> &approx) {
         // TODO: This could be done on GPU
         HostDenoms denoms{};
@@ -363,7 +363,7 @@ private:
         throw std::runtime_error("Not implemented.");
     }
 
-    static SolveFunction GetSolveMethod1D(std::array<BCPair, 1> bcs) {
+    static SolveFunction GetSolveMethod1D(BCs<1> bcs) {
         using namespace std::ranges;
 
         if (all_of(bcs, IsPeriodic)) {
@@ -381,7 +381,7 @@ private:
         }
     }
 
-    static SolveFunction GetSolveMethod2D(std::array<BCPair, 2> bcs) {
+    static SolveFunction GetSolveMethod2D(BCs<2> bcs) {
         using namespace std::ranges;
 
         if (all_of(bcs, IsPeriodic)) {
@@ -396,7 +396,7 @@ private:
         }
     }
 
-    static SolveFunction GetSolveMethod3D(std::array<BCPair, 3> bcs) {
+    static SolveFunction GetSolveMethod3D(BCs<3> bcs) {
         using namespace std::ranges;
 
         auto [bcx, bcy, bcz] = bcs;
@@ -436,7 +436,7 @@ private:
         }
     }
 
-    static SolveFunction GetSolveMethod(std::array<BCPair, Dim> bcs) {
+    static SolveFunction GetSolveMethod(BCs<Dim> bcs) {
         if constexpr (Dim == 1) {
             return GetSolveMethod1D(bcs);
         } else if constexpr (Dim == 2) {

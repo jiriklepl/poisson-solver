@@ -3,6 +3,7 @@
 #include "poisson-solver/detail/kernels/full_periodic.cuh"
 #include "poisson-solver/detail/runners/full_periodic.hpp"
 
+#include <array>
 #include <concepts>
 
 namespace poisson_solver::detail::runners::full_periodic {

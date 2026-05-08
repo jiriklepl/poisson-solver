@@ -42,7 +42,7 @@ struct ResiduumResult {
 template <std::floating_point T, std::size_t Dim>
 struct TestConfig {
     std::string name{};
-    std::array<ps::BCPair, Dim> bcs{};
+    ps::BCs<Dim> bcs{};
     std::array<std::size_t, Dim> dx_divisors{};
     std::function<void(std::span<T>)> rhs_adjust = nullptr;
 };
@@ -67,7 +67,7 @@ public:
 
     T operator()(std::span<T> phi,
                  std::span<const T> rhs,
-                 std::array<ps::BCPair, Dim> bcs,
+                 ps::BCs<Dim> bcs,
                  std::array<T, 2 * Dim> coeffs) const {
         if (rhs.size() != phi.size()) {
             throw std::runtime_error("Incorrect size of phi or rhs.");
@@ -268,7 +268,7 @@ void RunApis(std::span<T> phi,
              std::span<const T> rhs,
              ps::GridSizes<Dim> ns,
              std::array<T, Dim> lens,
-             std::array<ps::BCPair, Dim> bcs,
+             ps::BCs<Dim> bcs,
              const ps::IApproximation<T> &approx,
              Approximation c_approx,
              const std::function<T()> &calc_residuum) {

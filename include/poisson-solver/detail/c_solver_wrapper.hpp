@@ -26,7 +26,7 @@ class SolverWrapper : public ISolver<T> {
 public:
     SolverWrapper(GridSizes<Dim> ns,
                   std::array<T, Dim> lens,
-                  std::array<BCPair, Dim> bcs,
+                  BCs<Dim> bcs,
                   const IApproximation<T> &approx)
         : solver_(ns, lens, bcs, approx) {}
 

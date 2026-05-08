@@ -5,7 +5,6 @@
 #include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/kernels/common.cuh"
 
-#include <array>
 #include <concepts>
 #include <cstddef>
 #include <cuda_runtime.h>

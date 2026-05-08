@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     constexpr double lenx = 2 * std::numbers::pi_v<double>;
     constexpr double leny = lenx * 1.1, lenz = lenx / 1.1;
 
-    constexpr std::array<ps::BCPair, 3> kBCs = {
+    constexpr ps::BCs<3> kBCs = {
         {{ps::BoundaryCondition::kPeriodic, ps::BoundaryCondition::kPeriodic},
          {ps::BoundaryCondition::kPeriodic, ps::BoundaryCondition::kPeriodic},
          {ps::BoundaryCondition::kPeriodic, ps::BoundaryCondition::kPeriodic}}};

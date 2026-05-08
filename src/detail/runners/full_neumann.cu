@@ -3,6 +3,7 @@
 #include "poisson-solver/detail/kernels/full_neumann.cuh"
 #include "poisson-solver/detail/runners/full_neumann.hpp"
 
+#include <array>
 #include <concepts>
 
 namespace poisson_solver::detail::runners::full_neumann {
