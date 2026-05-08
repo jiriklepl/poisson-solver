@@ -6,6 +6,7 @@
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/cuch.hpp"
 
+#include <array>
 #include <concepts>
 #include <cstddef>
 #include <cuComplex.h>
@@ -51,6 +52,9 @@ using CuComplexTrait = typename CuComplexTraitImpl<T>::Type;
 
 template <std::size_t Dim>
 using MultidimIdx = std::array<std::size_t, Dim>;
+
+template <std::floating_point T, std::size_t Dim>
+using DenomConstPtrs = std::array<const T *, Dim>;
 
 // === Functions ===
 template <std::size_t Dim>

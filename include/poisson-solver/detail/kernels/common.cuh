@@ -2,6 +2,7 @@
 #define COMMON_CUH
 
 #include "poisson-solver/aliases.hpp"
+#include "poisson-solver/helpers.hpp"
 
 #include <array>
 #include <cstddef>
@@ -69,7 +70,7 @@ __device__ void ApplyStrideLoop(GridSizes<Dim> ns, Func f) {
 }
 
 template <std::floating_point T, std::size_t Dim>
-__device__ T SumIndexedDenoms(std::array<const T *, Dim> denoms,
+__device__ T SumIndexedDenoms(DenomConstPtrs<T, Dim> denoms,
                               MultidimIdx<Dim> midx) {
     T res = 0.0;
     for (std::size_t d = 0; d < Dim; ++d) {

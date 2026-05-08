@@ -1,9 +1,9 @@
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/cuch.hpp"
+#include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/kernels/full_periodic.cuh"
 #include "poisson-solver/detail/runners/full_periodic.hpp"
 
-#include <array>
 #include <concepts>
 
 namespace poisson_solver::detail::runners::full_periodic {
@@ -22,7 +22,7 @@ void Init(CuComplexTrait<T> *cmplx_workspace,
 template <std::floating_point T, std::size_t Dim>
 void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
                     GridSizes<Dim> ns,
-                    std::array<const T *, Dim> denoms,
+                    DenomConstPtrs<T, Dim> denoms,
                     dim3 grid_size,
                     dim3 block_size) {
     fpk::DivideByDenoms<<<grid_size, block_size>>>(cmplx_workspace, ns, denoms);
@@ -51,7 +51,7 @@ void Normalize(T *phi,
     template void DivideByDenoms<TYPE, DIM>(    \
         CuComplexTrait<TYPE> * cmplx_workspace, \
         GridSizes<DIM> ns,                      \
-        std::array<const TYPE *, DIM> denoms,   \
+        DenomConstPtrs<T, Dim> denoms,          \
         dim3 grid_size,                         \
         dim3 block_size);
 

@@ -2,8 +2,8 @@
 #define RUNNERS_FULL_PERIODIC_HPP
 
 #include "poisson-solver/aliases.hpp"
+#include "poisson-solver/helpers.hpp"
 
-#include <array>
 #include <concepts>
 #include <cuda_runtime.h>
 
@@ -19,7 +19,7 @@ void Init(CuComplexTrait<T> *cmplx_workspace,
 template <std::floating_point T, std::size_t Dim>
 void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
                     GridSizes<Dim> ns,
-                    std::array<const T *, Dim> denoms,
+                    DenomConstPtrs<T, Dim> denoms,
                     dim3 grid_size,
                     dim3 block_size);
 

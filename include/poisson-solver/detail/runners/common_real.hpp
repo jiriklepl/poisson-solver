@@ -3,7 +3,6 @@
 
 #include "poisson-solver/aliases.hpp"
 
-#include <array>
 #include <concepts>
 #include <cstddef>
 #include <cuda_runtime.h>

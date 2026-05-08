@@ -1,9 +1,9 @@
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/cuch.hpp"
+#include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/kernels/full_neumann.cuh"
 #include "poisson-solver/detail/runners/full_neumann.hpp"
 
-#include <array>
 #include <concepts>
 
 namespace poisson_solver::detail::runners::full_neumann {
@@ -12,7 +12,7 @@ namespace fnk = kernels::full_neumann;
 template <std::floating_point T, std::size_t Dim>
 void DivideByDenoms(T *real_workspace,
                     GridSizes<Dim> ns,
-                    std::array<const T *, Dim> denoms,
+                    DenomConstPtrs<T, Dim> denoms,
                     dim3 grid_size,
                     dim3 block_size) {
     fnk::DivideByDenoms<<<grid_size, block_size>>>(real_workspace, ns, denoms);
@@ -20,13 +20,12 @@ void DivideByDenoms(T *real_workspace,
 }
 
 // === Explicit Instantiations ===
-#define INSTANTIATE_DIVISION(TYPE, DIM)       \
-    template void DivideByDenoms<TYPE, DIM>(  \
-        TYPE * real_workspace,                \
-        GridSizes<DIM> ns,                    \
-        std::array<const TYPE *, DIM> denoms, \
-        dim3 grid_size,                       \
-        dim3 block_size);
+#define INSTANTIATE_DIVISION(TYPE, DIM)                                       \
+    template void DivideByDenoms<TYPE, DIM>(TYPE * real_workspace,            \
+                                            GridSizes<DIM> ns,                \
+                                            DenomConstPtrs<TYPE, DIM> denoms, \
+                                            dim3 grid_size,                   \
+                                            dim3 block_size);
 
 #define INSTANTIATE_DIVISION_ALL_DIMS(TYPE) \
     INSTANTIATE_DIVISION(TYPE, 1)           \

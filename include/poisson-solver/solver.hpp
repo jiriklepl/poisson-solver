@@ -91,7 +91,7 @@ private:
     std::array<detail::CudaUniquePtr<T>, Dim> cu_denoms_;
 
     // These will be passed into the kernels.
-    std::array<const T *, Dim> cu_denom_observers_;
+    DenomConstPtrs<T, Dim> cu_denom_observers_;
 
     T norm_factor_;
     SolveFunction solve_;
@@ -228,8 +228,8 @@ private:
         }
     }
 
-    std::array<const T *, Dim> CreateDenomObservers() {
-        std::array<const T *, Dim> observers{};
+    DenomConstPtrs<T, D> CreateDenomObservers() {
+        DenomConstPtrs<T, D> observers{};
         for (std::size_t d = 0; d < Dim; ++d) {
             observers[d] = cu_denoms_[d].get();
         }

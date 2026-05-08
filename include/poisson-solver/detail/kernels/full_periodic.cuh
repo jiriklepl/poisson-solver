@@ -5,7 +5,6 @@
 #include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/kernels/common.cuh"
 
-#include <array>
 #include <concepts>
 #include <cstddef>
 #include <cuda_runtime.h>
@@ -37,7 +36,7 @@ __global__ void Init(CuComplexTrait<T> *cmplx_workspace,
 template <std::floating_point T, std::size_t Dim>
 __global__ void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
                                GridSizes<Dim> ns,
-                               std::array<const T *, Dim> denoms) {
+                               DenomConstPtrs<T, Dim> denoms) {
     ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
         const std::size_t idx = FlatIndex(midx, ns);
 
