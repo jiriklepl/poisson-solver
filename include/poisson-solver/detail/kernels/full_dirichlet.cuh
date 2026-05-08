@@ -13,7 +13,7 @@ namespace poisson_solver::detail::kernels::full_dirichlet {
 template <std::floating_point T, std::size_t Dim>
 __global__ void DivideByDenoms(T *real_workspace,
                                GridSizes<Dim> ns,
-                               DenomConstPtrs<T, D> denoms) {
+                               DenomConstPtrs<T, Dim> denoms) {
     ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
         const std::size_t idx = FlatIndex(midx, ns);
         real_workspace[idx] /= SumIndexedDenoms(denoms, midx);

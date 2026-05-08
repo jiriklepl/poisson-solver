@@ -52,7 +52,7 @@ void Normalize(T *phi,
     template void DivideByDenoms<TYPE, DIM>(    \
         CuComplexTrait<TYPE> * cmplx_workspace, \
         GridSizes<DIM> ns,                      \
-        DenomConstPtrs<T, Dim> denoms,          \
+        DenomConstPtrs<TYPE, DIM> denoms,       \
         dim3 cu_grid_size,                      \
         dim3 cu_block_size);
 

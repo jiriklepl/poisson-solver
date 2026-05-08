@@ -25,7 +25,7 @@
 #include <vkFFT.h>
 #endif  // USE_MPI
 
-namespace poisson_solver {
+namespace poisson_solver::detail {
 // Restricts workspace to be a real or complex workspace
 template <typename Workspace, typename T>
 concept ValidWorkspace = std::floating_point<T> &&
@@ -73,6 +73,9 @@ struct HeFFTePolicy {
         plan->backward(dev_buffer, dev_buffer, heffte::scale::none);
     }
 };
+
+template <std::floating_point T, std::size_t Dim>
+using FFTPolicy = HefftePolicy<T, Dim>;
 
 #else
 
@@ -235,7 +238,10 @@ private:
     }
 };
 
+template <std::floating_point T, std::size_t Dim>
+using FFTPolicy = VkFFTPolicy<T, Dim>;
+
 #endif  // USE_MPI
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail
 
 #endif  // FFT_POLICIES_HPP

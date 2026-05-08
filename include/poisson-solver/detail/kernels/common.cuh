@@ -2,7 +2,7 @@
 #define COMMON_CUH
 
 #include "poisson-solver/aliases.hpp"
-#include "poisson-solver/helpers.hpp"
+#include "poisson-solver/detail/helpers.hpp"
 
 #include <array>
 #include <cstddef>

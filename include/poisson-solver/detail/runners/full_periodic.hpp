@@ -2,7 +2,7 @@
 #define RUNNERS_FULL_PERIODIC_HPP
 
 #include "poisson-solver/aliases.hpp"
-#include "poisson-solver/helpers.hpp"
+#include "poisson-solver/detail/helpers.hpp"
 
 #include <concepts>
 #include <cuda_runtime.h>

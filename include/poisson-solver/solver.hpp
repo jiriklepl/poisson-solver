@@ -5,12 +5,12 @@
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/axis_strategies.hpp"
+#include "poisson-solver/detail/fft_policies.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/runners/common_real.hpp"
 #include "poisson-solver/detail/runners/full_dirichlet.hpp"
 #include "poisson-solver/detail/runners/full_neumann.hpp"
 #include "poisson-solver/detail/runners/full_periodic.hpp"
-#include "poisson-solver/fft_policies.hpp"
 
 #include <algorithm>
 #include <array>
@@ -30,9 +30,7 @@
 
 namespace poisson_solver {
 // TODO: Doesn't work for all 3D cases
-template <std::floating_point T,
-          std::size_t Dim,
-          template <std::floating_point, std::size_t> typename FFTPolicy>
+template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 class Solver {
 public:
@@ -58,7 +56,7 @@ public:
 
         solve_ = GetSolveMethod(bcs);
 
-        FFTPolicy<T, Dim>::Init(fft_plan_, ns_, bcs);
+        FFTPolicy::Init(fft_plan_, ns_, bcs);
     }
 
     void Execute(std::span<T> phi, std::span<const T> rhs) {
@@ -81,6 +79,11 @@ private:
     using SolveFunction = void (Solver::*)(std::span<T>, std::span<const T>);
     using HostOneAxisDenoms = std::vector<T>;
     using HostDenoms = std::array<HostOneAxisDenoms, Dim>;
+    using CudaUniquePtrT = detail::CudaUniquePtr<T>;
+    using CudaUniquePtrCmplxT =
+        detail::CudaUniquePtr<detail::CuComplexTrait<T>>;
+    using DenomConstPtrs = detail::DenomConstPtrs<T, Dim>;
+    using FFTPolicy = detail::FFTPolicy<T, Dim>;
 
     // === Grid ===
     GridSizes<Dim> ns_;
@@ -88,25 +91,24 @@ private:
     std::size_t cnt_;
 
     // === Physics and math ===
-    std::array<detail::CudaUniquePtr<T>, Dim> cu_denoms_;
+    std::array<CudaUniquePtrT, Dim> cu_denoms_;
 
     // These will be passed into the kernels.
-    DenomConstPtrs<T, Dim> cu_denom_observers_;
+    DenomConstPtrs cu_denom_observers_;
 
     T norm_factor_;
     SolveFunction solve_;
 
     // === FFT ===
-    typename FFTPolicy<T, Dim>::Plan fft_plan_;
+    typename FFTPolicy::Plan fft_plan_;
 
     // RHS needed only in case we initialize complex workspace from it.
-    std::optional<detail::CudaUniquePtr<T>> cu_rhs_;
-    detail::CudaUniquePtr<T> cu_phi_;
+    std::optional<CudaUniquePtrT> cu_rhs_;
+    CudaUniquePtrT cu_phi_;
 
     // Only one of those is used
-    std::optional<detail::CudaUniquePtr<detail::CuComplexTrait<T>>>
-        cu_cmplx_workspace_;
-    std::optional<detail::CudaUniquePtr<T>> cu_real_workspace_;
+    std::optional<CudaUniquePtrCmplxT> cu_cmplx_workspace_;
+    std::optional<CudaUniquePtrT> cu_real_workspace_;
 
     // === Device settings ===
     dim3 cu_block_size_;
@@ -228,8 +230,8 @@ private:
         }
     }
 
-    DenomConstPtrs<T, D> CreateDenomObservers() {
-        DenomConstPtrs<T, D> observers{};
+    DenomConstPtrs CreateDenomObservers() {
+        DenomConstPtrs observers{};
         for (std::size_t d = 0; d < Dim; ++d) {
             observers[d] = cu_denoms_[d].get();
         }
@@ -250,8 +252,7 @@ private:
              cu_grid_size_,
              cu_block_size_);
 
-        FFTPolicy<T, Dim>::Forward(cu_cmplx_workspace_.value().get(),
-                                   fft_plan_);
+        FFTPolicy::Forward(cu_cmplx_workspace_.value().get(), fft_plan_);
 
         DivideByDenoms(cu_cmplx_workspace_.value().get(),
                        ns_,
@@ -259,8 +260,7 @@ private:
                        cu_grid_size_,
                        cu_block_size_);
 
-        FFTPolicy<T, Dim>::Backward(cu_cmplx_workspace_.value().get(),
-                                    fft_plan_);
+        FFTPolicy::Backward(cu_cmplx_workspace_.value().get(), fft_plan_);
         Normalize(cu_phi_.get(),
                   cu_cmplx_workspace_.value().get(),
                   ns_,
@@ -278,7 +278,7 @@ private:
                         cnt_ * sizeof(T),
                         cudaMemcpyHostToDevice));
 
-        FFTPolicy<T, Dim>::Forward(cu_real_workspace_.value().get(), fft_plan_);
+        FFTPolicy::Forward(cu_real_workspace_.value().get(), fft_plan_);
 
         DivideByDenoms(cu_real_workspace_.value().get(),
                        ns_,
@@ -286,8 +286,7 @@ private:
                        cu_grid_size_,
                        cu_block_size_);
 
-        FFTPolicy<T, Dim>::Backward(cu_real_workspace_.value().get(),
-                                    fft_plan_);
+        FFTPolicy::Backward(cu_real_workspace_.value().get(), fft_plan_);
         Normalize(cu_phi_.get(),
                   cu_real_workspace_.value().get(),
                   ns_,
@@ -305,7 +304,7 @@ private:
                         cnt_ * sizeof(T),
                         cudaMemcpyHostToDevice));
 
-        FFTPolicy<T, Dim>::Forward(cu_real_workspace_.value().get(), fft_plan_);
+        FFTPolicy::Forward(cu_real_workspace_.value().get(), fft_plan_);
 
         DivideByDenoms(cu_real_workspace_.value().get(),
                        ns_,
@@ -313,8 +312,8 @@ private:
                        cu_grid_size_,
                        cu_block_size_);
 
-        FFTPolicy<T, Dim>::Backward(cu_real_workspace_.value().get(),
-                                    fft_plan_);
+        FFTPolicy::Backward(cu_real_workspace_.value().get(), fft_plan_);
+        ;
         Normalize(cu_phi_.get(),
                   cu_real_workspace_.value().get(),
                   ns_,
