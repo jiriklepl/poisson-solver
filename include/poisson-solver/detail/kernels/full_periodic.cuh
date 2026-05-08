@@ -28,8 +28,8 @@ template <std::floating_point T, std::size_t Dim>
 __global__ void Init(CuComplexTrait<T> *cmplx_workspace,
                      const T *rhs,
                      GridSizes<Dim> ns) {
-    ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
-        const std::size_t idx = FlatIndex(idxs, ns);
+    ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
+        const std::size_t idx = FlatIndex(midx, ns);
         cmplx_workspace[idx] = MakeCuComplex<T>(rhs[idx], 0);
     });
 }
@@ -38,15 +38,15 @@ template <std::floating_point T, std::size_t Dim>
 __global__ void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
                                GridSizes<Dim> ns,
                                std::array<const T *, Dim> denoms) {
-    ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
-        const std::size_t idx = FlatIndex(idxs, ns);
+    ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
+        const std::size_t idx = FlatIndex(midx, ns);
 
         if (idx == 0) {
             cmplx_workspace[idx] = MakeCuComplex<T>(0, 0);
             return;
         }
 
-        T denom_sum = SumIndexedDenoms(denoms, idxs);
+        T denom_sum = SumIndexedDenoms(denoms, midx);
         cmplx_workspace[idx].x /= denom_sum;
         cmplx_workspace[idx].y /= denom_sum;
     });
@@ -57,8 +57,8 @@ __global__ void Normalize(T *phi,
                           const CuComplexTrait<T> *cmplx_workspace,
                           GridSizes<Dim> ns,
                           T norm_factor) {
-    ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
-        const std::size_t idx = FlatIndex(idxs, ns);
+    ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
+        const std::size_t idx = FlatIndex(midx, ns);
         phi[idx] = cmplx_workspace[idx].x / norm_factor;
     });
 }

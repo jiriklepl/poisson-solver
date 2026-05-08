@@ -19,8 +19,8 @@ __global__ void Normalize(T *phi,
                           const T *real_workspace,
                           GridSizes<Dim> ns,
                           T norm_factor) {
-    ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
-        const std::size_t idx = FlatIndex(idxs, ns);
+    ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
+        const std::size_t idx = FlatIndex(midx, ns);
         phi[idx] = real_workspace[idx] / norm_factor;
     });
 }

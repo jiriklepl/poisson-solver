@@ -48,9 +48,8 @@ struct TestConfig {
 };
 
 template <std::size_t Dim>
-std::array<std::size_t, Dim> FlatToMultidimIdx(std::size_t idx,
-                                               GridSizes<Dim> ns) {
-    std::array<std::size_t, Dim> midx{};
+MultidimIdx<Dim> FlatToMultidimIdx(std::size_t idx, GridSizes<Dim> ns) {
+    MultidimIdx<Dim> midx{};
     for (std::size_t i = Dim; i > 0; --i) {
         midx[i - 1] = idx % ns[i - 1];
         idx /= ns[i - 1];
@@ -134,7 +133,7 @@ private:
     GridSizes<Dim> ns_;
 
     void ApplyBorderBC(std::span<T> phi,
-                       std::array<std::size_t, Dim> midx,
+                       MultidimIdx<Dim> midx,
                        std::size_t dim,
                        Side side,
                        BC bc,
@@ -175,8 +174,8 @@ private:
         }
     }
 
-    std::size_t MultidimToFlatIdx(std::array<std::size_t, Dim> idx) const {
-        return psd::FlatIndex<Dim>(idx, ns_);
+    std::size_t MultidimToFlatIdx(MultidimIdx<Dim> midx) const {
+        return psd::FlatIndex<Dim>(midx, ns_);
     }
 };
 

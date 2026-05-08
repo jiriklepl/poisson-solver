@@ -49,15 +49,17 @@ using CudaUniquePtr = std::unique_ptr<T, CudaFreeDeleter>;
 template <std::floating_point T>
 using CuComplexTrait = typename CuComplexTraitImpl<T>::Type;
 
+template <std::size_t Dim>
+using MultidimIdx = std::array<std::size_t, Dim>;
+
 // === Functions ===
 template <std::size_t Dim>
-constexpr std::size_t FlatIndex(std::array<std::size_t, Dim> indices,
-                                GridSizes<Dim> ns) {
+constexpr std::size_t FlatIndex(MultidimIdx<Dim> midx, GridSizes<Dim> ns) {
     std::size_t idx = 0;
     std::size_t stride = 1;
 
     for (std::size_t i = Dim; i > 0; --i) {
-        idx += indices[i - 1] * stride;
+        idx += midx[i - 1] * stride;
         stride *= ns[i - 1];
     }
 
