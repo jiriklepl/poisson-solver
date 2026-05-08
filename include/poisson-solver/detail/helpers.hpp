@@ -16,44 +16,16 @@
 #include <vector>
 
 namespace poisson_solver::detail {
-// Forward declarations
-struct CudaFreeDeleter;
-
-// Usings
-template <typename T>
-using CudaUniquePtr = std::unique_ptr<T, CudaFreeDeleter>;
-
+// === Variables ===
 template <typename T>
 inline constexpr bool always_false = false;
 
-template <std::size_t Dim>
-constexpr std::size_t FlatIndex(std::array<std::size_t, Dim> indices,
-                                std::array<std::size_t, Dim> ns) {
-    std::size_t idx = 0;
-    std::size_t stride = 1;
-
-    for (std::size_t i = Dim; i > 0; --i) {
-        idx += indices[i - 1] * stride;
-        stride *= ns[i - 1];
-    }
-
-    return idx;
-}
-
+// === Structs ===
 struct CudaFreeDeleter {
     void operator()(void *ptr) {
         cudaFree(ptr);
     }
 };
-
-// Creates a unique pointer to memory such that it can hold `size` elements of
-// type `T`
-template <typename T>
-CudaUniquePtr<T> MakeCudaUnique(std::size_t size) {
-    T *ptr;
-    CUCH(cudaMalloc(&ptr, size * sizeof(T)));
-    return CudaUniquePtr<T>(ptr);
-}
 
 // This type helps to decide the complex type based on the real type
 template <std::floating_point T>
@@ -69,8 +41,36 @@ struct CuComplexTraitImpl<double> {
     using Type = cuDoubleComplex;
 };
 
+// === Aliases ===
+template <typename T>
+using CudaUniquePtr = std::unique_ptr<T, CudaFreeDeleter>;
+
 template <std::floating_point T>
 using CuComplexTrait = typename CuComplexTraitImpl<T>::Type;
+
+// === Functions ===
+template <std::size_t Dim>
+constexpr std::size_t FlatIndex(std::array<std::size_t, Dim> indices,
+                                std::array<std::size_t, Dim> ns) {
+    std::size_t idx = 0;
+    std::size_t stride = 1;
+
+    for (std::size_t i = Dim; i > 0; --i) {
+        idx += indices[i - 1] * stride;
+        stride *= ns[i - 1];
+    }
+
+    return idx;
+}
+
+// Creates a unique pointer to memory such that it can hold `size` elements of
+// type `T`
+template <typename T>
+CudaUniquePtr<T> MakeCudaUnique(std::size_t size) {
+    T *ptr;
+    CUCH(cudaMalloc(&ptr, size * sizeof(T)));
+    return CudaUniquePtr<T>(ptr);
+}
 }  // namespace poisson_solver::detail
 
 #endif  // HELPERS_HPP
