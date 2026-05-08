@@ -396,7 +396,7 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
     constexpr T leny = lenx * 1.1, lenz = lenx / 1.1;
 
     SUBCASE("1D") {
-        constexpr std::array<std::size_t, 1> ns1d{nx};
+        constexpr ps::GridSizes<1> ns1d{nx};
         constexpr std::array<T, 1> lens1d = {lenx};
         std::array<T, nx> phi1d{};
         std::array<T, nx> rhs1d{};
@@ -424,7 +424,7 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
     }
 
     SUBCASE("2D") {
-        constexpr std::array<std::size_t, 2> ns2d{nx, ny};
+        constexpr ps::GridSizes<2> ns2d{nx, ny};
         constexpr std::array<T, 2> lens2d = {lenx, leny};
         std::array<T, nx * ny> phi2d{};
         std::array<T, nx * ny> rhs2d{};
@@ -457,7 +457,7 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
     }
 
     SUBCASE("3D") {
-        constexpr std::array<std::size_t, 3> ns3d{nx, ny, nz};
+        constexpr ps::GridSizes<3> ns3d{nx, ny, nz};
         constexpr std::array<T, 3> lens3d = {lenx, leny, lenz};
         std::array<T, nx * ny * nz> phi3d{};
         std::array<T, nx * ny * nz> rhs3d{};
