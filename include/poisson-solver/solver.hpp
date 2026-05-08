@@ -1,6 +1,7 @@
 #ifndef SOLVER_HPP
 #define SOLVER_HPP
 
+#include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/axis_strategies.hpp"
@@ -35,7 +36,7 @@ template <std::floating_point T,
     requires(Dim <= 3 && Dim >= 1)
 class Solver {
 public:
-    Solver(std::array<std::size_t, Dim> ns,
+    Solver(GridSizes<Dim> ns,
            std::array<T, Dim> lens,
            std::array<BCPair, Dim> bcs,
            const IApproximation<T> &approx = SpectralApproximation<T>{},
@@ -82,7 +83,7 @@ private:
     using HostDenoms = std::array<HostOneAxisDenoms, Dim>;
 
     // === Grid ===
-    std::array<std::size_t, Dim> ns_;
+    GridSizes<Dim> ns_;
     std::array<BCPair, Dim> bcs_;
     std::size_t cnt_;
 
@@ -121,13 +122,12 @@ private:
         }
     }
 
-    static std::size_t ComputeTotalGridSize(std::array<std::size_t, Dim> ns) {
+    static std::size_t ComputeTotalGridSize(GridSizes<Dim> ns) {
         return std::accumulate(
             ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>{});
     }
 
-    static T ComputeNormFactor(std::array<std::size_t, Dim> ns,
-                               std::array<BCPair, Dim> bcs) {
+    static T ComputeNormFactor(GridSizes<Dim> ns, std::array<BCPair, Dim> bcs) {
         using detail::GetAxisStrategy;
 
         T factor = 1.0;
@@ -138,7 +138,7 @@ private:
         return factor;
     }
 
-    static dim3 ComputeGridSize(std::array<std::size_t, Dim> ns, dim3 block) {
+    static dim3 ComputeGridSize(GridSizes<Dim> ns, dim3 block) {
         if constexpr (Dim == 1) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x};
         } else if constexpr (Dim == 2) {
@@ -207,7 +207,7 @@ private:
         return eigenvals;
     }
 
-    static HostDenoms GetEigenvalues(std::array<std::size_t, Dim> ns,
+    static HostDenoms GetEigenvalues(GridSizes<Dim> ns,
                                      std::array<T, Dim> lens,
                                      std::array<BCPair, Dim> bcs,
                                      const IApproximation<T> &approx) {

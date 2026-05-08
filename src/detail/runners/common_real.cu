@@ -1,3 +1,4 @@
+#include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/cuch.hpp"
 #include "poisson-solver/detail/kernels/common_real.cuh"
 #include "poisson-solver/detail/runners/common_real.hpp"
@@ -10,7 +11,7 @@ namespace ker = kernels;
 template <std::floating_point T, std::size_t Dim>
 void Normalize(T *phi,
                const T *real_workspace,
-               std::array<std::size_t, Dim> ns,
+               GridSizes<Dim> ns,
                T norm_factor,
                dim3 grid_size,
                dim3 block_size) {
@@ -20,12 +21,12 @@ void Normalize(T *phi,
 }
 
 // === Explicit Instantiations ===
-#define INSTANTIATE_NORMALIZATION(TYPE, DIM)                            \
-    template void Normalize<TYPE, DIM>(TYPE * phi,                      \
-                                       const TYPE *real_workspace,      \
-                                       std::array<std::size_t, DIM> ns, \
-                                       TYPE norm_factor,                \
-                                       dim3 grid_size,                  \
+#define INSTANTIATE_NORMALIZATION(TYPE, DIM)                       \
+    template void Normalize<TYPE, DIM>(TYPE * phi,                 \
+                                       const TYPE *real_workspace, \
+                                       GridSizes<DIM> ns,          \
+                                       TYPE norm_factor,           \
+                                       dim3 grid_size,             \
                                        dim3 block_size);
 
 #define INSTANTIATE_NORMALIZATION_ALL_DIMS(TYPE) \

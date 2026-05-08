@@ -1,6 +1,7 @@
 #ifndef C_SOLVER_WRAPPER_HPP
 #define C_SOLVER_WRAPPER_HPP
 
+#include "poisson-solver/aliases.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/solver.hpp"
 
@@ -23,7 +24,7 @@ template <std::floating_point T,
           template <std::floating_point, std::size_t> typename FFTPolicy>
 class SolverWrapper : public ISolver<T> {
 public:
-    SolverWrapper(std::array<std::size_t, Dim> ns,
+    SolverWrapper(GridSizes<Dim> ns,
                   std::array<T, Dim> lens,
                   std::array<BCPair, Dim> bcs,
                   const IApproximation<T> &approx)

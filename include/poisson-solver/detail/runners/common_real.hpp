@@ -1,6 +1,8 @@
 #ifndef RUNNERS_COMMON_REAL_HPP
 #define RUNNERS_COMMON_REAL_HPP
 
+#include "poisson-solver/aliases.hpp"
+
 #include <array>
 #include <concepts>
 #include <cstddef>
@@ -11,7 +13,7 @@ namespace poisson_solver::detail::runners {
 template <std::floating_point T, std::size_t Dim>
 void Normalize(T *phi,
                const T *real_workspace,
-               std::array<std::size_t, Dim> ns,
+               GridSizes<Dim> ns,
                T norm_factor,
                dim3 grid_size,
                dim3 block_size);

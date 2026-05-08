@@ -1,6 +1,8 @@
 #ifndef RUNNERS_FULL_NEUMANN_HPP
 #define RUNNERS_FULL_NEUMANN_HPP
 
+#include "poisson-solver/aliases.hpp"
+
 #include <array>
 #include <concepts>
 #include <cstddef>
@@ -9,7 +11,7 @@
 namespace poisson_solver::detail::runners::full_neumann {
 template <std::floating_point T, std::size_t Dim>
 void DivideByDenoms(T *real_workspace,
-                    std::array<std::size_t, Dim> ns,
+                    GridSizes<Dim> ns,
                     std::array<const T *, Dim> denoms,
                     dim3 grid_size,
                     dim3 block_size);

@@ -1,6 +1,8 @@
 #ifndef COMMON_CUH
 #define COMMON_CUH
 
+#include "poisson-solver/aliases.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cuda_runtime.h>
@@ -43,7 +45,7 @@ __device__ std::array<std::size_t, Dim> GetStrides() {
 template <std::size_t Dim, std::size_t CurDim, typename Func>
 __device__ void ApplyStrideLoopImpl(std::array<std::size_t, Dim> &indices,
                                     std::array<std::size_t, Dim> starts,
-                                    std::array<std::size_t, Dim> ns,
+                                    GridSizes<Dim> ns,
                                     std::array<std::size_t, Dim> strides,
                                     Func f) {
     for (indices[CurDim] = starts[CurDim]; indices[CurDim] < ns[CurDim];
@@ -60,7 +62,7 @@ __device__ void ApplyStrideLoopImpl(std::array<std::size_t, Dim> &indices,
 // Applies the function `f` to indices in `Dim` nested loops where each
 // dimension has the size according to `ns`.
 template <std::size_t Dim, typename Func>
-__device__ void ApplyStrideLoop(std::array<std::size_t, Dim> ns, Func f) {
+__device__ void ApplyStrideLoop(GridSizes<Dim> ns, Func f) {
     std::array<std::size_t, Dim> indices{};
     auto starts = GetIdxs<Dim>();
     auto strides = GetStrides<Dim>();

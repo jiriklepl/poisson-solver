@@ -1,6 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT
 #include "doctest.h"
 #include "initialization.hpp"
+#include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/c_binding.h"
 #include "poisson-solver/detail/helpers.hpp"
@@ -47,8 +48,8 @@ struct TestConfig {
 };
 
 template <std::size_t Dim>
-std::array<std::size_t, Dim> FlatToMultidimIdx(
-    std::size_t idx, std::array<std::size_t, Dim> ns) {
+std::array<std::size_t, Dim> FlatToMultidimIdx(std::size_t idx,
+                                               GridSizes<Dim> ns) {
     std::array<std::size_t, Dim> midx{};
     for (std::size_t i = Dim; i > 0; --i) {
         midx[i - 1] = idx % ns[i - 1];
@@ -61,7 +62,7 @@ template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 class MaxResiduumCalculator {
 public:
-    MaxResiduumCalculator(std::array<std::size_t, Dim> ns)
+    MaxResiduumCalculator(GridSizes<Dim> ns)
         : ns_(ns) {}
 
     T operator()(std::span<T> phi,
@@ -130,7 +131,7 @@ public:
 private:
     enum class Side { kLeft, kRight };
 
-    std::array<std::size_t, Dim> ns_;
+    GridSizes<Dim> ns_;
 
     void ApplyBorderBC(std::span<T> phi,
                        std::array<std::size_t, Dim> midx,
@@ -205,8 +206,7 @@ BoundaryCondition ToCBoundary(BC cxx_bc) {
 }
 
 template <std::floating_point T, std::size_t Dim>
-std::function<void(std::span<T>)> MakeNeumannRhsCorrector(
-    std::array<std::size_t, Dim> ns) {
+std::function<void(std::span<T>)> MakeNeumannRhsCorrector(GridSizes<Dim> ns) {
     return [ns](std::span<T> rhs) {
         T sum = 0.0;
         std::size_t num_cells = 1.0;
@@ -251,8 +251,7 @@ std::function<void(std::span<T>)> MakeNeumannStagRhsCorrector() {
 }
 
 template <std::floating_point T, std::size_t Dim>
-ResiduumResult<T> ResiduumBelowThreshold(T residuum,
-                                         std::array<std::size_t, Dim> ns) {
+ResiduumResult<T> ResiduumBelowThreshold(T residuum, GridSizes<Dim> ns) {
     constexpr T fudge_factor = static_cast<T>(100.0);
     T max_residuum =
         std::accumulate(
@@ -266,7 +265,7 @@ ResiduumResult<T> ResiduumBelowThreshold(T residuum,
 template <std::floating_point T, std::size_t Dim>
 void RunApis(std::span<T> phi,
              std::span<const T> rhs,
-             std::array<std::size_t, Dim> ns,
+             GridSizes<Dim> ns,
              std::array<T, Dim> lens,
              std::array<ps::BCPair, Dim> bcs,
              const ps::IApproximation<T> &approx,
@@ -336,7 +335,7 @@ template <std::floating_point T, std::size_t Dim>
 void RunTestConfigs(std::span<const TestConfig<T, Dim>> configs,
                     std::span<T> phi,
                     std::span<const T> rhs,
-                    std::array<std::size_t, Dim> ns,
+                    GridSizes<Dim> ns,
                     std::array<T, Dim> lens,
                     MaxResiduumCalculator<T, Dim> mrc) {
     for (const auto &tc : configs) {

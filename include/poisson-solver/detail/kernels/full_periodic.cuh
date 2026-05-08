@@ -1,6 +1,7 @@
 #ifndef FULL_PERIODIC_CUH
 #define FULL_PERIODIC_CUH
 
+#include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/kernels/common.cuh"
 
@@ -26,7 +27,7 @@ __device__ inline CuComplexTrait<double> MakeCuComplex(double r, double i) {
 template <std::floating_point T, std::size_t Dim>
 __global__ void Init(CuComplexTrait<T> *cmplx_workspace,
                      const T *rhs,
-                     std::array<std::size_t, Dim> ns) {
+                     GridSizes<Dim> ns) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
         cmplx_workspace[idx] = MakeCuComplex<T>(rhs[idx], 0);
@@ -35,7 +36,7 @@ __global__ void Init(CuComplexTrait<T> *cmplx_workspace,
 
 template <std::floating_point T, std::size_t Dim>
 __global__ void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
-                               std::array<std::size_t, Dim> ns,
+                               GridSizes<Dim> ns,
                                std::array<const T *, Dim> denoms) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);
@@ -54,7 +55,7 @@ __global__ void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
 template <std::floating_point T, std::size_t Dim>
 __global__ void Normalize(T *phi,
                           const CuComplexTrait<T> *cmplx_workspace,
-                          std::array<std::size_t, Dim> ns,
+                          GridSizes<Dim> ns,
                           T norm_factor) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);

@@ -1,6 +1,7 @@
 #ifndef COMMON_REAL_CUH
 #define COMMON_REAL_CUH
 
+#include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/kernels/common.cuh"
 
@@ -16,7 +17,7 @@ namespace poisson_solver::detail::kernels {
 template <std::floating_point T, std::size_t Dim>
 __global__ void Normalize(T *phi,
                           const T *real_workspace,
-                          std::array<std::size_t, Dim> ns,
+                          GridSizes<Dim> ns,
                           T norm_factor) {
     ApplyStrideLoop(ns, [&](std::array<std::size_t, Dim> idxs) {
         const std::size_t idx = FlatIndex(idxs, ns);

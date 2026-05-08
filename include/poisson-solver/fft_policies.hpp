@@ -1,6 +1,7 @@
 #ifndef FFT_POLICIES_HPP
 #define FFT_POLICIES_HPP
 
+#include "poisson-solver/aliases.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 
@@ -42,7 +43,7 @@ struct HeFFTePolicy {
     using Plan = std::unique_ptr<heffte::fft3d<heffte::backend::cufft>>;
 
     static void Init(Plan &plan,
-                     std::array<std::size_t, Dim> ns,
+                     GridSizes<Dim> ns,
                      // TODO: Currently unused but will be needed to determine
                      // the FFT plan type.
                      std::array<BCPair, Dim> bcs) {
@@ -100,7 +101,7 @@ struct VkFFTPolicy {
     static constexpr int BackwardDirection = 1;
 
     static void Init(Plan &plan,
-                     std::array<std::size_t, Dim> ns,
+                     GridSizes<Dim> ns,
                      std::array<BCPair, Dim> bcs) {
         // Set dim and axes sizes
         plan.config.FFTdim = Dim;

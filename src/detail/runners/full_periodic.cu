@@ -1,3 +1,4 @@
+#include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/cuch.hpp"
 #include "poisson-solver/detail/kernels/full_periodic.cuh"
 #include "poisson-solver/detail/runners/full_periodic.hpp"
@@ -10,7 +11,7 @@ namespace fpk = kernels::full_periodic;
 template <std::floating_point T, std::size_t Dim>
 void Init(CuComplexTrait<T> *cmplx_workspace,
           const T *rhs,
-          std::array<std::size_t, Dim> ns,
+          GridSizes<Dim> ns,
           dim3 grid_size,
           dim3 block_size) {
     fpk::Init<<<grid_size, block_size>>>(cmplx_workspace, rhs, ns);
@@ -19,7 +20,7 @@ void Init(CuComplexTrait<T> *cmplx_workspace,
 
 template <std::floating_point T, std::size_t Dim>
 void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
-                    std::array<std::size_t, Dim> ns,
+                    GridSizes<Dim> ns,
                     std::array<const T *, Dim> denoms,
                     dim3 grid_size,
                     dim3 block_size) {
@@ -29,7 +30,7 @@ void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
 template <std::floating_point T, std::size_t Dim>
 void Normalize(T *phi,
                const CuComplexTrait<T> *cmplx_workspace,
-               std::array<std::size_t, Dim> ns,
+               GridSizes<Dim> ns,
                T norm_factor,
                dim3 grid_size,
                dim3 block_size) {
@@ -41,14 +42,14 @@ void Normalize(T *phi,
 #define INSTANTIATE_INITIALIZATION(TYPE, DIM)                             \
     template void Init<TYPE, DIM>(CuComplexTrait<TYPE> * cmplx_workspace, \
                                   const TYPE *rhs,                        \
-                                  std::array<std::size_t, DIM> ns,        \
+                                  GridSizes<DIM> ns,                      \
                                   dim3 grid_size,                         \
                                   dim3 block_size);
 
 #define INSTANTIATE_DIVISION(TYPE, DIM)         \
     template void DivideByDenoms<TYPE, DIM>(    \
         CuComplexTrait<TYPE> * cmplx_workspace, \
-        std::array<std::size_t, DIM> ns,        \
+        GridSizes<DIM> ns,                      \
         std::array<const TYPE *, DIM> denoms,   \
         dim3 grid_size,                         \
         dim3 block_size);
@@ -57,7 +58,7 @@ void Normalize(T *phi,
     template void Normalize<TYPE, DIM>(              \
         TYPE * phi,                                  \
         const CuComplexTrait<TYPE> *cmplx_workspace, \
-        std::array<std::size_t, DIM> ns,             \
+        GridSizes<DIM> ns,                           \
         TYPE norm_factor,                            \
         dim3 grid_size,                              \
         dim3 block_size);

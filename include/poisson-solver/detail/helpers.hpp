@@ -1,6 +1,7 @@
 #ifndef HELPERS_HPP
 #define HELPERS_HPP
 
+#include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/cuch.hpp"
@@ -51,7 +52,7 @@ using CuComplexTrait = typename CuComplexTraitImpl<T>::Type;
 // === Functions ===
 template <std::size_t Dim>
 constexpr std::size_t FlatIndex(std::array<std::size_t, Dim> indices,
-                                std::array<std::size_t, Dim> ns) {
+                                GridSizes<Dim> ns) {
     std::size_t idx = 0;
     std::size_t stride = 1;
 
