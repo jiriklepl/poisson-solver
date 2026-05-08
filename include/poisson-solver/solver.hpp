@@ -45,8 +45,8 @@ public:
           bcs_(bcs),
           cnt_(ComputeTotalGridSize(ns_)),
           norm_factor_(ComputeNormFactor(ns_, bcs_)),
-          block_size_(cuda_block_size),
-          grid_size_(ComputeGridSize(ns_, block_size_)) {
+          cu_block_size_(cuda_block_size),
+          cu_grid_size_(ComputeGridSize(ns_, cu_block_size_)) {
         AllocDeviceBuffers();
 
         // Denoms are constant for the solver lifetime.
@@ -109,8 +109,8 @@ private:
     std::optional<detail::CudaUniquePtr<T>> cu_real_workspace_;
 
     // === Device settings ===
-    dim3 block_size_;
-    dim3 grid_size_;
+    dim3 cu_block_size_;
+    dim3 cu_grid_size_;
 
     static constexpr dim3 DefaultBlockSize() {
         if constexpr (Dim == 1) {
@@ -247,8 +247,8 @@ private:
         Init(cu_cmplx_workspace_.value().get(),
              cu_rhs_.value().get(),
              ns_,
-             grid_size_,
-             block_size_);
+             cu_grid_size_,
+             cu_block_size_);
 
         FFTPolicy<T, Dim>::Forward(cu_cmplx_workspace_.value().get(),
                                    fft_plan_);
@@ -256,8 +256,8 @@ private:
         DivideByDenoms(cu_cmplx_workspace_.value().get(),
                        ns_,
                        cu_denom_observers_,
-                       grid_size_,
-                       block_size_);
+                       cu_grid_size_,
+                       cu_block_size_);
 
         FFTPolicy<T, Dim>::Backward(cu_cmplx_workspace_.value().get(),
                                     fft_plan_);
@@ -265,8 +265,8 @@ private:
                   cu_cmplx_workspace_.value().get(),
                   ns_,
                   norm_factor_,
-                  grid_size_,
-                  block_size_);
+                  cu_grid_size_,
+                  cu_block_size_);
     }
 
     void SolveFullDirichlet(std::span<T> phi, std::span<const T> rhs) {
@@ -283,8 +283,8 @@ private:
         DivideByDenoms(cu_real_workspace_.value().get(),
                        ns_,
                        cu_denom_observers_,
-                       grid_size_,
-                       block_size_);
+                       cu_grid_size_,
+                       cu_block_size_);
 
         FFTPolicy<T, Dim>::Backward(cu_real_workspace_.value().get(),
                                     fft_plan_);
@@ -292,8 +292,8 @@ private:
                   cu_real_workspace_.value().get(),
                   ns_,
                   norm_factor_,
-                  grid_size_,
-                  block_size_);
+                  cu_grid_size_,
+                  cu_block_size_);
     }
 
     void SolveFullNeumann(std::span<T> phi, std::span<const T> rhs) {
@@ -310,8 +310,8 @@ private:
         DivideByDenoms(cu_real_workspace_.value().get(),
                        ns_,
                        cu_denom_observers_,
-                       grid_size_,
-                       block_size_);
+                       cu_grid_size_,
+                       cu_block_size_);
 
         FFTPolicy<T, Dim>::Backward(cu_real_workspace_.value().get(),
                                     fft_plan_);
@@ -319,8 +319,8 @@ private:
                   cu_real_workspace_.value().get(),
                   ns_,
                   norm_factor_,
-                  grid_size_,
-                  block_size_);
+                  cu_grid_size_,
+                  cu_block_size_);
     }
 
     void SolvePPNs(std::span<T> phi, std::span<const T> rhs) {

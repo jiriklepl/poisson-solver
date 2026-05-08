@@ -13,9 +13,10 @@ template <std::floating_point T, std::size_t Dim>
 void DivideByDenoms(T *real_workspace,
                     GridSizes<Dim> ns,
                     DenomConstPtrs<T, Dim> denoms,
-                    dim3 grid_size,
-                    dim3 block_size) {
-    fdk::DivideByDenoms<<<grid_size, block_size>>>(real_workspace, ns, denoms);
+                    dim3 cu_grid_size,
+                    dim3 cu_block_size) {
+    fdk::DivideByDenoms<<<cu_grid_size, cu_block_size>>>(
+        real_workspace, ns, denoms);
     CUCH(cudaGetLastError());
 }
 
@@ -24,8 +25,8 @@ void DivideByDenoms(T *real_workspace,
     template void DivideByDenoms<TYPE, DIM>(TYPE * real_workspace,            \
                                             GridSizes<DIM> ns,                \
                                             DenomConstPtrs<TYPE, DIM> denoms, \
-                                            dim3 grid_size,                   \
-                                            dim3 block_size);
+                                            dim3 cu_grid_size,                \
+                                            dim3 cu_block_size);
 
 #define INSTANTIATE_DIVISION_ALL_DIMS(TYPE) \
     INSTANTIATE_DIVISION(TYPE, 1)           \
