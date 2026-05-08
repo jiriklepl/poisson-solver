@@ -48,8 +48,9 @@ struct TestConfig {
 };
 
 template <std::size_t Dim>
-MultidimIdx<Dim> FlatToMultidimIdx(std::size_t idx, GridSizes<Dim> ns) {
-    MultidimIdx<Dim> midx{};
+psd::MultidimIdx<Dim> FlatToMultidimIdx(std::size_t idx,
+                                        ps::GridSizes<Dim> ns) {
+    psd::MultidimIdx<Dim> midx{};
     for (std::size_t i = Dim; i > 0; --i) {
         midx[i - 1] = idx % ns[i - 1];
         idx /= ns[i - 1];
@@ -61,7 +62,7 @@ template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 class MaxResiduumCalculator {
 public:
-    MaxResiduumCalculator(GridSizes<Dim> ns)
+    MaxResiduumCalculator(ps::GridSizes<Dim> ns)
         : ns_(ns) {}
 
     T operator()(std::span<T> phi,
@@ -130,10 +131,10 @@ public:
 private:
     enum class Side { kLeft, kRight };
 
-    GridSizes<Dim> ns_;
+    ps::GridSizes<Dim> ns_;
 
     void ApplyBorderBC(std::span<T> phi,
-                       MultidimIdx<Dim> midx,
+                       psd::MultidimIdx<Dim> midx,
                        std::size_t dim,
                        Side side,
                        BC bc,
@@ -174,7 +175,7 @@ private:
         }
     }
 
-    std::size_t MultidimToFlatIdx(MultidimIdx<Dim> midx) const {
+    std::size_t MultidimToFlatIdx(psd::MultidimIdx<Dim> midx) const {
         return psd::FlatIndex<Dim>(midx, ns_);
     }
 };
@@ -205,7 +206,8 @@ BoundaryCondition ToCBoundary(BC cxx_bc) {
 }
 
 template <std::floating_point T, std::size_t Dim>
-std::function<void(std::span<T>)> MakeNeumannRhsCorrector(GridSizes<Dim> ns) {
+std::function<void(std::span<T>)> MakeNeumannRhsCorrector(
+    ps::GridSizes<Dim> ns) {
     return [ns](std::span<T> rhs) {
         T sum = 0.0;
         std::size_t num_cells = 1.0;
@@ -250,7 +252,7 @@ std::function<void(std::span<T>)> MakeNeumannStagRhsCorrector() {
 }
 
 template <std::floating_point T, std::size_t Dim>
-ResiduumResult<T> ResiduumBelowThreshold(T residuum, GridSizes<Dim> ns) {
+ResiduumResult<T> ResiduumBelowThreshold(T residuum, ps::GridSizes<Dim> ns) {
     constexpr T fudge_factor = static_cast<T>(100.0);
     T max_residuum =
         std::accumulate(
@@ -264,7 +266,7 @@ ResiduumResult<T> ResiduumBelowThreshold(T residuum, GridSizes<Dim> ns) {
 template <std::floating_point T, std::size_t Dim>
 void RunApis(std::span<T> phi,
              std::span<const T> rhs,
-             GridSizes<Dim> ns,
+             ps::GridSizes<Dim> ns,
              std::array<T, Dim> lens,
              std::array<ps::BCPair, Dim> bcs,
              const ps::IApproximation<T> &approx,
@@ -334,7 +336,7 @@ template <std::floating_point T, std::size_t Dim>
 void RunTestConfigs(std::span<const TestConfig<T, Dim>> configs,
                     std::span<T> phi,
                     std::span<const T> rhs,
-                    GridSizes<Dim> ns,
+                    ps::GridSizes<Dim> ns,
                     std::array<T, Dim> lens,
                     MaxResiduumCalculator<T, Dim> mrc) {
     for (const auto &tc : configs) {
