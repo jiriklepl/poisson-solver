@@ -106,14 +106,14 @@ private:
     typename FFTPolicy::Plan fft_plan_;
 
     // === Workspaces ===
-    // RHS needed only in case we initialize complex workspace from it.
-    std::optional<CudaUniquePtrT> cu_rhs_;
     CudaUniquePtrT cu_phi_;
 
-    // TODO: This may not be true for Complex/Real split layouts!
-    // Only one of those is used
+    // Only some solvers need complex workspace.
     std::optional<CudaUniquePtrCmplxT> cu_cmplx_workspace_;
-    std::optional<CudaUniquePtrT> cu_real_workspace_;
+
+    // This is always used - either straight for computation
+    // or to initialize complex workspace from it.
+    CudaUniquePtrT cu_real_workspace_;
 
     // === Device settings ===
     dim3 cu_block_size_;
@@ -167,13 +167,6 @@ private:
         cu_real_workspace_ = MakeCudaUnique<T>(cnt_);
     }
 
-    void AllocDeviceRhs() {
-        using detail::MakeCudaUnique;
-
-        // TODO: rhs is needed only in case that complex workspace is needed.
-        cu_rhs_ = MakeCudaUnique<T>(cnt_);
-    }
-
     void AllocDevicePhi() {
         using detail::MakeCudaUnique;
         cu_phi_ = MakeCudaUnique<T>(cnt_);
@@ -188,7 +181,6 @@ private:
 
     void AllocDeviceBuffers() {
         AllocDeviceWorkspace();
-        AllocDeviceRhs();
         AllocDevicePhi();
         AllocDeviceDenoms();
     }
@@ -244,13 +236,13 @@ private:
     void SolveFullPeriodic(std::span<T> phi, std::span<const T> rhs) {
         using namespace detail::runners::full_periodic;
 
-        CUCH(cudaMemcpy(cu_rhs_.value().get(),
+        CUCH(cudaMemcpy(cu_real_workspace_.get(),
                         rhs.data(),
                         cnt_ * sizeof(T),
                         cudaMemcpyHostToDevice));
 
         Init(cu_cmplx_workspace_.value().get(),
-             cu_rhs_.value().get(),
+             cu_real_workspace_.get(),
              ns_,
              cu_grid_size_,
              cu_block_size_);
@@ -276,22 +268,22 @@ private:
         using namespace detail::runners::full_dirichlet;
         using detail::runners::Normalize;
 
-        CUCH(cudaMemcpy(cu_real_workspace_.value().get(),
+        CUCH(cudaMemcpy(cu_real_workspace_.get(),
                         rhs.data(),
                         cnt_ * sizeof(T),
                         cudaMemcpyHostToDevice));
 
-        FFTPolicy::Forward(cu_real_workspace_.value().get(), fft_plan_);
+        FFTPolicy::Forward(cu_real_workspace_.get(), fft_plan_);
 
-        DivideByDenoms(cu_real_workspace_.value().get(),
+        DivideByDenoms(cu_real_workspace_.get(),
                        ns_,
                        cu_denom_observers_,
                        cu_grid_size_,
                        cu_block_size_);
 
-        FFTPolicy::Backward(cu_real_workspace_.value().get(), fft_plan_);
+        FFTPolicy::Backward(cu_real_workspace_.get(), fft_plan_);
         Normalize(cu_phi_.get(),
-                  cu_real_workspace_.value().get(),
+                  cu_real_workspace_.get(),
                   ns_,
                   norm_factor_,
                   cu_grid_size_,
@@ -302,22 +294,22 @@ private:
         using namespace detail::runners::full_neumann;
         using detail::runners::Normalize;
 
-        CUCH(cudaMemcpy(cu_real_workspace_.value().get(),
+        CUCH(cudaMemcpy(cu_real_workspace_.get(),
                         rhs.data(),
                         cnt_ * sizeof(T),
                         cudaMemcpyHostToDevice));
 
-        FFTPolicy::Forward(cu_real_workspace_.value().get(), fft_plan_);
+        FFTPolicy::Forward(cu_real_workspace_.get(), fft_plan_);
 
-        DivideByDenoms(cu_real_workspace_.value().get(),
+        DivideByDenoms(cu_real_workspace_.get(),
                        ns_,
                        cu_denom_observers_,
                        cu_grid_size_,
                        cu_block_size_);
 
-        FFTPolicy::Backward(cu_real_workspace_.value().get(), fft_plan_);
+        FFTPolicy::Backward(cu_real_workspace_.get(), fft_plan_);
         Normalize(cu_phi_.get(),
-                  cu_real_workspace_.value().get(),
+                  cu_real_workspace_.get(),
                   ns_,
                   norm_factor_,
                   cu_grid_size_,
