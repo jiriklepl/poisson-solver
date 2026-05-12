@@ -25,11 +25,11 @@ __device__ inline CuComplexTrait<double> MakeCuComplex(double r, double i) {
 
 template <std::floating_point T, std::size_t Dim>
 __global__ void Init(CuComplexTrait<T> *cmplx_workspace,
-                     const T *rhs,
+                     const T *real_workspace,
                      GridSizes<Dim> ns) {
     ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
         const std::size_t idx = FlatIndex(midx, ns);
-        cmplx_workspace[idx] = MakeCuComplex<T>(rhs[idx], 0);
+        cmplx_workspace[idx] = MakeCuComplex<T>(real_workspace[idx], 0);
     });
 }
 
@@ -52,13 +52,13 @@ __global__ void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
 }
 
 template <std::floating_point T, std::size_t Dim>
-__global__ void Normalize(T *phi,
+__global__ void Normalize(T *res,
                           const CuComplexTrait<T> *cmplx_workspace,
                           GridSizes<Dim> ns,
                           T norm_factor) {
     ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
         const std::size_t idx = FlatIndex(midx, ns);
-        phi[idx] = cmplx_workspace[idx].x / norm_factor;
+        res[idx] = cmplx_workspace[idx].x / norm_factor;
     });
 }
 }  // namespace poisson_solver::detail::kernels::full_periodic

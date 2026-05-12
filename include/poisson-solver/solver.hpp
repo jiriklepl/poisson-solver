@@ -66,7 +66,7 @@ public:
 
         (this->*solver_plan_.solve_method)(phi, rhs);
         CUCH(cudaMemcpy(phi.data(),
-                        cu_phi_.get(),
+                        cu_real_workspace_.get(),
                         cnt_ * sizeof(T),
                         cudaMemcpyDeviceToHost));
     }
@@ -106,7 +106,6 @@ private:
     typename FFTPolicy::Plan fft_plan_;
 
     // === Workspaces ===
-    CudaUniquePtrT cu_phi_;
 
     // Only some solvers need complex workspace.
     std::optional<CudaUniquePtrCmplxT> cu_cmplx_workspace_;
@@ -167,11 +166,6 @@ private:
         cu_real_workspace_ = MakeCudaUnique<T>(cnt_);
     }
 
-    void AllocDevicePhi() {
-        using detail::MakeCudaUnique;
-        cu_phi_ = MakeCudaUnique<T>(cnt_);
-    }
-
     void AllocDeviceDenoms() {
         using detail::MakeCudaUnique;
         for (std::size_t d = 0; d < Dim; ++d) {
@@ -181,7 +175,6 @@ private:
 
     void AllocDeviceBuffers() {
         AllocDeviceWorkspace();
-        AllocDevicePhi();
         AllocDeviceDenoms();
     }
 
@@ -256,7 +249,7 @@ private:
                        cu_block_size_);
 
         FFTPolicy::Backward(cu_cmplx_workspace_.value().get(), fft_plan_);
-        Normalize(cu_phi_.get(),
+        Normalize(cu_real_workspace_.get(),
                   cu_cmplx_workspace_.value().get(),
                   ns_,
                   norm_factor_,
@@ -282,8 +275,7 @@ private:
                        cu_block_size_);
 
         FFTPolicy::Backward(cu_real_workspace_.get(), fft_plan_);
-        Normalize(cu_phi_.get(),
-                  cu_real_workspace_.get(),
+        Normalize(cu_real_workspace_.get(),
                   ns_,
                   norm_factor_,
                   cu_grid_size_,
@@ -308,8 +300,7 @@ private:
                        cu_block_size_);
 
         FFTPolicy::Backward(cu_real_workspace_.get(), fft_plan_);
-        Normalize(cu_phi_.get(),
-                  cu_real_workspace_.get(),
+        Normalize(cu_real_workspace_.get(),
                   ns_,
                   norm_factor_,
                   cu_grid_size_,

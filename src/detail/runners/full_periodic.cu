@@ -11,11 +11,12 @@ namespace fpk = kernels::full_periodic;
 
 template <std::floating_point T, std::size_t Dim>
 void Init(CuComplexTrait<T> *cmplx_workspace,
-          const T *rhs,
+          const T *real_workspace,
           GridSizes<Dim> ns,
           dim3 cu_grid_size,
           dim3 cu_block_size) {
-    fpk::Init<<<cu_grid_size, cu_block_size>>>(cmplx_workspace, rhs, ns);
+    fpk::Init<<<cu_grid_size, cu_block_size>>>(
+        cmplx_workspace, real_workspace, ns);
     CUCH(cudaGetLastError());
 }
 
@@ -30,20 +31,20 @@ void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
 }
 
 template <std::floating_point T, std::size_t Dim>
-void Normalize(T *phi,
+void Normalize(T *res,
                const CuComplexTrait<T> *cmplx_workspace,
                GridSizes<Dim> ns,
                T norm_factor,
                dim3 cu_grid_size,
                dim3 cu_block_size) {
     fpk::Normalize<<<cu_grid_size, cu_block_size>>>(
-        phi, cmplx_workspace, ns, norm_factor);
+        res, cmplx_workspace, ns, norm_factor);
 }
 
 // === Explicit Instantiations ===
 #define INSTANTIATE_INITIALIZATION(TYPE, DIM)                             \
     template void Init<TYPE, DIM>(CuComplexTrait<TYPE> * cmplx_workspace, \
-                                  const TYPE *rhs,                        \
+                                  const TYPE *real_workspace,             \
                                   GridSizes<DIM> ns,                      \
                                   dim3 cu_grid_size,                      \
                                   dim3 cu_block_size);
@@ -58,7 +59,7 @@ void Normalize(T *phi,
 
 #define INSTANTIATE_NORMALIZATION(TYPE, DIM)         \
     template void Normalize<TYPE, DIM>(              \
-        TYPE * phi,                                  \
+        TYPE * res,                                  \
         const CuComplexTrait<TYPE> *cmplx_workspace, \
         GridSizes<DIM> ns,                           \
         TYPE norm_factor,                            \
