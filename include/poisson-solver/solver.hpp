@@ -11,6 +11,7 @@
 #include "poisson-solver/detail/runners/full_dirichlet.hpp"
 #include "poisson-solver/detail/runners/full_neumann.hpp"
 #include "poisson-solver/detail/runners/full_periodic.hpp"
+#include "poisson-solver/detail/solver_plan.hpp"
 
 #include <algorithm>
 #include <array>
@@ -39,7 +40,8 @@ public:
            BCs<Dim> bcs,
            const IApproximation<T> &approx = SpectralApproximation<T>{},
            dim3 cuda_block_size = DefaultBlockSize())
-        : ns_(ns),
+        : solver_plan_(bcs),
+          ns_(ns),
           bcs_(bcs),
           cnt_(ComputeTotalGridSize(ns_)),
           norm_factor_(ComputeNormFactor(ns_, bcs_)),
@@ -50,13 +52,11 @@ public:
         // Denoms are constant for the solver lifetime.
         // They can be copied just once, here.
         // It is important to have buffers already allocated before copying.
-        const auto denoms = GetEigenvalues(ns_, lens, bcs_, approx);
+        const auto denoms = GetEigenvalues(ns_, lens, approx);
         CopyDenomsToDevice(denoms);
         cu_denom_observers_ = CreateDenomObservers();
 
-        solve_ = GetSolveMethod(bcs);
-
-        FFTPolicy::Init(fft_plan_, ns_, bcs);
+        fft_plan_ = FFTPolicy::Init(ns_, solver_plan_.fft_layout);
     }
 
     void Execute(std::span<T> phi, std::span<const T> rhs) {
@@ -64,7 +64,7 @@ public:
             throw std::runtime_error("Incorrect size of phi or rhs.");
         }
 
-        (this->*solve_)(phi, rhs);
+        (this->*solver_plan_.solve_method)(phi, rhs);
         CUCH(cudaMemcpy(phi.data(),
                         cu_phi_.get(),
                         cnt_ * sizeof(T),
@@ -76,7 +76,9 @@ public:
     }
 
 private:
-    using SolveFunction = void (Solver::*)(std::span<T>, std::span<const T>);
+    friend class detail::SolverPlan<T, Dim>;
+
+    using SolveMethod = void (Solver::*)(std::span<T>, std::span<const T>);
     using HostOneAxisDenoms = std::vector<T>;
     using HostDenoms = std::array<HostOneAxisDenoms, Dim>;
     using CudaUniquePtrT = detail::CudaUniquePtr<T>;
@@ -84,6 +86,8 @@ private:
         detail::CudaUniquePtr<detail::CuComplexTrait<T>>;
     using DenomConstPtrs = detail::DenomConstPtrs<T, Dim>;
     using FFTPolicy = detail::FFTPolicy<T, Dim>;
+
+    detail::SolverPlan<T, Dim> solver_plan_;
 
     // === Grid ===
     GridSizes<Dim> ns_;
@@ -97,15 +101,16 @@ private:
     DenomConstPtrs cu_denom_observers_;
 
     T norm_factor_;
-    SolveFunction solve_;
 
     // === FFT ===
     typename FFTPolicy::Plan fft_plan_;
 
+    // === Workspaces ===
     // RHS needed only in case we initialize complex workspace from it.
     std::optional<CudaUniquePtrT> cu_rhs_;
     CudaUniquePtrT cu_phi_;
 
+    // TODO: This may not be true for Complex/Real split layouts!
     // Only one of those is used
     std::optional<CudaUniquePtrCmplxT> cu_cmplx_workspace_;
     std::optional<CudaUniquePtrT> cu_real_workspace_;
@@ -129,13 +134,11 @@ private:
             ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>{});
     }
 
-    static T ComputeNormFactor(GridSizes<Dim> ns, BCs<Dim> bcs) {
-        using detail::GetAxisStrategy;
-
+    T ComputeNormFactor(GridSizes<Dim> ns, BCs<Dim> bcs) const {
         T factor = 1.0;
-        for (std::size_t i = 0; i < Dim; ++i) {
-            auto strategy = GetAxisStrategy<T>(bcs[i]);
-            factor *= strategy->ComputeNormalizationFactor(ns[i]);
+        for (std::size_t d = 0; d < Dim; ++d) {
+            const auto &strategy = solver_plan_.axis_strategies[d];
+            factor *= strategy->ComputeNormalizationFactor(ns[d]);
         }
         return factor;
     }
@@ -190,12 +193,13 @@ private:
         AllocDeviceDenoms();
     }
 
-    static HostOneAxisDenoms GetOneAxisEigenvalues(
-        T len, std::size_t n, BCPair bcp, const IApproximation<T> &approx) {
-        using detail::GetAxisStrategy;
-
+    HostOneAxisDenoms GetOneAxisEigenvalues(
+        T len,
+        std::size_t n,
+        std::size_t axis,
+        const IApproximation<T> &approx) const {
         HostOneAxisDenoms eigenvals(n);
-        auto strategy = GetAxisStrategy<T>(bcp);
+        const auto &strategy = solver_plan_.axis_strategies[axis];
 
         const T grid_dx = strategy->GetGridDx(len, n);
         const T dkx = std::numbers::pi_v<T> * grid_dx / len;
@@ -209,14 +213,13 @@ private:
         return eigenvals;
     }
 
-    static HostDenoms GetEigenvalues(GridSizes<Dim> ns,
-                                     std::array<T, Dim> lens,
-                                     BCs<Dim> bcs,
-                                     const IApproximation<T> &approx) {
+    HostDenoms GetEigenvalues(GridSizes<Dim> ns,
+                              std::array<T, Dim> lens,
+                              const IApproximation<T> &approx) const {
         // TODO: This could be done on GPU
         HostDenoms denoms{};
         for (std::size_t d = 0; d < Dim; ++d) {
-            denoms[d] = GetOneAxisEigenvalues(ns[d], lens[d], bcs[d], approx);
+            denoms[d] = GetOneAxisEigenvalues(ns[d], lens[d], d, approx);
         }
         return denoms;
     }
@@ -313,7 +316,6 @@ private:
                        cu_block_size_);
 
         FFTPolicy::Backward(cu_real_workspace_.value().get(), fft_plan_);
-        ;
         Normalize(cu_phi_.get(),
                   cu_real_workspace_.value().get(),
                   ns_,
@@ -360,89 +362,6 @@ private:
     void Solve1Real2Real(std::span<T> phi, std::span<const T> rhs) {
         // TODO
         throw std::runtime_error("Not implemented.");
-    }
-
-    static SolveFunction GetSolveMethod1D(BCs<1> bcs) {
-        using namespace std::ranges;
-
-        if (all_of(bcs, IsPeriodic)) {
-            return &Solver::SolveFullPeriodic;
-        } else if (all_of(bcs, IsDirichlet) || all_of(bcs, IsDirichletStag)) {
-            return &Solver::SolveFullDirichlet;
-        } else if (all_of(bcs, IsNeumann) || all_of(bcs, IsNeumannStag)) {
-            return &Solver::SolveFullNeumann;
-        } else if (none_of(bcs, HasPeriodic) &&
-                   any_of(bcs, HasDirichletOrStag)) {
-            return &Solver::SolveFullDirichlet;
-        } else {
-            throw std::invalid_argument(
-                "Invalid boundary conditions combination.");
-        }
-    }
-
-    static SolveFunction GetSolveMethod2D(BCs<2> bcs) {
-        using namespace std::ranges;
-
-        if (all_of(bcs, IsPeriodic)) {
-            return &Solver::SolveFullPeriodic;
-        } else if (all_of(bcs, IsDirichlet) || all_of(bcs, IsDirichletStag)) {
-            return &Solver::SolveFullDirichlet;
-        } else if (all_of(bcs, IsNeumann) || all_of(bcs, IsNeumannStag)) {
-            return &Solver::SolveFullNeumann;
-        } else {
-            throw std::invalid_argument(
-                "Invalid boundary conditions combination.");
-        }
-    }
-
-    static SolveFunction GetSolveMethod3D(BCs<3> bcs) {
-        using namespace std::ranges;
-
-        auto [bcx, bcy, bcz] = bcs;
-
-        if (all_of(bcs, IsPeriodic)) {
-            return &Solver::SolveFullPeriodic;
-        } else if (all_of(bcs, IsDirichlet) || all_of(bcs, IsDirichletStag)) {
-            return &Solver::SolveFullDirichlet;
-        } else if (all_of(bcs, IsNeumann) || all_of(bcs, IsNeumannStag)) {
-            return &Solver::SolveFullNeumann;
-        } else if (IsPeriodic(bcx) && IsPeriodic(bcy) && IsNeumannOrStag(bcz)) {
-            return &Solver::SolvePPNs;
-        } else if (IsPeriodic(bcx) && IsPeriodic(bcy) && !HasPeriodic(bcz) &&
-                   HasDirichletOrStag(bcz)) {
-            return &Solver::SolvePPD;
-        } else if (IsNeumannOrStag(bcx) && IsPeriodic(bcy) && IsPeriodic(bcz)) {
-            return &Solver::SolveNsPP;
-        } else if (IsPeriodic(bcx) &&
-                   ((IsNeumann(bcy) && IsNeumann(bcz)) ||
-                    (IsNeumannStag(bcy) && IsNeumannStag(bcz)))) {
-            return &Solver::SolvePNsNs;
-        } else if (IsPeriodic(bcx) && IsNeumannOrStag(bcy) && IsPeriodic(bcz)) {
-            return &Solver::SolvePNsP;
-        } else if (((IsDirichlet(bcx) && IsDirichlet(bcy)) ||
-                    (IsDirichletStag(bcx) && IsDirichletStag(bcy))) &&
-                   IsPeriodic(bcz)) {
-            return &Solver::SolveDDP;
-        } else if (none_of(bcs, IsPeriodic) && (bcx == bcy) && (bcx != bcz) &&
-                   any_of(bcs, HasDirichletOrStag)) {
-            return &Solver::Solve2Real1Real;
-        } else if (none_of(bcs, IsPeriodic) && (bcy == bcz) && (bcx != bcy) &&
-                   any_of(bcs, HasDirichletOrStag)) {
-            return &Solver::Solve1Real2Real;
-        } else {
-            throw std::invalid_argument(
-                "Invalid boundary conditions combination.");
-        }
-    }
-
-    static SolveFunction GetSolveMethod(BCs<Dim> bcs) {
-        if constexpr (Dim == 1) {
-            return GetSolveMethod1D(bcs);
-        } else if constexpr (Dim == 2) {
-            return GetSolveMethod2D(bcs);
-        } else if constexpr (Dim == 3) {
-            return GetSolveMethod3D(bcs);
-        }
     }
 };
 }  // namespace poisson_solver

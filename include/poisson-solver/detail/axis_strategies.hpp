@@ -133,35 +133,6 @@ public:
         return 2 * n;
     }
 };
-
-template <std::floating_point T>
-static std::unique_ptr<IAxisStrategy<T>> GetAxisStrategy(BCPair bcs) {
-    using BC = BoundaryCondition;
-    constexpr BC P = BC::kPeriodic;
-    constexpr BC D = BC::kDirichlet;
-    constexpr BC N = BC::kNeumann;
-    constexpr BC DS = BC::kDirichletStag;
-    constexpr BC NS = BC::kNeumannStag;
-
-    if (bcs.first == P && bcs.second == P) {
-        return std::make_unique<PeriodicStrategy<T>>();
-    } else if (bcs.first == D && bcs.second == D) {
-        return std::make_unique<DirichletStrategy<T>>();
-    } else if (bcs.first == N && bcs.second == N) {
-        return std::make_unique<NeumannStrategy<T>>();
-    } else if (bcs.first == DS && bcs.second == DS) {
-        return std::make_unique<DirichletStagStrategy<T>>();
-    } else if (bcs.first == NS && bcs.second == NS) {
-        return std::make_unique<NeumannStagStrategy<T>>();
-    } else if (((bcs.first == D && bcs.second == N) ||
-                (bcs.first == N && bcs.second == D)) ||
-               (bcs.first == DS && bcs.second == NS) ||
-               (bcs.first == NS && bcs.second == DS)) {
-        return std::make_unique<MixedStrategy<T>>();
-    } else {
-        throw std::invalid_argument("Invalid boundary condition combination.");
-    }
-}
 }  // namespace poisson_solver::detail
 
 #endif  // AXIS_STRATEGIES_HPP

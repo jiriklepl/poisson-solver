@@ -52,6 +52,26 @@ constexpr bool IsNeumannStag(BCPair bcp) {
     return bcp.first == BC::kNeumannStag && bcp.second == BC::kNeumannStag;
 }
 
+constexpr bool IsDirichletNeumann(BCPair bcp) {
+    using BC = BoundaryCondition;
+    return bcp.first == BC::kDirichlet && bcp.second == BC::kNeumann;
+}
+
+constexpr bool IsNeumannDirichlet(BCPair bcp) {
+    using BC = BoundaryCondition;
+    return bcp.first == BC::kNeumann && bcp.second == BC::kDirichlet;
+}
+
+constexpr bool IsDirichletStagNeumannStag(BCPair bcp) {
+    using BC = BoundaryCondition;
+    return bcp.first == BC::kDirichletStag && bcp.second == BC::kNeumannStag;
+}
+
+constexpr bool IsNeumannStagDirichletStag(BCPair bcp) {
+    using BC = BoundaryCondition;
+    return bcp.first == BC::kNeumannStag && bcp.second == BC::kDirichletStag;
+}
+
 // (D, D) or (DS, DS)
 constexpr bool IsDirichletOrStag(BCPair bcp) {
     return IsDirichlet(bcp) || IsDirichletStag(bcp);
