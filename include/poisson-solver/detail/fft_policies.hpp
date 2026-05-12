@@ -22,7 +22,6 @@
 #include <cuda_runtime.h>
 #include <sstream>
 #include <stdexcept>
-#include <string>
 #include <type_traits>
 #include <variant>
 #include <vkFFT.h>
@@ -186,7 +185,7 @@ inline void _VkFFTCheck(VkFFTResult res,
         std::stringstream err_stream{};
         err_stream << "VkFFT Error (" << res << ")\n"
                    << "at " << srcFile << "[" << line << "]:" << errMsg;
-        throw(std::runtime_error(err_stream.str()));
+        throw std::runtime_error(err_stream.str());
     }
 }
 
@@ -385,10 +384,9 @@ private:
                 config_2d.omitDimension[2] = 1;
                 break;
             }
-            default:
-                throw std::invalid_argument(
-                    "Invalid index of an isolated axis" +
-                    std::to_string(layout.isolated_dim_idx));
+            default: {
+                assert(false && "Invalid index of an isolated axis.");
+            }
         }
 
         auto fft_type_1d = GetVkFFTTransformType(layout.forward_type_1d);
@@ -439,8 +437,7 @@ private:
             case DST4:
                 return {.dct = 0, .dst = 4};
             default:
-                throw std::runtime_error(
-                    "Unhandled VkFFT transform type mapping.");
+                assert(false && "Unhandled VkFFT transform type mapping.");
         }
     }
 };

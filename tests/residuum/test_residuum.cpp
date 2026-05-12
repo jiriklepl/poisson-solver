@@ -9,13 +9,13 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <concepts>
 #include <functional>
 #include <numbers>
 #include <numeric>
 #include <random>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -68,9 +68,7 @@ public:
                  std::span<const T> rhs,
                  ps::BCs<Dim> bcs,
                  std::array<T, 2 * Dim> coeffs) const {
-        if (rhs.size() != phi.size()) {
-            throw std::runtime_error("Incorrect size of phi or rhs.");
-        }
+        assert(rhs.size() == phi.size());
 
         const std::size_t size = rhs.size();
         T max_residuum = 0.0;
@@ -169,7 +167,7 @@ private:
                 break;
             }
             default: {
-                throw std::invalid_argument("Unknown boundary condition.");
+                assert(false && "Unknown boundary condition.");
             }
         }
     }
@@ -200,7 +198,7 @@ BoundaryCondition ToCBoundary(BC cxx_bc) {
         case cxxNS:
             return kNeumannStag;
         default:
-            throw std::invalid_argument("Unknown boundary condition.");
+            assert(false && "Unknown boundary condition.");
     }
 }
 

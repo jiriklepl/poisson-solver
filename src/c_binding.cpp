@@ -8,6 +8,7 @@
 #include <memory>
 #include <span>
 #include <stdexcept>
+#include <string>
 
 // Here is the mapping between the C interface and C++ implementation.
 
@@ -25,7 +26,8 @@ std::unique_ptr<ps::IApproximation<T>> GetApprox(Approximation approx) {
         case kFD4:
             return std::make_unique<ps::FiniteDifference4Approximation<T>>();
         default:
-            throw std::invalid_argument("Invalid approximation.");
+            throw std::invalid_argument(
+                "Invalid approximation: " + std::to_string(approx) + ".");
     }
 }
 }  // namespace
@@ -52,7 +54,8 @@ ps::BoundaryCondition ToCxxBC(BoundaryCondition c_bc) {
         case kNeumannStag:
             return cxxNS;
         default:
-            throw std::invalid_argument("Unknown boundary condition.");
+            throw std::invalid_argument(
+                "Invalid boundary condition: " + std::to_string(c_bc) + ".");
     }
 }
 
@@ -138,7 +141,8 @@ void PoissonSolverNew(PoissonSolver *solver_out,
             PoissonSolver3DNew(solver_out, ns, lens, bcs, *ps_approx);
             break;
         default:
-            throw std::invalid_argument("Invalid amount of dimensions.");
+            throw std::invalid_argument("Invalid amount of dimensions" +
+                                        std::to_string(dims) + ".");
     }
 }
 
@@ -234,7 +238,8 @@ void PoissonSolverNewFloat(PoissonSolver *solver_out,
             PoissonSolver3DNewFloat(solver_out, ns, lens, bcs, *ps_approx);
             break;
         default:
-            throw std::invalid_argument("Invalid amount of dimensions.");
+            throw std::invalid_argument("Invalid amount of dimensions" +
+                                        std::to_string(dims) + ".");
     }
 }
 

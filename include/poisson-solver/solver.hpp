@@ -61,7 +61,7 @@ public:
 
     void Execute(std::span<T> phi, std::span<const T> rhs) {
         if (phi.size() != cnt_ || rhs.size() != cnt_) {
-            throw std::runtime_error("Incorrect size of phi or rhs.");
+            throw std::invalid_argument("Incorrect size of phi or rhs.");
         }
 
         (this->*solver_plan_.solve_method)(phi, rhs);

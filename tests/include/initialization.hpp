@@ -1,3 +1,4 @@
+#include <cassert>
 #include <concepts>
 #include <random>
 #include <span>
@@ -6,9 +7,7 @@
 namespace tests {
 template <std::floating_point T>
 void Initialize(std::span<T> phi, std::span<T> rhs, unsigned seed) {
-    if (rhs.size() != phi.size()) {
-        throw std::runtime_error("Incorrect size of phi or rhs.");
-    }
+    assert(rhs.size() == phi.size());
 
     const std::size_t size = rhs.size();
     std::mt19937 rng(seed);

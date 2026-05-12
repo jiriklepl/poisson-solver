@@ -6,6 +6,7 @@
 #include "poisson-solver/detail/fft_policies.hpp"
 
 #include <array>
+#include <cassert>
 #include <concepts>
 #include <cstddef>
 #include <memory>
@@ -77,6 +78,10 @@ private:
         return strats;
     }
 
+    // This function should be called with
+    // an already validated BC pair.
+    // Caller is responsible for throwing in
+    // case boundary conditions aren't valid.
     FFTTransformType GetAxisFFTType(BCPair bcp) {
         using enum FFTTransformType;
 
@@ -99,7 +104,7 @@ private:
         } else if (IsNeumannStagDirichletStag(bcp)) {
             return DCT4;
         } else {
-            throw std::invalid_argument("Unknown combination of BCs.");
+            assert(false && "Invalid BC pair.");
         }
     }
 
@@ -221,8 +226,7 @@ private:
             layout.isolated_dim_idx = 0;
 
         } else {
-            throw std::invalid_argument(
-                "Invalid boundary conditions combination.");
+            throw std::invalid_argument("Invalid combination of 3D BCs.");
         }
     }
 
