@@ -20,6 +20,7 @@
 #include <cassert>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <type_traits>
@@ -166,7 +167,7 @@ struct SplitHandle {
 };
 
 struct VkFFTPlan {
-    CUdevice cu_device{};
+    std::unique_ptr<CUdevice> cu_device{};
     VariantHandle handle{};
 };
 
@@ -205,17 +206,18 @@ public:
         // Shared among all layouts.
         plan.cu_device = GetCudaDevice();
 
-        std::visit(
-            Overloaded{[&plan, ns](FullLayout l) {
-                           plan.handle = GetFullHandle(l, ns, plan.cu_device);
-                       },
-                       [&plan, ns](SplitLayout l) {
-                           plan.handle = GetSplitHandle(l, ns, plan.cu_device);
-                       },
-                       [](std::monostate) {
-                           assert(false && "Visited a monostate.");
-                       }},
-            layout);
+        std::visit(Overloaded{[&plan, ns](FullLayout l) {
+                                  plan.handle = GetFullHandle(
+                                      l, ns, plan.cu_device.get());
+                              },
+                              [&plan, ns](SplitLayout l) {
+                                  plan.handle = GetSplitHandle(
+                                      l, ns, plan.cu_device.get());
+                              },
+                              [](std::monostate) {
+                                  assert(false && "Visited a monostate.");
+                              }},
+                   layout);
 
         return plan;
     }
@@ -293,7 +295,7 @@ public:
     }
 
 private:
-    static CUdevice GetCudaDevice() {
+    static std::unique_ptr<CUdevice> GetCudaDevice() {
         // Ensure CUDA runtime is initialized.
         // This is essentailly a nop but if runtime isn't init, then it does it.
         cudaFree(0);
@@ -301,8 +303,8 @@ private:
         int ordinal{};
         CUCH(cudaGetDevice(&ordinal));
 
-        CUdevice device{};
-        cuDeviceGet(&device, ordinal);
+        auto device = std::make_unique<CUdevice>();
+        cuDeviceGet(device.get(), ordinal);
 
         return device;
     }
@@ -310,11 +312,11 @@ private:
     // Returns initialized full handle.
     static FullHandle GetFullHandle(FullLayout layout,
                                     GridSizes<Dim> ns,
-                                    CUdevice &device) {
+                                    CUdevice *device_ptr) {
         FullHandle h{};
         auto &config = h.handle.config;
 
-        config.device = &device;
+        config.device = device_ptr;
 
         // 0 for float, 1 for doubles.
         config.doublePrecision = !std::is_same_v<T, float>;
@@ -344,13 +346,18 @@ private:
     // Returns initialized split handle.
     static SplitHandle GetSplitHandle(SplitLayout layout,
                                       GridSizes<Dim> ns,
-                                      CUdevice &device) {
+                                      CUdevice *device_ptr) {
         SplitHandle h{};
         auto &config_1d = h.handle_1d.config;
         auto &config_2d = h.handle_2d.config;
 
-        config_1d.device = &device;
-        config_2d.device = &device;
+        config_1d.device = device_ptr;
+        config_2d.device = device_ptr;
+
+        // 0 for float, 1 for doubles.
+        bool double_prec_used = !std::is_same_v<T, float>;
+        config_1d.doublePrecision = double_prec_used;
+        config_2d.doublePrecision = double_prec_used;
 
         // Both configs will know about the
         // grid being 3D but will omit the
@@ -365,11 +372,13 @@ private:
             config_2d.size[Dim - d - 1] = ns[d];
         }
 
+        // Again, VkFFT has fastest changing
+        // dimension at idx 0, middle at 1 and slowest at 2!
         switch (layout.isolated_dim_idx) {
             case 0: {
+                config_1d.omitDimension[0] = 1;
                 config_1d.omitDimension[1] = 1;
-                config_1d.omitDimension[2] = 1;
-                config_2d.omitDimension[0] = 1;
+                config_2d.omitDimension[2] = 1;
                 break;
             }
             case 1: {
@@ -379,9 +388,9 @@ private:
                 break;
             }
             case 2: {
-                config_1d.omitDimension[0] = 1;
                 config_1d.omitDimension[1] = 1;
-                config_2d.omitDimension[2] = 1;
+                config_1d.omitDimension[2] = 1;
+                config_2d.omitDimension[0] = 1;
                 break;
             }
             default: {

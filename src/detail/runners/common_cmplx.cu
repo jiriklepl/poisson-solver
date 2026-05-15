@@ -1,13 +1,13 @@
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/cuch.hpp"
 #include "poisson-solver/detail/helpers.hpp"
-#include "poisson-solver/detail/kernels/full_periodic.cuh"
-#include "poisson-solver/detail/runners/full_periodic.hpp"
+#include "poisson-solver/detail/kernels/common_cmplx.cuh"
+#include "poisson-solver/detail/runners/common_cmplx.hpp"
 
 #include <concepts>
 
-namespace poisson_solver::detail::runners::full_periodic {
-namespace fpk = kernels::full_periodic;
+namespace poisson_solver::detail::runners {
+namespace ker = kernels;
 
 template <std::floating_point T, std::size_t Dim>
 void Init(CuComplexTrait<T> *cmplx_workspace,
@@ -15,7 +15,7 @@ void Init(CuComplexTrait<T> *cmplx_workspace,
           GridSizes<Dim> ns,
           dim3 cu_grid_size,
           dim3 cu_block_size) {
-    fpk::Init<<<cu_grid_size, cu_block_size>>>(
+    ker::Init<<<cu_grid_size, cu_block_size>>>(
         cmplx_workspace, real_workspace, ns);
     CUCH(cudaGetLastError());
 }
@@ -26,7 +26,7 @@ void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
                     DenomConstPtrs<T, Dim> denoms,
                     dim3 cu_grid_size,
                     dim3 cu_block_size) {
-    fpk::DivideByDenoms<<<cu_grid_size, cu_block_size>>>(
+    ker::DivideByDenoms<<<cu_grid_size, cu_block_size>>>(
         cmplx_workspace, ns, denoms);
 }
 
@@ -37,7 +37,7 @@ void Normalize(T *res,
                T norm_factor,
                dim3 cu_grid_size,
                dim3 cu_block_size) {
-    fpk::Normalize<<<cu_grid_size, cu_block_size>>>(
+    ker::Normalize<<<cu_grid_size, cu_block_size>>>(
         res, cmplx_workspace, ns, norm_factor);
 }
 
@@ -84,4 +84,4 @@ INSTANTIATE_INIT_DIV_NORM_ALL_DIMS(double)
 #undef INSTANTIATE_NORMALIZATION
 #undef INSTANTIATE_DIVISION
 #undef INSTANTIATE_INITIALIZATION
-}  // namespace poisson_solver::detail::runners::full_periodic
+}  // namespace poisson_solver::detail::runners

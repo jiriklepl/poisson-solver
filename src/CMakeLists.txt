@@ -2,7 +2,7 @@ set(LIB_SRC
     c_binding.cpp
     fortran_binding.f90
     detail/runners/common_real.cu
-    detail/runners/full_periodic.cu
+    detail/runners/common_cmplx.cu
     detail/runners/full_dirichlet.cu
     detail/runners/full_neumann.cu
 )

@@ -607,5 +607,7 @@ program testpoisson
   dy = leny / ny
   dz = lenz / nz
   RHS3D = RHS3D - sum(RHS3D)/(size(RHS3D,kind=size_kind))
-  call Test2D([(PoisSolver_NeumannStag, i = 1,6)])
+  call Test3D([(PoisSolver_NeumannStag, i = 1,6)])
+
+  ! TODO Add PPNs test
 end program testpoisson

@@ -7,10 +7,10 @@
 #include "poisson-solver/detail/axis_strategies.hpp"
 #include "poisson-solver/detail/fft_policies.hpp"
 #include "poisson-solver/detail/helpers.hpp"
+#include "poisson-solver/detail/runners/common_cmplx.hpp"
 #include "poisson-solver/detail/runners/common_real.hpp"
 #include "poisson-solver/detail/runners/full_dirichlet.hpp"
 #include "poisson-solver/detail/runners/full_neumann.hpp"
-#include "poisson-solver/detail/runners/full_periodic.hpp"
 #include "poisson-solver/detail/solver_plan.hpp"
 
 #include <algorithm>
@@ -179,8 +179,8 @@ private:
     }
 
     HostOneAxisDenoms GetOneAxisEigenvalues(
-        T len,
         std::size_t n,
+        T len,
         std::size_t axis,
         const IApproximation<T> &approx) const {
         HostOneAxisDenoms eigenvals(n);
@@ -227,7 +227,7 @@ private:
     }
 
     void SolveFullPeriodic(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners::full_periodic;
+        using namespace detail::runners;
 
         CUCH(cudaMemcpy(cu_real_workspace_.get(),
                         rhs.data(),
@@ -308,8 +308,35 @@ private:
     }
 
     void SolvePPNs(std::span<T> phi, std::span<const T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
+        using namespace detail::runners;
+
+        CUCH(cudaMemcpy(cu_real_workspace_.get(),
+                        rhs.data(),
+                        cnt_ * sizeof(T),
+                        cudaMemcpyHostToDevice));
+
+        FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
+        Init(cu_cmplx_workspace_.value().get(),
+             cu_real_workspace_.get(),
+             ns_,
+             cu_grid_size_,
+             cu_block_size_);
+
+        FFTPolicy::Forward2D(cu_cmplx_workspace_.value().get(), fft_plan_);
+        DivideByDenoms(cu_cmplx_workspace_.value().get(),
+                       ns_,
+                       cu_denom_observers_,
+                       cu_grid_size_,
+                       cu_block_size_);
+        FFTPolicy::Backward2D(cu_cmplx_workspace_.value().get(), fft_plan_);
+
+        Normalize(cu_real_workspace_.get(),
+                  cu_cmplx_workspace_.value().get(),
+                  ns_,
+                  norm_factor_,
+                  cu_grid_size_,
+                  cu_block_size_);
+        FFTPolicy::Backward1D(cu_real_workspace_.get(), fft_plan_);
     }
 
     void SolvePPD(std::span<T> phi, std::span<const T> rhs) {

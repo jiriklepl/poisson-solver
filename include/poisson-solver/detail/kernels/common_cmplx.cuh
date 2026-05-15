@@ -1,5 +1,5 @@
-#ifndef FULL_PERIODIC_CUH
-#define FULL_PERIODIC_CUH
+#ifndef COMMON_CMPLX_CUH
+#define COMMON_CMPLX_CUH
 
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/helpers.hpp"
@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 
-namespace poisson_solver::detail::kernels::full_periodic {
+namespace poisson_solver::detail::kernels {
 template <std::floating_point T>
 __device__ CuComplexTrait<T> MakeCuComplex(T r, T i);
 
@@ -61,6 +61,6 @@ __global__ void Normalize(T *res,
         res[idx] = cmplx_workspace[idx].x / norm_factor;
     });
 }
-}  // namespace poisson_solver::detail::kernels::full_periodic
+}  // namespace poisson_solver::detail::kernels
 
-#endif  // FULL_PERIODIC_CUH
+#endif  // COMMON_CMPLX_CUH

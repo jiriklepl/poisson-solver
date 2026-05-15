@@ -274,6 +274,13 @@ void RunApis(std::span<T> phi,
         solver.Execute(phi, rhs);
 
         T residuum = calc_residuum();
+
+        // If residuum is exactly equal to 0.0, something might be off.
+        CHECK_MESSAGE(residuum != T{0.0},
+                      "Residuum is ",
+                      residuum,
+                      " which is exactly 0.0 and thats weird.");
+
         auto result = ResiduumBelowThreshold<T>(residuum, ns);
         CHECK_MESSAGE(result.success,
                       "Residuum is ",
@@ -314,6 +321,13 @@ void RunApis(std::span<T> phi,
         }
 
         T residuum = calc_residuum();
+
+        // If residuum is exactly equal to 0.0, something might be off.
+        CHECK_MESSAGE(residuum != T{0.0},
+                      "Residuum is ",
+                      residuum,
+                      " which is exactly 0.0 and thats weird.");
+
         auto result = ResiduumBelowThreshold<T>(residuum, ns);
         CHECK_MESSAGE(result.success,
                       "Residuum is ",
@@ -485,7 +499,12 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
              "NeumannStag",
              {{{NS, NS}, {NS, NS}, {NS, NS}}},
              {{nx, ny, nz}},
-             MakeNeumannStagRhsCorrector<T>()}};
+             MakeNeumannStagRhsCorrector<T>()},
+            {"Periodic | Periodic | Periodic | Periodic | NeumannStag | "
+             "NeumannStag",
+             {{{P, P}, {P, P}, {NS, NS}}},
+             {{nx, ny, nz}},
+             nullptr}};
 
         Initialize<T>(phi3d, rhs3d, seed);
         RunTestConfigs<T, 3>(configs, phi3d, rhs3d, ns3d, lens3d, mrc3d);
