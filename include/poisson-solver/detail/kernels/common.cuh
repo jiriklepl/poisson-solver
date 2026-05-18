@@ -51,8 +51,8 @@ __device__ void ApplyStrideLoopImpl(MultidimIdx<Dim> &midx,
                                     Func f) {
     for (midx[CurDim] = starts[CurDim]; midx[CurDim] < ns[CurDim];
          midx[CurDim] += strides[CurDim]) {
-        if constexpr (CurDim + 1 < Dim) {
-            ApplyStrideLoopImpl<Dim, CurDim + 1>(midx, starts, ns, strides, f);
+        if constexpr (CurDim > 0) {
+            ApplyStrideLoopImpl<Dim, CurDim - 1>(midx, starts, ns, strides, f);
         } else {
             f(midx);
         }
@@ -66,7 +66,7 @@ __device__ void ApplyStrideLoop(GridSizes<Dim> ns, Func f) {
     MultidimIdx<Dim> midx{};
     auto starts = GetIdxs<Dim>();
     auto strides = GetStrides<Dim>();
-    ApplyStrideLoopImpl<Dim, 0>(midx, starts, ns, strides, f);
+    ApplyStrideLoopImpl<Dim, Dim - 1>(midx, starts, ns, strides, f);
 }
 
 template <std::floating_point T, std::size_t Dim>

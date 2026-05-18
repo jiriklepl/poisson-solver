@@ -323,10 +323,7 @@ private:
 
         config.FFTdim = Dim;
         for (std::size_t d = 0; d < Dim; ++d) {
-            // VkFFT has fastests changing index on 0
-            // and slowest on Dim - 1 and
-            // we have it the exact opposite.
-            config.size[Dim - d - 1] = ns[d];
+            config.size[d] = ns[d];
         }
         auto fft_type = GetVkFFTTransformType(layout.forward_type);
         config.performDCT = fft_type.dct;
@@ -365,20 +362,15 @@ private:
         config_1d.FFTdim = Dim;
         config_2d.FFTdim = Dim;
         for (std::size_t d = 0; d < Dim; ++d) {
-            // VkFFT has fastests changing index on 0
-            // and slowest on Dim - 1 and
-            // we have it the exact opposite.
-            config_1d.size[Dim - d - 1] = ns[d];
-            config_2d.size[Dim - d - 1] = ns[d];
+            config_1d.size[d] = ns[d];
+            config_2d.size[d] = ns[d];
         }
 
-        // Again, VkFFT has fastest changing
-        // dimension at idx 0, middle at 1 and slowest at 2!
         switch (layout.isolated_dim_idx) {
             case 0: {
-                config_1d.omitDimension[0] = 1;
                 config_1d.omitDimension[1] = 1;
-                config_2d.omitDimension[2] = 1;
+                config_1d.omitDimension[2] = 1;
+                config_2d.omitDimension[0] = 1;
                 break;
             }
             case 1: {
@@ -388,9 +380,9 @@ private:
                 break;
             }
             case 2: {
+                config_1d.omitDimension[0] = 1;
                 config_1d.omitDimension[1] = 1;
-                config_1d.omitDimension[2] = 1;
-                config_2d.omitDimension[0] = 1;
+                config_2d.omitDimension[2] = 1;
                 break;
             }
             default: {

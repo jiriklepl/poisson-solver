@@ -50,9 +50,9 @@ template <std::size_t Dim>
 psd::MultidimIdx<Dim> FlatToMultidimIdx(std::size_t idx,
                                         ps::GridSizes<Dim> ns) {
     psd::MultidimIdx<Dim> midx{};
-    for (std::size_t i = Dim; i > 0; --i) {
-        midx[i - 1] = idx % ns[i - 1];
-        idx /= ns[i - 1];
+    for (std::size_t i = 0; i < Dim; ++i) {
+        midx[i] = idx % ns[i];
+        idx /= ns[i];
     }
     return midx;
 };

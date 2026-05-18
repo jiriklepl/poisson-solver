@@ -62,9 +62,9 @@ constexpr std::size_t FlatIndex(MultidimIdx<Dim> midx, GridSizes<Dim> ns) {
     std::size_t idx = 0;
     std::size_t stride = 1;
 
-    for (std::size_t i = Dim; i > 0; --i) {
-        idx += midx[i - 1] * stride;
-        stride *= ns[i - 1];
+    for (std::size_t i = 0; i < Dim; ++i) {
+        idx += midx[i] * stride;
+        stride *= ns[i];
     }
 
     return idx;
