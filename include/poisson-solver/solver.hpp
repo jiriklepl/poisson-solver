@@ -186,7 +186,7 @@ private:
         HostOneAxisDenoms eigenvals(n);
         const auto &strategy = solver_plan_.axis_strategies[axis];
 
-        const T grid_dx = strategy->GetGridDx(len, n);
+        const T grid_dx = strategy->GetGridDx(n, len);
         const T dkx = std::numbers::pi_v<T> * grid_dx / len;
         const T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
 

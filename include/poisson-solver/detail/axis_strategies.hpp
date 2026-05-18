@@ -17,7 +17,7 @@ namespace poisson_solver::detail {
 template <std::floating_point T>
 class IAxisStrategy {
 public:
-    virtual T GetGridDx(T len, std::size_t n) const = 0;
+    virtual T GetGridDx(std::size_t n, T len) const = 0;
     virtual T GetApproximationInput(std::size_t i,
                                     std::size_t n,
                                     T dkx) const = 0;
@@ -29,7 +29,7 @@ public:
 template <std::floating_point T>
 class PeriodicStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(T len, std::size_t n) const override {
+    virtual T GetGridDx(std::size_t n, T len) const override {
         return len / n;
     }
 
@@ -47,7 +47,7 @@ public:
 template <std::floating_point T>
 class DirichletStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(T len, std::size_t n) const override {
+    virtual T GetGridDx(std::size_t n, T len) const override {
         return len / (n + 1);
     }
 
@@ -65,7 +65,7 @@ public:
 template <std::floating_point T>
 class NeumannStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(T len, std::size_t n) const override {
+    virtual T GetGridDx(std::size_t n, T len) const override {
         return len / (n - 1);
     }
 
@@ -83,7 +83,7 @@ public:
 template <std::floating_point T>
 class DirichletStagStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(T len, std::size_t n) const override {
+    virtual T GetGridDx(std::size_t n, T len) const override {
         return len / n;
     }
 
@@ -101,7 +101,7 @@ public:
 template <std::floating_point T>
 class NeumannStagStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(T len, std::size_t n) const override {
+    virtual T GetGridDx(std::size_t n, T len) const override {
         return len / n;
     }
 
@@ -119,7 +119,7 @@ public:
 template <std::floating_point T>
 class MixedStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(T len, std::size_t n) const override {
+    virtual T GetGridDx(std::size_t n, T len) const override {
         return len / n;
     }
 
