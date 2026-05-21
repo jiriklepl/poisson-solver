@@ -59,16 +59,26 @@ public:
         fft_plan_ = FFTPolicy::Init(ns_, solver_plan_.fft_layout);
     }
 
-    void Execute(std::span<T> phi, std::span<const T> rhs) {
-        if (phi.size() != cnt_ || rhs.size() != cnt_) {
-            throw std::invalid_argument("Incorrect size of phi or rhs.");
-        }
+    void Execute(std::span<T> phi,
+                 std::span<const T> rhs,
+                 GridSizes<Dim> ngs_phi,
+                 GridSizes<Dim> ngs_rhs) {
+        // `const_cast` necessary due to
+        // CUDA C-like API interaction.
+        // Nothing is actually modified.
+        detail::MemcpyActiveGrid(const_cast<T *>(rhs.data()),
+                                 cu_real_workspace_.get(),
+                                 ns_,
+                                 ngs_rhs,
+                                 cudaMemcpyHostToDevice);
 
         (this->*solver_plan_.solve_method)(phi, rhs);
-        CUCH(cudaMemcpy(phi.data(),
-                        cu_real_workspace_.get(),
-                        cnt_ * sizeof(T),
-                        cudaMemcpyDeviceToHost));
+
+        detail::MemcpyActiveGrid(phi.data(),
+                                 cu_real_workspace_.get(),
+                                 ns_,
+                                 ngs_phi,
+                                 cudaMemcpyDeviceToHost);
     }
 
     std::size_t GetTotalGridSize() const {
@@ -229,11 +239,6 @@ private:
     void SolveFullPeriodic(std::span<T> phi, std::span<const T> rhs) {
         using namespace detail::runners;
 
-        CUCH(cudaMemcpy(cu_real_workspace_.get(),
-                        rhs.data(),
-                        cnt_ * sizeof(T),
-                        cudaMemcpyHostToDevice));
-
         Init(cu_cmplx_workspace_.value().get(),
              cu_real_workspace_.get(),
              ns_,
@@ -261,11 +266,6 @@ private:
         using namespace detail::runners::full_dirichlet;
         using detail::runners::Normalize;
 
-        CUCH(cudaMemcpy(cu_real_workspace_.get(),
-                        rhs.data(),
-                        cnt_ * sizeof(T),
-                        cudaMemcpyHostToDevice));
-
         FFTPolicy::Forward(cu_real_workspace_.get(), fft_plan_);
 
         DivideByDenoms(cu_real_workspace_.get(),
@@ -286,11 +286,6 @@ private:
         using namespace detail::runners::full_neumann;
         using detail::runners::Normalize;
 
-        CUCH(cudaMemcpy(cu_real_workspace_.get(),
-                        rhs.data(),
-                        cnt_ * sizeof(T),
-                        cudaMemcpyHostToDevice));
-
         FFTPolicy::Forward(cu_real_workspace_.get(), fft_plan_);
 
         DivideByDenoms(cu_real_workspace_.get(),
@@ -309,11 +304,6 @@ private:
 
     void SolvePPNs(std::span<T> phi, std::span<const T> rhs) {
         using namespace detail::runners;
-
-        CUCH(cudaMemcpy(cu_real_workspace_.get(),
-                        rhs.data(),
-                        cnt_ * sizeof(T),
-                        cudaMemcpyHostToDevice));
 
         FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),

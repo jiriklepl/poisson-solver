@@ -15,7 +15,10 @@ template <std::floating_point T>
 class ISolver {
 public:
     virtual ~ISolver() = default;
-    virtual void Execute(std::span<T> phi, std::span<const T> rhs) = 0;
+    virtual void Execute(std::span<T> phi,
+                         std::span<const T> rhs,
+                         std::span<const std::size_t> ngs_phi_span,
+                         std::span<const std::size_t> ngs_rhs_span) = 0;
     virtual std::size_t GetTotalGridSize() = 0;
 };
 
@@ -28,16 +31,29 @@ public:
                   const IApproximation<T> &approx)
         : solver_(ns, lens, bcs, approx) {}
 
-    virtual void Execute(std::span<T> phi, std::span<const T> rhs) override {
-        solver_.Execute(phi, rhs);
+    virtual void Execute(std::span<T> phi,
+                         std::span<const T> rhs,
+                         std::span<const std::size_t> ngs_phi_span,
+                         std::span<const std::size_t> ngs_rhs_span) override {
+        auto ngs_phi = CopyIntoGridSizes(ngs_phi_span);
+        auto ngs_rhs = CopyIntoGridSizes(ngs_rhs_span);
+        solver_.Execute(phi, rhs, ngs_phi, ngs_rhs);
     }
 
-    virtual std::size_t GetTotalGridSize() {
+    virtual std::size_t GetTotalGridSize() override {
         return solver_.GetTotalGridSize();
     }
 
 private:
     Solver<T, Dim> solver_;
+
+    GridSizes<Dim> CopyIntoGridSizes(std::span<const std::size_t> s) {
+        GridSizes<Dim> g{};
+        for (std::size_t d = 0; d < Dim; ++d) {
+            g[d] = s[d];
+        }
+        return g;
+    }
 };
 }  // namespace poisson_solver::detail
 

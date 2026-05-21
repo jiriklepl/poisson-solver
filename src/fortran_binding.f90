@@ -5,6 +5,7 @@ module PoisSolver
     type, bind(C) :: PoissonSolver
         type(c_ptr)       :: handle    = c_null_ptr
         integer(c_size_t) :: grid_size = 0
+        integer(c_size_t) :: dim = 0
         integer(c_size_t) :: nx = 1, ny = 1, nz = 1
     end type PoissonSolver
 
@@ -32,12 +33,14 @@ module PoisSolver
             integer(c_int),      intent(in)  :: bcs(*)
         end subroutine poisson_solver_new_c
 
-        subroutine poisson_solver_execute_c(solver, phi, rhs) &
+        subroutine poisson_solver_execute_c(solver, phi, rhs, ngs_phi, ngs_rhs) &
                 bind(C, name="PoissonSolverExecute")
-            import :: c_double, PoissonSolver
+            import :: c_int, c_double, PoissonSolver
             type(PoissonSolver), intent(inout) :: solver
             real(c_double),      intent(out)   :: phi(*)
             real(c_double),      intent(in)    :: rhs(*)
+            integer(c_int),      intent(in)    :: ngs_phi(*)
+            integer(c_int),      intent(in)    :: ngs_rhs(*)
         end subroutine poisson_solver_execute_c
 
         subroutine poisson_solver_finalize_c(solver) &
@@ -62,12 +65,14 @@ module PoisSolver
             integer(c_int),      intent(in)  :: bcs(*)
         end subroutine poisson_solver_new_float_c
 
-        subroutine poisson_solver_execute_float_c(solver, phi, rhs) &
+        subroutine poisson_solver_execute_float_c(solver, phi, rhs, ngs_phi, ngs_rhs) &
                 bind(C, name="PoissonSolverExecuteFloat")
-            import :: c_float, PoissonSolver
+            import :: c_int, c_float, PoissonSolver
             type(PoissonSolver), intent(inout) :: solver
             real(c_float),      intent(out)   :: phi(*)
             real(c_float),      intent(in)    :: rhs(*)
+            integer(c_int),     intent(in)    :: ngs_phi(*)
+            integer(c_int),     intent(in)    :: ngs_rhs(*)
         end subroutine poisson_solver_execute_float_c
 
         subroutine poisson_solver_finalize_float_c(solver) &
@@ -115,55 +120,46 @@ contains
             int(bcs, c_int), int(approx, c_int))
     end subroutine poisson_solver_new
 
+    ! Expects that for each dimension the number
+    ! of ghost cells on both sides are equal.
     subroutine poisson_solver_execute_1d(solver, phi, rhs)
         type(PoissonSolver), intent(inout) :: solver
         real(c_double),      intent(out)   :: phi(:)
         real(c_double),      intent(in)    :: rhs(:)
-        integer :: ngPhi(1)
-        integer :: ngRHS(1)
+        integer(c_int) :: ngs_phi(1), ngs_rhs(1)
 
-        ngPhi = (shape(phi) - [solver%nx]) / 2
-        ngRHS = (shape(rhs) - [solver%nx]) / 2
+        ngs_phi = int((shape(phi) - [solver%nx]) / 2, c_int)
+        ngs_rhs = int((shape(rhs) - [solver%nx]) / 2, c_int)
 
-        call poisson_solver_execute_c(solver, &
-            phi(lbound(Phi, 1) + ngPhi(1) : lbound(Phi, 1) + ngPhi(1) + solver%nx - 1), &
-            rhs(lbound(RHS, 1) + ngRHS(1) : lbound(RHS, 1) + ngRHS(1) + solver%nx - 1))
+        call poisson_solver_execute_c(solver, phi, rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_1d
 
+    ! Expects that for each dimension the number
+    ! of ghost cells on both sides are equal.
     subroutine poisson_solver_execute_2d(solver, phi, rhs)
         type(PoissonSolver), intent(inout) :: solver
         real(c_double),      intent(out)   :: phi(:, :)
         real(c_double),      intent(in)    :: rhs(:, :)
-        integer :: ngPhi(2)
-        integer :: ngRHS(2)
+        integer(c_int) :: ngs_phi(2), ngs_rhs(2)
 
-        ngPhi = (shape(phi) - [solver%nx, solver%ny]) / 2
-        ngRHS = (shape(rhs) - [solver%nx, solver%ny]) / 2
+        ngs_phi = int((shape(phi) - [solver%nx, solver%ny]) / 2, c_int)
+        ngs_rhs = int((shape(rhs) - [solver%nx, solver%ny]) / 2, c_int)
 
-        call poisson_solver_execute_c(solver, &
-            phi(lbound(Phi, 1) + ngPhi(1) : lbound(Phi, 1) + ngPhi(1) + solver%nx - 1, &
-                lbound(Phi, 2) + ngPhi(2) : lbound(Phi, 2) + ngPhi(2) + solver%ny - 1), &
-            rhs(lbound(RHS, 1) + ngRHS(1) : lbound(RHS, 1) + ngRHS(1) + solver%nx - 1, &
-                lbound(RHS, 2) + ngRHS(2) : lbound(RHS, 2) + ngRHS(2) + solver%ny - 1))
+        call poisson_solver_execute_c(solver, phi, rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_2d
 
+    ! Expects that for each dimension the number
+    ! of ghost cells on both sides are equal.
     subroutine poisson_solver_execute_3d(solver, phi, rhs)
         type(PoissonSolver), intent(inout) :: solver
         real(c_double),      intent(out)   :: phi(:, :, :)
         real(c_double),      intent(in)    :: rhs(:, :, :)
-        integer :: ngPhi(3)
-        integer :: ngRHS(3)
+        integer(c_int) :: ngs_phi(3), ngs_rhs(3)
 
-        ngPhi = (shape(phi) - [solver%nx, solver%ny, solver%nz]) / 2
-        ngRHS = (shape(rhs) - [solver%nx, solver%ny, solver%nz]) / 2
+        ngs_phi = int((shape(phi) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+        ngs_rhs = int((shape(rhs) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
 
-        call poisson_solver_execute_c(solver, &
-            phi(lbound(Phi, 1) + ngPhi(1) : lbound(Phi, 1) + ngPhi(1) + solver%nx - 1, &
-                lbound(Phi, 2) + ngPhi(2) : lbound(Phi, 2) + ngPhi(2) + solver%ny - 1, &
-                lbound(Phi, 3) + ngPhi(3) : lbound(Phi, 3) + ngPhi(3) + solver%nz - 1), &
-            rhs(lbound(RHS, 1) + ngRHS(1) : lbound(RHS, 1) + ngRHS(1) + solver%nx - 1, &
-                lbound(RHS, 2) + ngRHS(2) : lbound(RHS, 2) + ngRHS(2) + solver%ny - 1, &
-                lbound(RHS, 3) + ngRHS(3) : lbound(RHS, 3) + ngRHS(3) + solver%nz - 1))
+        call poisson_solver_execute_c(solver, phi, rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_3d
 
     subroutine poisson_solver_finalize(solver)
@@ -195,55 +191,46 @@ contains
             int(bcs, c_int), int(approx, c_int))
     end subroutine poisson_solver_new_float
 
+    ! Expects that for each dimension the number
+    ! of ghost cells on both sides are equal.
     subroutine poisson_solver_execute_1d_float(solver, phi, rhs)
         type(PoissonSolver), intent(inout) :: solver
         real(c_float),      intent(out)   :: phi(:)
         real(c_float),      intent(in)    :: rhs(:)
-        integer :: ngPhi(1)
-        integer :: ngRHS(1)
+        integer(c_int) :: ngs_phi(1), ngs_rhs(1)
 
-        ngPhi = (shape(phi) - [solver%nx]) / 2
-        ngRHS = (shape(rhs) - [solver%nx]) / 2
+        ngs_phi = int((shape(phi) - [solver%nx]) / 2, c_int)
+        ngs_rhs = int((shape(rhs) - [solver%nx]) / 2, c_int)
 
-        call poisson_solver_execute_float_c(solver, &
-            phi(lbound(Phi, 1) + ngPhi(1) : lbound(Phi, 1) + ngPhi(1) + solver%nx - 1), &
-            rhs(lbound(RHS, 1) + ngRHS(1) : lbound(RHS, 1) + ngRHS(1) + solver%nx - 1))
+        call poisson_solver_execute_float_c(solver, phi, rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_1d_float
 
+    ! Expects that for each dimension the number
+    ! of ghost cells on both sides are equal.
     subroutine poisson_solver_execute_2d_float(solver, phi, rhs)
         type(PoissonSolver), intent(inout) :: solver
         real(c_float),      intent(out)   :: phi(:, :)
         real(c_float),      intent(in)    :: rhs(:, :)
-        integer :: ngPhi(2)
-        integer :: ngRHS(2)
+        integer(c_int) :: ngs_phi(2), ngs_rhs(2)
 
-        ngPhi = (shape(phi) - [solver%nx, solver%ny]) / 2
-        ngRHS = (shape(rhs) - [solver%nx, solver%ny]) / 2
+        ngs_phi = int((shape(phi) - [solver%nx, solver%ny]) / 2, c_int)
+        ngs_rhs = int((shape(rhs) - [solver%nx, solver%ny]) / 2, c_int)
 
-        call poisson_solver_execute_float_c(solver, &
-            phi(lbound(Phi, 1) + ngPhi(1) : lbound(Phi, 1) + ngPhi(1) + solver%nx - 1, &
-                lbound(Phi, 2) + ngPhi(2) : lbound(Phi, 2) + ngPhi(2) + solver%ny - 1), &
-            rhs(lbound(RHS, 1) + ngRHS(1) : lbound(RHS, 1) + ngRHS(1) + solver%nx - 1, &
-                lbound(RHS, 2) + ngRHS(2) : lbound(RHS, 2) + ngRHS(2) + solver%ny - 1))
+        call poisson_solver_execute_float_c(solver, phi, rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_2d_float
 
+    ! Expects that for each dimension the number
+    ! of ghost cells on both sides are equal.
     subroutine poisson_solver_execute_3d_float(solver, phi, rhs)
         type(PoissonSolver), intent(inout) :: solver
         real(c_float),      intent(out)   :: phi(:, :, :)
         real(c_float),      intent(in)    :: rhs(:, :, :)
-        integer :: ngPhi(3)
-        integer :: ngRHS(3)
+        integer(c_int) :: ngs_phi(3), ngs_rhs(3)
 
-        ngPhi = (shape(phi) - [solver%nx, solver%ny, solver%nz]) / 2
-        ngRHS = (shape(rhs) - [solver%nx, solver%ny, solver%nz]) / 2
+        ngs_phi = int((shape(phi) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+        ngs_rhs = int((shape(rhs) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
 
-        call poisson_solver_execute_float_c(solver, &
-            phi(lbound(Phi, 1) + ngPhi(1) : lbound(Phi, 1) + ngPhi(1) + solver%nx - 1, &
-                lbound(Phi, 2) + ngPhi(2) : lbound(Phi, 2) + ngPhi(2) + solver%ny - 1, &
-                lbound(Phi, 3) + ngPhi(3) : lbound(Phi, 3) + ngPhi(3) + solver%nz - 1), &
-            rhs(lbound(RHS, 1) + ngRHS(1) : lbound(RHS, 1) + ngRHS(1) + solver%nx - 1, &
-                lbound(RHS, 2) + ngRHS(2) : lbound(RHS, 2) + ngRHS(2) + solver%ny - 1, &
-                lbound(RHS, 3) + ngRHS(3) : lbound(RHS, 3) + ngRHS(3) + solver%nz - 1))
+        call poisson_solver_execute_float_c(solver, phi, rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_3d_float
 
     subroutine poisson_solver_finalize_float(solver)

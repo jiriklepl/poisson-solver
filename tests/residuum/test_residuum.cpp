@@ -268,10 +268,12 @@ void RunApis(std::span<T> phi,
              ps::BCs<Dim> bcs,
              const ps::IApproximation<T> &approx,
              Approximation c_approx,
-             const std::function<T()> &calc_residuum) {
+             const std::function<T()> &calc_residuum,
+             ps::GridSizes<Dim> ngs_phi = {},
+             ps::GridSizes<Dim> ngs_rhs = {}) {
     SUBCASE("API: C++") {
         ps::Solver<T, Dim> solver(ns, lens, bcs, approx);
-        solver.Execute(phi, rhs);
+        solver.Execute(phi, rhs, ngs_phi, ngs_rhs);
 
         T residuum = calc_residuum();
 
@@ -294,12 +296,16 @@ void RunApis(std::span<T> phi,
         std::array<int, Dim> c_ns;
         std::array<T, Dim> c_lens;
         std::array<BoundaryCondition, 2 * Dim> c_bcs;
+        std::array<int, Dim> c_ngs_phi;
+        std::array<int, Dim> c_ngs_rhs;
 
         for (std::size_t i = 0; i < Dim; ++i) {
             c_ns[i] = static_cast<int>(ns[i]);
             c_lens[i] = lens[i];
             c_bcs[2 * i] = ToCBoundary(bcs[i].first);
             c_bcs[2 * i + 1] = ToCBoundary(bcs[i].second);
+            c_ngs_phi[i] = static_cast<int>(ngs_phi[i]);
+            c_ngs_rhs[i] = static_cast<int>(ngs_rhs[i]);
         }
 
         if constexpr (std::is_same_v<T, double>) {
@@ -309,7 +315,11 @@ void RunApis(std::span<T> phi,
                              c_lens.data(),
                              c_bcs.data(),
                              c_approx);
-            PoissonSolverExecute(&solver, phi.data(), rhs.data());
+            PoissonSolverExecute(&solver,
+                                 phi.data(),
+                                 rhs.data(),
+                                 c_ngs_phi.data(),
+                                 c_ngs_rhs.data());
         } else {
             PoissonSolverNewFloat(&solver,
                                   Dim,
@@ -317,7 +327,11 @@ void RunApis(std::span<T> phi,
                                   c_lens.data(),
                                   c_bcs.data(),
                                   c_approx);
-            PoissonSolverExecuteFloat(&solver, phi.data(), rhs.data());
+            PoissonSolverExecuteFloat(&solver,
+                                      phi.data(),
+                                      rhs.data(),
+                                      c_ngs_phi.data(),
+                                      c_ngs_rhs.data());
         }
 
         T residuum = calc_residuum();

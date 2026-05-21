@@ -10,6 +10,7 @@ extern "C" {
 typedef struct PoissonSolver {
     void *handle;
     size_t grid_size;
+    size_t dim;
     size_t nx, ny, nz;
 } PoissonSolver;
 
@@ -32,7 +33,9 @@ void PoissonSolverNew(PoissonSolver *solver_out,
 
 void PoissonSolverExecute(PoissonSolver *solver,
                           double *phi,
-                          const double *rhs);
+                          const double *rhs,
+                          const int *ngs_phi,
+                          const int *ngs_rhs);
 
 void PoissonSolverFinalize(PoissonSolver *solver);
 
@@ -45,7 +48,9 @@ void PoissonSolverNewFloat(PoissonSolver *solver_out,
 
 void PoissonSolverExecuteFloat(PoissonSolver *solver,
                                float *phi,
-                               const float *rhs);
+                               const float *rhs,
+                               const int *ngs_phi,
+                               const int *ngs_rhs);
 
 void PoissonSolverFinalizeFloat(PoissonSolver *solver);
 #ifdef __cplusplus

@@ -1,5 +1,6 @@
 #include "poisson-solver/c_binding.h"
 
+#include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/c_solver_wrapper.hpp"
@@ -9,6 +10,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 // Here is the mapping between the C interface and C++ implementation.
 
@@ -29,6 +31,16 @@ std::unique_ptr<ps::IApproximation<T>> GetApprox(Approximation approx) {
             throw std::invalid_argument(
                 "Invalid approximation: " + std::to_string(approx) + ".");
     }
+}
+
+std::vector<std::size_t> ToSizeTVector(const int *ns, std::size_t dim) {
+    if (!ns)
+        return std::vector<std::size_t>(dim, 0);
+    std::vector<std::size_t> res(dim);
+    for (std::size_t i = 0; i < dim; ++i) {
+        res[i] = static_cast<std::size_t>(ns[i]);
+    }
+    return res;
 }
 }  // namespace
 
@@ -75,6 +87,7 @@ void PoissonSolver1DNew(PoissonSolver *solver_out,
         {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
+                   .dim = 1,
                    .nx = static_cast<std::size_t>(ns[0]),
                    .ny = 1,
                    .nz = 1};
@@ -94,6 +107,7 @@ void PoissonSolver2DNew(PoissonSolver *solver_out,
         approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
+                   .dim = 2,
                    .nx = static_cast<std::size_t>(ns[0]),
                    .ny = static_cast<std::size_t>(ns[1]),
                    .nz = 1};
@@ -116,6 +130,7 @@ void PoissonSolver3DNew(PoissonSolver *solver_out,
                                           approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
+                   .dim = 3,
                    .nx = static_cast<std::size_t>(ns[0]),
                    .ny = static_cast<std::size_t>(ns[1]),
                    .nz = static_cast<std::size_t>(ns[2])};
@@ -148,10 +163,17 @@ void PoissonSolverNew(PoissonSolver *solver_out,
 
 void PoissonSolverExecute(PoissonSolver *solver,
                           double *phi,
-                          const double *rhs) {
-    static_cast<psd::ISolver<double> *>(solver->handle)
-        ->Execute(std::span{phi, solver->grid_size},
-                  std::span{rhs, solver->grid_size});
+                          const double *rhs,
+                          const int *ngs_phi,
+                          const int *ngs_rhs) {
+    auto *handle = static_cast<psd::ISolver<double> *>(solver->handle);
+    auto ngs_phi_vec = ToSizeTVector(ngs_phi, solver->dim);
+    auto ngs_rhs_vec = ToSizeTVector(ngs_rhs, solver->dim);
+
+    handle->Execute(std::span{phi, solver->grid_size},
+                    std::span{rhs, solver->grid_size},
+                    ngs_phi_vec,
+                    ngs_rhs_vec);
 }
 
 void PoissonSolverFinalize(PoissonSolver *solver) {
@@ -172,6 +194,7 @@ void PoissonSolver1DNewFloat(PoissonSolver *solver_out,
         {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
+                   .dim = 1,
                    .nx = static_cast<std::size_t>(ns[0]),
                    .ny = 1,
                    .nz = 1};
@@ -191,6 +214,7 @@ void PoissonSolver2DNewFloat(PoissonSolver *solver_out,
         approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
+                   .dim = 2,
                    .nx = static_cast<std::size_t>(ns[0]),
                    .ny = static_cast<std::size_t>(ns[1]),
                    .nz = 1};
@@ -213,6 +237,7 @@ void PoissonSolver3DNewFloat(PoissonSolver *solver_out,
                                          approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
+                   .dim = 3,
                    .nx = static_cast<std::size_t>(ns[0]),
                    .ny = static_cast<std::size_t>(ns[1]),
                    .nz = static_cast<std::size_t>(ns[2])};
@@ -245,10 +270,17 @@ void PoissonSolverNewFloat(PoissonSolver *solver_out,
 
 void PoissonSolverExecuteFloat(PoissonSolver *solver,
                                float *phi,
-                               const float *rhs) {
-    static_cast<psd::ISolver<float> *>(solver->handle)
-        ->Execute(std::span{phi, solver->grid_size},
-                  std::span{rhs, solver->grid_size});
+                               const float *rhs,
+                               const int *ngs_phi,
+                               const int *ngs_rhs) {
+    auto *handle = static_cast<psd::ISolver<float> *>(solver->handle);
+    auto ngs_phi_vec = ToSizeTVector(ngs_phi, solver->dim);
+    auto ngs_rhs_vec = ToSizeTVector(ngs_rhs, solver->dim);
+
+    handle->Execute(std::span{phi, solver->grid_size},
+                    std::span{rhs, solver->grid_size},
+                    ngs_phi_vec,
+                    ngs_rhs_vec);
 }
 
 void PoissonSolverFinalizeFloat(PoissonSolver *solver) {
