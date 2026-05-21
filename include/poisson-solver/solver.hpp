@@ -33,8 +33,28 @@ namespace poisson_solver {
 // TODO: Doesn't work for all 3D cases
 template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
+/**
+ * @brief Solver of the equation \f$ \delta \phi = b \f$.
+ *
+ * @tparam T Floating point type (only `float` and `double` supported).
+ * @tparam Dim Number of grid dimensions.
+ */
 class Solver {
 public:
+    /**
+     * @brief Constructs a poisson solver.
+     *
+     * @param ns Sizes of the grid in each dimension (without ghost cells).
+     * @param lens Real lengths of the grid in each dimension.
+     * @param bcs Boundary conditions for each axis in the order {{west, east},
+     * {south, north}, {bottom, top}}.
+     * For more information @see boundary_conditions.hpp.
+     * @param approx Desired approximation function. @see approximations.hpp
+     * @param cuda_block_size Optional CUDA block size used in every kernel.
+     *
+     * @note The sovler assumes that the first index is the fastest changing,
+     * second is middle and third is slowest.
+     */
     Solver(GridSizes<Dim> ns,
            std::array<T, Dim> lens,
            BCs<Dim> bcs,
@@ -59,6 +79,16 @@ public:
         fft_plan_ = FFTPolicy::Init(ns_, solver_plan_.fft_layout);
     }
 
+    /**
+     * @brief Solves the equation \f$ \delta \phi = b \f$.
+     *
+     * @param[out] phi
+     * @param[in] rhs
+     * @param[in] ngs_phi Number of ghost cells (on one side)
+     * \p phi has in each dimension.
+     * @param[in] ngs_rhs Number of ghost cells (on one side)
+     * \p rhs has in each dimension.
+     */
     void Execute(std::span<T> phi,
                  std::span<const T> rhs,
                  GridSizes<Dim> ngs_phi,
@@ -143,6 +173,10 @@ private:
             ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>{});
     }
 
+    /**
+     * @note `solver_plan_` has to be initialized
+     * before this function is called.
+     */
     T ComputeNormFactor(GridSizes<Dim> ns, BCs<Dim> bcs) const {
         T factor = 1.0;
         for (std::size_t d = 0; d < Dim; ++d) {
@@ -188,6 +222,10 @@ private:
         AllocDeviceDenoms();
     }
 
+    /**
+     * @note `solver_plan_` has to be initialized
+     * before this function is called.
+     */
     HostOneAxisDenoms GetOneAxisEigenvalues(
         std::size_t n,
         T len,
