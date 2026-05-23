@@ -553,7 +553,17 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
              "Dirichlet",
              {{{P, P}, {P, P}, {N, D}}},
              {{nx, ny, nz}},
-             MakePPDRhsCorrector<T>()}};
+             MakePPDRhsCorrector<T>()},
+            {"NeumannStag | NeumannStag | Periodic | Periodic | Periodic | "
+             "Periodic",
+             {{{NS, NS}, {P, P}, {P, P}}},
+             {{nx, ny, nz}},
+             MakeNeumannStagRhsCorrector<T>()},
+            {"Periodic | Periodic | NeumannStag | NeumannStag | Periodic | "
+             "Periodic",
+             {{{P, P}, {NS, NS}, {P, P}}},
+             {{nx, ny, nz}},
+             MakeNeumannStagRhsCorrector<T>()}};
 
         Initialize<T>(phi3d, rhs3d, seed);
         RunTestConfigs<T, 3>(configs, phi3d, rhs3d, ns3d, lens3d, mrc3d);

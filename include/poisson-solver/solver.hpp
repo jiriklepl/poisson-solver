@@ -395,8 +395,33 @@ private:
     }
 
     void SolveNsPP(std::span<T> phi, std::span<const T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
+        // TODO: Same body as PPNs.
+        // Only is change in `fft_plan_` construction
+        // but this doesn't concern this function.
+        using namespace detail::runners;
+
+        FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
+        Init(cu_cmplx_workspace_.value().get(),
+             cu_real_workspace_.get(),
+             ns_,
+             cu_grid_size_,
+             cu_block_size_);
+
+        FFTPolicy::Forward2D(cu_cmplx_workspace_.value().get(), fft_plan_);
+        DivideByDenomsAndZero(cu_cmplx_workspace_.value().get(),
+                              ns_,
+                              cu_denom_observers_,
+                              cu_grid_size_,
+                              cu_block_size_);
+        FFTPolicy::Backward2D(cu_cmplx_workspace_.value().get(), fft_plan_);
+
+        Normalize(cu_real_workspace_.get(),
+                  cu_cmplx_workspace_.value().get(),
+                  ns_,
+                  norm_factor_,
+                  cu_grid_size_,
+                  cu_block_size_);
+        FFTPolicy::Backward1D(cu_real_workspace_.get(), fft_plan_);
     }
 
     void SolvePNsNs(std::span<T> phi, std::span<const T> rhs) {
@@ -405,8 +430,33 @@ private:
     }
 
     void SolvePNsP(std::span<T> phi, std::span<const T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
+        // TODO: Same body as PPNs.
+        // Only is change in `fft_plan_` construction
+        // but this doesn't concern this function.
+        using namespace detail::runners;
+
+        FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
+        Init(cu_cmplx_workspace_.value().get(),
+             cu_real_workspace_.get(),
+             ns_,
+             cu_grid_size_,
+             cu_block_size_);
+
+        FFTPolicy::Forward2D(cu_cmplx_workspace_.value().get(), fft_plan_);
+        DivideByDenomsAndZero(cu_cmplx_workspace_.value().get(),
+                              ns_,
+                              cu_denom_observers_,
+                              cu_grid_size_,
+                              cu_block_size_);
+        FFTPolicy::Backward2D(cu_cmplx_workspace_.value().get(), fft_plan_);
+
+        Normalize(cu_real_workspace_.get(),
+                  cu_cmplx_workspace_.value().get(),
+                  ns_,
+                  norm_factor_,
+                  cu_grid_size_,
+                  cu_block_size_);
+        FFTPolicy::Backward1D(cu_real_workspace_.get(), fft_plan_);
     }
 
     void SolveDDP(std::span<T> phi, std::span<const T> rhs) {
