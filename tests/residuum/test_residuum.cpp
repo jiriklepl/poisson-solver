@@ -202,6 +202,16 @@ BoundaryCondition ToCBoundary(BC cxx_bc) {
     }
 }
 
+template <std::floating_point T>
+std::function<void(std::span<T>)> MakePPDRhsCorrector() {
+    using namespace std::ranges;
+    return [](std::span<T> rhs) {
+        for_each(rhs, [](T &val) {
+            val += static_cast<T>(1.0);
+        });
+    };
+}
+
 template <std::floating_point T, std::size_t Dim>
 std::function<void(std::span<T>)> MakeNeumannRhsCorrector(
     ps::GridSizes<Dim> ns) {
@@ -518,7 +528,32 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
              "NeumannStag",
              {{{P, P}, {P, P}, {NS, NS}}},
              {{nx, ny, nz}},
-             nullptr}};
+             nullptr},
+            {"Periodic | Periodic | Periodic | Periodic | DirichletStag | "
+             "DirichletStag",
+             {{{P, P}, {P, P}, {DS, DS}}},
+             {{nx, ny, nz}},
+             MakePPDRhsCorrector<T>()},
+            {"Periodic | Periodic | Periodic | Periodic | DirichletStag | "
+             "NeumannStag",
+             {{{P, P}, {P, P}, {DS, NS}}},
+             {{nx, ny, nz}},
+             MakePPDRhsCorrector<T>()},
+            {"Periodic | Periodic | Periodic | Periodic | NeumannStag | "
+             "DirichletStag",
+             {{{P, P}, {P, P}, {NS, DS}}},
+             {{nx, ny, nz}},
+             MakePPDRhsCorrector<T>()},
+            {"Periodic | Periodic | Periodic | Periodic | Dirichlet | "
+             "Neumann",
+             {{{P, P}, {P, P}, {D, N}}},
+             {{nx, ny, nz}},
+             MakePPDRhsCorrector<T>()},
+            {"Periodic | Periodic | Periodic | Periodic | Neumann | "
+             "Dirichlet",
+             {{{P, P}, {P, P}, {N, D}}},
+             {{nx, ny, nz}},
+             MakePPDRhsCorrector<T>()}};
 
         Initialize<T>(phi3d, rhs3d, seed);
         RunTestConfigs<T, 3>(configs, phi3d, rhs3d, ns3d, lens3d, mrc3d);

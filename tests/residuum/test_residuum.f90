@@ -613,4 +613,30 @@ program testpoisson
   dy = leny / ny
   dz = lenz / nz
   call Test3D([(PoisSolver_PERIODIC, i = 1,4),(PoisSolver_NeumannStag, i = 5,6)])
+
+  RHS3D = RHS3D + 1
+  dx = lenx / nx
+  dy = leny / ny
+  dz = lenz / nz
+  call Test3D([(PoisSolver_PERIODIC, i = 1,4),(PoisSolver_DirichletStag, i = 5,6)])
+
+  dx = lenx / nx
+  dy = leny / ny
+  dz = lenz / nz
+  call Test3D([(PoisSolver_PERIODIC, i = 1,4), PoisSolver_DirichletStag, PoisSolver_NeumannStag])
+
+  dx = lenx / nx
+  dy = leny / ny
+  dz = lenz / nz
+  call Test3D([(PoisSolver_PERIODIC, i = 1,4), PoisSolver_NeumannStag, PoisSolver_DirichletStag])
+
+  dx = lenx / nx
+  dy = leny / ny
+  dz = lenz / nz
+  call Test3D([(PoisSolver_PERIODIC, i = 1,4), PoisSolver_Dirichlet, PoisSolver_Neumann])
+
+  dx = lenx / nx
+  dy = leny / ny
+  dz = lenz / nz
+  call Test3D([(PoisSolver_PERIODIC, i = 1,4), PoisSolver_Neumann, PoisSolver_Dirichlet])
 end program testpoisson

@@ -39,6 +39,18 @@ __global__ void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
                                DenomConstPtrs<T, Dim> denoms) {
     ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
         const std::size_t idx = FlatIndex(midx, ns);
+        T denom_sum = SumIndexedDenoms(denoms, midx);
+        cmplx_workspace[idx].x /= denom_sum;
+        cmplx_workspace[idx].y /= denom_sum;
+    });
+}
+
+template <std::floating_point T, std::size_t Dim>
+__global__ void DivideByDenomsAndZero(CuComplexTrait<T> *cmplx_workspace,
+                                      GridSizes<Dim> ns,
+                                      DenomConstPtrs<T, Dim> denoms) {
+    ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
+        const std::size_t idx = FlatIndex(midx, ns);
 
         if (idx == 0) {
             cmplx_workspace[idx] = MakeCuComplex<T>(0, 0);

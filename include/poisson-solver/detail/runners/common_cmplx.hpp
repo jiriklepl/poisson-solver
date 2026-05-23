@@ -17,6 +17,13 @@ void Init(CuComplexTrait<T> *cmplx_workspace,
           dim3 cu_block_size);
 
 template <std::floating_point T, std::size_t Dim>
+void DivideByDenomsAndZero(CuComplexTrait<T> *cmplx_workspace,
+                           GridSizes<Dim> ns,
+                           DenomConstPtrs<T, Dim> denoms,
+                           dim3 cu_grid_size,
+                           dim3 cu_block_size);
+
+template <std::floating_point T, std::size_t Dim>
 void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
                     GridSizes<Dim> ns,
                     DenomConstPtrs<T, Dim> denoms,

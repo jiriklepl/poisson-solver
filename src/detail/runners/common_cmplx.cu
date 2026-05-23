@@ -21,6 +21,16 @@ void Init(CuComplexTrait<T> *cmplx_workspace,
 }
 
 template <std::floating_point T, std::size_t Dim>
+void DivideByDenomsAndZero(CuComplexTrait<T> *cmplx_workspace,
+                           GridSizes<Dim> ns,
+                           DenomConstPtrs<T, Dim> denoms,
+                           dim3 cu_grid_size,
+                           dim3 cu_block_size) {
+    ker::DivideByDenomsAndZero<<<cu_grid_size, cu_block_size>>>(
+        cmplx_workspace, ns, denoms);
+}
+
+template <std::floating_point T, std::size_t Dim>
 void DivideByDenoms(CuComplexTrait<T> *cmplx_workspace,
                     GridSizes<Dim> ns,
                     DenomConstPtrs<T, Dim> denoms,
@@ -49,6 +59,14 @@ void Normalize(T *res,
                                   dim3 cu_grid_size,                      \
                                   dim3 cu_block_size);
 
+#define INSTANTIATE_DIVISION_AND_ZEROING(TYPE, DIM) \
+    template void DivideByDenomsAndZero<TYPE, DIM>( \
+        CuComplexTrait<TYPE> * cmplx_workspace,     \
+        GridSizes<DIM> ns,                          \
+        DenomConstPtrs<TYPE, DIM> denoms,           \
+        dim3 cu_grid_size,                          \
+        dim3 cu_block_size);
+
 #define INSTANTIATE_DIVISION(TYPE, DIM)         \
     template void DivideByDenoms<TYPE, DIM>(    \
         CuComplexTrait<TYPE> * cmplx_workspace, \
@@ -66,9 +84,10 @@ void Normalize(T *res,
         dim3 cu_grid_size,                           \
         dim3 cu_block_size);
 
-#define INSTANTIATE_INIT_DIV_NORM(TYPE, DIM) \
-    INSTANTIATE_INITIALIZATION(TYPE, DIM)    \
-    INSTANTIATE_DIVISION(TYPE, DIM)          \
+#define INSTANTIATE_INIT_DIV_NORM(TYPE, DIM)    \
+    INSTANTIATE_INITIALIZATION(TYPE, DIM)       \
+    INSTANTIATE_DIVISION(TYPE, DIM)             \
+    INSTANTIATE_DIVISION_AND_ZEROING(TYPE, DIM) \
     INSTANTIATE_NORMALIZATION(TYPE, DIM)
 
 #define INSTANTIATE_INIT_DIV_NORM_ALL_DIMS(TYPE) \
