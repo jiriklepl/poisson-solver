@@ -9,6 +9,13 @@
 
 namespace poisson_solver::detail::runners {
 template <std::floating_point T, std::size_t Dim>
+void DivideByDenoms(T *real_workspace,
+                    GridSizes<Dim> ns,
+                    DenomConstPtrs<T, Dim> denoms,
+                    dim3 cu_grid_size,
+                    dim3 cu_block_size);
+
+template <std::floating_point T, std::size_t Dim>
 void Normalize(T *real_workspace,
                GridSizes<Dim> ns,
                T norm_factor,

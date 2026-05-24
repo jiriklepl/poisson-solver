@@ -9,7 +9,6 @@
 #include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/runners/common_cmplx.hpp"
 #include "poisson-solver/detail/runners/common_real.hpp"
-#include "poisson-solver/detail/runners/full_dirichlet.hpp"
 #include "poisson-solver/detail/runners/full_neumann.hpp"
 #include "poisson-solver/detail/solver_plan.hpp"
 
@@ -301,8 +300,7 @@ private:
     }
 
     void SolveFullDirichlet(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners::full_dirichlet;
-        using detail::runners::Normalize;
+        using namespace detail::runners;
 
         FFTPolicy::Forward(cu_real_workspace_.get(), fft_plan_);
 
@@ -509,8 +507,24 @@ private:
     }
 
     void Solve2Real1Real(std::span<T> phi, std::span<const T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
+        using namespace detail::runners;
+
+        FFTPolicy::Forward2D(cu_real_workspace_.get(), fft_plan_);
+
+        FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
+        DivideByDenoms(cu_real_workspace_.get(),
+                       ns_,
+                       cu_denom_observers_,
+                       cu_grid_size_,
+                       cu_block_size_);
+        FFTPolicy::Backward1D(cu_real_workspace_.get(), fft_plan_);
+
+        Normalize(cu_real_workspace_.get(),
+                  ns_,
+                  norm_factor_,
+                  cu_grid_size_,
+                  cu_block_size_);
+        FFTPolicy::Backward2D(cu_real_workspace_.get(), fft_plan_);
     }
 
     void Solve1Real2Real(std::span<T> phi, std::span<const T> rhs) {

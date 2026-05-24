@@ -3,7 +3,6 @@ set(LIB_SRC
     fortran_binding.f90
     detail/runners/common_real.cu
     detail/runners/common_cmplx.cu
-    detail/runners/full_dirichlet.cu
     detail/runners/full_neumann.cu
 )
 
