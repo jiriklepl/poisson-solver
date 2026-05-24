@@ -568,7 +568,27 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
              "NeumannStag",
              {{{P, P}, {NS, NS}, {NS, NS}}},
              {{nx, ny, nz}},
-             MakeNeumannStagRhsCorrector<T>()}};
+             MakeNeumannStagRhsCorrector<T>()},
+            {"DirichletStag | DirichletStag | DirichletStag | DirichletStag | "
+             "Periodic | Periodic",
+             {{{DS, DS}, {DS, DS}, {P, P}}},
+             {{nx, ny, nz}},
+             nullptr},
+            {"DirichletStag | DirichletStag | DirichletStag | DirichletStag | "
+             "NeumannStag | NeumannStag",
+             {{{DS, DS}, {DS, DS}, {NS, NS}}},
+             {{nx, ny, nz}},
+             nullptr},
+            {"DirichletStag | DirichletStag | DirichletStag | DirichletStag | "
+             "NeumannStag | DirichletStag",
+             {{{DS, DS}, {DS, DS}, {NS, DS}}},
+             {{nx, ny, nz}},
+             nullptr},
+            {"Dirichlet | Dirichlet | Dirichlet | Dirichlet | Neumann | "
+             "Dirichlet",
+             {{{D, D}, {D, D}, {N, D}}},
+             {{nx + 1, ny + 1, nz}},
+             nullptr}};
 
         Initialize<T>(phi3d, rhs3d, seed);
         RunTestConfigs<T, 3>(configs, phi3d, rhs3d, ns3d, lens3d, mrc3d);
