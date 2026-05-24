@@ -563,6 +563,11 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
              "Periodic",
              {{{P, P}, {NS, NS}, {P, P}}},
              {{nx, ny, nz}},
+             MakeNeumannStagRhsCorrector<T>()},
+            {"Periodic | Periodic | NeumannStag | NeumannStag | NeumannStag | "
+             "NeumannStag",
+             {{{P, P}, {NS, NS}, {NS, NS}}},
+             {{nx, ny, nz}},
              MakeNeumannStagRhsCorrector<T>()}};
 
         Initialize<T>(phi3d, rhs3d, seed);

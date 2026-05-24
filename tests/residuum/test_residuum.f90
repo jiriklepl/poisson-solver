@@ -646,7 +646,10 @@ program testpoisson
   RHS3D = RHS3D - sum(RHS3D)/(size(RHS3D,kind=size_kind))
   call Test3D([(PoisSolver_NeumannStag, i = 1,2), (PoisSolver_Periodic, i = 3,6)])
 
-  ! TODO Write PNsNs test here
+  dx = lenx / nx
+  dy = leny / ny
+  dz = lenz / nz
+  call Test3D([(PoisSolver_Periodic, i = 1,2), (PoisSolver_NeumannStag, i = 3,6)])
 
   dx = lenx / nx
   dy = leny / ny
