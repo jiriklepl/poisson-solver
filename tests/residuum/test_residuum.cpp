@@ -544,13 +544,11 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
              {{{P, P}, {P, P}, {NS, DS}}},
              {{nx, ny, nz}},
              MakePPDRhsCorrector<T>()},
-            {"Periodic | Periodic | Periodic | Periodic | Dirichlet | "
-             "Neumann",
+            {"Periodic | Periodic | Periodic | Periodic | Dirichlet | Neumann",
              {{{P, P}, {P, P}, {D, N}}},
              {{nx, ny, nz}},
              MakePPDRhsCorrector<T>()},
-            {"Periodic | Periodic | Periodic | Periodic | Neumann | "
-             "Dirichlet",
+            {"Periodic | Periodic | Periodic | Periodic | Neumann | Dirichlet",
              {{{P, P}, {P, P}, {N, D}}},
              {{nx, ny, nz}},
              MakePPDRhsCorrector<T>()},
