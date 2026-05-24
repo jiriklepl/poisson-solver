@@ -482,8 +482,30 @@ private:
     }
 
     void SolveDDP(std::span<T> phi, std::span<const T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
+        using namespace detail::runners;
+
+        FFTPolicy::Forward2D(cu_real_workspace_.get(), fft_plan_);
+        Init(cu_cmplx_workspace_.value().get(),
+             cu_real_workspace_.get(),
+             ns_,
+             cu_grid_size_,
+             cu_block_size_);
+
+        FFTPolicy::Forward1D(cu_cmplx_workspace_.value().get(), fft_plan_);
+        DivideByDenoms(cu_cmplx_workspace_.value().get(),
+                       ns_,
+                       cu_denom_observers_,
+                       cu_grid_size_,
+                       cu_block_size_);
+        FFTPolicy::Backward1D(cu_cmplx_workspace_.value().get(), fft_plan_);
+
+        Normalize(cu_real_workspace_.get(),
+                  cu_cmplx_workspace_.value().get(),
+                  ns_,
+                  norm_factor_,
+                  cu_grid_size_,
+                  cu_block_size_);
+        FFTPolicy::Backward2D(cu_real_workspace_.get(), fft_plan_);
     }
 
     void Solve2Real1Real(std::span<T> phi, std::span<const T> rhs) {
