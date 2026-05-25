@@ -528,8 +528,27 @@ private:
     }
 
     void Solve1Real2Real(std::span<T> phi, std::span<const T> rhs) {
-        // TODO
-        throw std::runtime_error("Not implemented.");
+        // TODO: Same body as 2Real1Real.
+        // Only is change in `fft_plan_` construction
+        // but this doesn't concern this function.
+        using namespace detail::runners;
+
+        FFTPolicy::Forward2D(cu_real_workspace_.get(), fft_plan_);
+
+        FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
+        DivideByDenoms(cu_real_workspace_.get(),
+                       ns_,
+                       cu_denom_observers_,
+                       cu_grid_size_,
+                       cu_block_size_);
+        FFTPolicy::Backward1D(cu_real_workspace_.get(), fft_plan_);
+
+        Normalize(cu_real_workspace_.get(),
+                  ns_,
+                  norm_factor_,
+                  cu_grid_size_,
+                  cu_block_size_);
+        FFTPolicy::Backward2D(cu_real_workspace_.get(), fft_plan_);
     }
 };
 }  // namespace poisson_solver

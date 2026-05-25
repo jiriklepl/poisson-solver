@@ -621,6 +621,16 @@ program testpoisson
   dx = lenx / nx
   dy = leny / ny
   dz = lenz / nz
+  call Test3D([PoisSolver_NeumannStag, PoisSolver_DirichletStag, (PoisSolver_NeumannStag, i = 3,6)])
+
+  dx = lenx / nx
+  dy = leny / (ny - 1)
+  dz = lenz / (nz - 1)
+  call Test3D([PoisSolver_Neumann, PoisSolver_Dirichlet, (PoisSolver_Neumann, i = 3,6)])
+
+  dx = lenx / nx
+  dy = leny / ny
+  dz = lenz / nz
   RHS3D = RHS3D - sum(RHS3D)/(size(RHS3D,kind=size_kind))
   call Test3D([(PoisSolver_NeumannStag, i = 1,6)])
 

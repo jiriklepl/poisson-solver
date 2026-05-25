@@ -586,6 +586,15 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
              "Dirichlet",
              {{{D, D}, {D, D}, {N, D}}},
              {{nx + 1, ny + 1, nz}},
+             nullptr},
+            {"NeumannStag | DirichletStag | NeumannStag | NeumannStag | "
+             "NeumannStag | NeumannStag",
+             {{{NS, DS}, {NS, NS}, {NS, NS}}},
+             {{nx, ny, nz}},
+             nullptr},
+            {"Neumann | Dirichlet | Neumann | Neumann | Neumann | Neumann",
+             {{{N, D}, {N, N}, {N, N}}},
+             {{nx, ny - 1, nz - 1}},
              nullptr}};
 
         Initialize<T>(phi3d, rhs3d, seed);
