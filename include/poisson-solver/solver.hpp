@@ -29,7 +29,7 @@
 #include <vector>
 
 namespace poisson_solver {
-// TODO: Doesn't work for all 3D cases
+// TODO: Doesn't work for Z nonuniform solvers
 template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 /**
