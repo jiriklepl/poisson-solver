@@ -7,7 +7,7 @@
 #include <concepts>
 #include <cuda_runtime.h>
 
-namespace poisson_solver::detail::runners {
+namespace poisson_solver::detail::runners::common_cmplx {
 // Initializes the `cmplx_workspace` with values from `real_workspace`
 template <std::floating_point T, std::size_t Dim>
 void Init(CuComplexTrait<T> *cmplx_workspace,
@@ -38,6 +38,6 @@ void Normalize(T *res,
                T norm_factor,
                dim3 cu_grid_size,
                dim3 cu_block_size);
-}  // namespace poisson_solver::detail::runners
+}  // namespace poisson_solver::detail::runners::common_cmplx
 
 #endif  // RUNNERS_COMMON_CMPLX_HPP

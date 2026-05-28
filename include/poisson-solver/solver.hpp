@@ -274,7 +274,7 @@ private:
     }
 
     void SolveFullPeriodic(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners;
+        using namespace detail::runners::common_cmplx;
 
         Init(cu_cmplx_workspace_.value().get(),
              cu_real_workspace_.get(),
@@ -300,7 +300,7 @@ private:
     }
 
     void SolveFullDirichlet(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners;
+        using namespace detail::runners::common_real;
 
         FFTPolicy::Forward(cu_real_workspace_.get(), fft_plan_);
 
@@ -320,7 +320,7 @@ private:
 
     void SolveFullNeumann(std::span<T> phi, std::span<const T> rhs) {
         using namespace detail::runners::full_neumann;
-        using detail::runners::Normalize;
+        using detail::runners::common_real::Normalize;
 
         FFTPolicy::Forward(cu_real_workspace_.get(), fft_plan_);
 
@@ -339,7 +339,7 @@ private:
     }
 
     void SolvePPNs(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners;
+        using namespace detail::runners::common_cmplx;
 
         FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -366,7 +366,7 @@ private:
     }
 
     void SolvePPD(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners;
+        using namespace detail::runners::common_cmplx;
 
         FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -396,7 +396,7 @@ private:
         // TODO: Same body as PPNs.
         // Only is change in `fft_plan_` construction
         // but this doesn't concern this function.
-        using namespace detail::runners;
+        using namespace detail::runners::common_cmplx;
 
         FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -423,7 +423,7 @@ private:
     }
 
     void SolvePNsNs(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners;
+        using namespace detail::runners::common_cmplx;
 
         FFTPolicy::Forward2D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -453,7 +453,7 @@ private:
         // TODO: Same body as PPNs.
         // Only is change in `fft_plan_` construction
         // but this doesn't concern this function.
-        using namespace detail::runners;
+        using namespace detail::runners::common_cmplx;
 
         FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -480,7 +480,7 @@ private:
     }
 
     void SolveDDP(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners;
+        using namespace detail::runners::common_cmplx;
 
         FFTPolicy::Forward2D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -507,7 +507,7 @@ private:
     }
 
     void Solve2Real1Real(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners;
+        using namespace detail::runners::common_real;
 
         FFTPolicy::Forward2D(cu_real_workspace_.get(), fft_plan_);
 
@@ -531,7 +531,7 @@ private:
         // TODO: Same body as 2Real1Real.
         // Only is change in `fft_plan_` construction
         // but this doesn't concern this function.
-        using namespace detail::runners;
+        using namespace detail::runners::common_real;
 
         FFTPolicy::Forward2D(cu_real_workspace_.get(), fft_plan_);
 

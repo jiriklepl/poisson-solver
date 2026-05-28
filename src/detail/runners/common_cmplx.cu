@@ -6,8 +6,8 @@
 
 #include <concepts>
 
-namespace poisson_solver::detail::runners {
-namespace ker = kernels;
+namespace poisson_solver::detail::runners::common_cmplx {
+namespace ker = ::poisson_solver::detail::kernels::common_cmplx;
 
 template <std::floating_point T, std::size_t Dim>
 void Init(CuComplexTrait<T> *cmplx_workspace,
@@ -103,4 +103,4 @@ INSTANTIATE_INIT_DIV_NORM_ALL_DIMS(double)
 #undef INSTANTIATE_NORMALIZATION
 #undef INSTANTIATE_DIVISION
 #undef INSTANTIATE_INITIALIZATION
-}  // namespace poisson_solver::detail::runners
+}  // namespace poisson_solver::detail::runners::common_cmplx

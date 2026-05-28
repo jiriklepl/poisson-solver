@@ -5,8 +5,8 @@
 
 #include <concepts>
 
-namespace poisson_solver::detail::runners {
-namespace ker = kernels;
+namespace poisson_solver::detail::runners::common_real {
+namespace ker = ::poisson_solver::detail::kernels::common_real;
 
 template <std::floating_point T, std::size_t Dim>
 void DivideByDenoms(T *real_workspace,
@@ -66,4 +66,4 @@ INSTANTIATE_NORM_AND_DIV_ALL_DIMS(double)
 #undef INSTANTIATE_NORMALIZATION_ALL_DIMS
 #undef INSTANTIATE_DIVISION
 #undef INSTANTIATE_NORMALIZATION
-}  // namespace poisson_solver::detail::runners
+}  // namespace poisson_solver::detail::runners::common_real

@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 
-namespace poisson_solver::detail::kernels {
+namespace poisson_solver::detail::kernels::common_cmplx {
 template <std::floating_point T>
 __device__ CuComplexTrait<T> MakeCuComplex(T r, T i);
 
@@ -73,6 +73,6 @@ __global__ void Normalize(T *res,
         res[idx] = cmplx_workspace[idx].x / norm_factor;
     });
 }
-}  // namespace poisson_solver::detail::kernels
+}  // namespace poisson_solver::detail::kernels::common_cmplx
 
 #endif  // COMMON_CMPLX_CUH

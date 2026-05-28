@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 
-namespace poisson_solver::detail::runners {
+namespace poisson_solver::detail::runners::common_real {
 template <std::floating_point T, std::size_t Dim>
 void DivideByDenoms(T *real_workspace,
                     GridSizes<Dim> ns,
@@ -21,6 +21,6 @@ void Normalize(T *real_workspace,
                T norm_factor,
                dim3 cu_grid_size,
                dim3 cu_block_size);
-}  // namespace poisson_solver::detail::runners
+}  // namespace poisson_solver::detail::runners::common_real
 
 #endif  // RUNNERS_COMMON_REAL_HPP
