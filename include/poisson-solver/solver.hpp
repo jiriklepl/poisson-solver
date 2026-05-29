@@ -29,15 +29,40 @@
 #include <vector>
 
 namespace poisson_solver {
-// TODO: Doesn't work for Z nonuniform solvers
 template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 /**
- * @brief Solver of the equation \f$ \delta \phi = b \f$.
+ * @brief Abstract solver class for both uniform and nonuniform solvers.
+ * Its childer are solvers of the equation \f$ \delta \phi = b \f$.
  *
  * @tparam T Floating point type (only `float` and `double` supported).
  * @tparam Dim Number of grid dimensions.
  */
+class ISolver {};
+
+template <std::floating_point T, std::size_t Dim>
+    requires(Dim <= 3 && Dim >= 1)
+/**
+ * @brief Solver fur a uniform grid.
+ */
+class Solver : public ISolver<T, Dim> {
+
+};
+
+template <std::floating_point T, std::size_t Dim>
+requires (Dim == 3)
+/**
+ * @brief Solver for a non-uniform grid.
+ *
+ * @warning Only works for 3D grids.
+ */
+class NonuniformZSolver<T, Dim> : public ISolver<T, Dim> {
+
+};
+
+// TODO: Doesn't work for Z nonuniform solvers
+template <std::floating_point T, std::size_t Dim>
+    requires(Dim <= 3 && Dim >= 1)
 class Solver {
 public:
     /**
