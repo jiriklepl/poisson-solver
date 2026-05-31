@@ -3,19 +3,19 @@
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
-#include "poisson-solver/detail/c_solver_wrapper.hpp"
+#include "poisson-solver/solver.hpp"
 
+#include <algorithm>
 #include <concepts>
+#include <cstddef>
 #include <memory>
 #include <span>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 // Here is the mapping between the C interface and C++ implementation.
 
 namespace ps = poisson_solver;
-namespace psd = ps::detail;
 
 namespace {
 template <std::floating_point T>
@@ -33,16 +33,77 @@ std::unique_ptr<ps::IApproximation<T>> GetApprox(Approximation approx) {
     }
 }
 
-std::vector<std::size_t> ToSizeTVector(const int *ns, std::size_t dim) {
-    if (!ns)
-        return std::vector<std::size_t>(dim, 0);
-    std::vector<std::size_t> res(dim);
-    for (std::size_t i = 0; i < dim; ++i) {
-        res[i] = static_cast<std::size_t>(ns[i]);
-    }
-    return res;
+template <std::size_t Dim>
+ps::GridSizes<Dim> ToGridSizes(const int *ns) {
+    ps::GridSizes<Dim> gs{};
+    std::transform(ns, ns + Dim, gs.begin(), [](int n) {
+        return static_cast<std::size_t>(n);
+    });
+    return gs;
 }
 }  // namespace
+
+#define DEFINE_EXECUTE(DIM)                                          \
+    void PoissonSolverExecute##DIM##D(PoissonSolver *solver,         \
+                                      double *phi,                   \
+                                      const double *rhs,             \
+                                      const int *ngs_phi,            \
+                                      const int *ngs_rhs) {          \
+        auto *handle =                                               \
+            static_cast<ps::ISolver<double, DIM> *>(solver->handle); \
+        auto ngs_phi_gs = ToGridSizes<DIM>(ngs_phi);                 \
+        auto ngs_rhs_gs = ToGridSizes<DIM>(ngs_rhs);                 \
+        handle->Execute(std::span{phi, solver->grid_size},           \
+                        std::span{rhs, solver->grid_size},           \
+                        ngs_phi_gs,                                  \
+                        ngs_rhs_gs);                                 \
+    }
+
+#define DEFINE_FINALIZE(DIM)                                            \
+    void PoissonSolverFinalize##DIM##D(PoissonSolver *solver) {         \
+        delete static_cast<ps::ISolver<double, DIM> *>(solver->handle); \
+    }
+
+#define DEFINE_EXECUTE_FLOAT(DIM)                                              \
+    void PoissonSolverExecute##DIM##DFloat(PoissonSolver *solver,              \
+                                           float *phi,                         \
+                                           const float *rhs,                   \
+                                           const int *ngs_phi,                 \
+                                           const int *ngs_rhs) {               \
+        auto *handle = static_cast<ps::ISolver<float, DIM> *>(solver->handle); \
+        auto ngs_phi_gs = ToGridSizes<DIM>(ngs_phi);                           \
+        auto ngs_rhs_gs = ToGridSizes<DIM>(ngs_rhs);                           \
+        handle->Execute(std::span{phi, solver->grid_size},                     \
+                        std::span{rhs, solver->grid_size},                     \
+                        ngs_phi_gs,                                            \
+                        ngs_rhs_gs);                                           \
+    }
+
+#define DEFINE_FINALIZE_FLOAT(DIM)                                     \
+    void PoissonSolverFinalize##DIM##DFloat(PoissonSolver *solver) {   \
+        delete static_cast<ps::ISolver<float, DIM> *>(solver->handle); \
+    }
+
+DEFINE_EXECUTE(1)
+DEFINE_EXECUTE(2)
+DEFINE_EXECUTE(3)
+
+DEFINE_FINALIZE(1)
+DEFINE_FINALIZE(2)
+DEFINE_FINALIZE(3)
+
+DEFINE_EXECUTE_FLOAT(1)
+DEFINE_EXECUTE_FLOAT(2)
+DEFINE_EXECUTE_FLOAT(3)
+
+DEFINE_FINALIZE_FLOAT(1)
+DEFINE_FINALIZE_FLOAT(2)
+DEFINE_FINALIZE_FLOAT(3)
+
+#undef DEFINE_EXECUTE
+#undef DEFINE_FINALIZE
+#undef DEFINE_EXECUTE_FLOAT
+#undef DEFINE_FINALIZE_FLOAT
 
 extern "C" {
 ps::BoundaryCondition ToCxxBC(BoundaryCondition c_bc) {
@@ -83,7 +144,7 @@ void PoissonSolver1DNew(PoissonSolver *solver_out,
                         const BoundaryCondition bcs[2],
                         const ps::IApproximation<double> &approx) {
     ps::BCPair bcp = ToCxxBCPair(bcs[0], bcs[1]);
-    psd::ISolver<double> *solver_handle = new psd::SolverWrapper<double, 1>(
+    ps::ISolver<double, 1> *solver_handle = new ps::Solver<double, 1>(
         {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -100,7 +161,7 @@ void PoissonSolver2DNew(PoissonSolver *solver_out,
                         const ps::IApproximation<double> &approx) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
-    psd::ISolver<double> *solver_handle = new psd::SolverWrapper<double, 2>(
+    ps::ISolver<double, 2> *solver_handle = new ps::Solver<double, 2>(
         {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
         {lens[0], lens[1]},
         {bcp1, bcp2},
@@ -121,13 +182,13 @@ void PoissonSolver3DNew(PoissonSolver *solver_out,
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
-    psd::ISolver<double> *solver_handle =
-        new psd::SolverWrapper<double, 3>({static_cast<std::size_t>(ns[0]),
-                                           static_cast<std::size_t>(ns[1]),
-                                           static_cast<std::size_t>(ns[2])},
-                                          {lens[0], lens[1], lens[2]},
-                                          {bcp1, bcp2, bcp3},
-                                          approx);
+    ps::ISolver<double, 3> *solver_handle =
+        new ps::Solver<double, 3>({static_cast<std::size_t>(ns[0]),
+                                   static_cast<std::size_t>(ns[1]),
+                                   static_cast<std::size_t>(ns[2])},
+                                  {lens[0], lens[1], lens[2]},
+                                  {bcp1, bcp2, bcp3},
+                                  approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .dim = 3,
@@ -166,18 +227,37 @@ void PoissonSolverExecute(PoissonSolver *solver,
                           const double *rhs,
                           const int *ngs_phi,
                           const int *ngs_rhs) {
-    auto *handle = static_cast<psd::ISolver<double> *>(solver->handle);
-    auto ngs_phi_vec = ToSizeTVector(ngs_phi, solver->dim);
-    auto ngs_rhs_vec = ToSizeTVector(ngs_rhs, solver->dim);
-
-    handle->Execute(std::span{phi, solver->grid_size},
-                    std::span{rhs, solver->grid_size},
-                    ngs_phi_vec,
-                    ngs_rhs_vec);
+    switch (solver->dim) {
+        case 1:
+            PoissonSolverExecute1D(solver, phi, rhs, ngs_phi, ngs_rhs);
+            break;
+        case 2:
+            PoissonSolverExecute2D(solver, phi, rhs, ngs_phi, ngs_rhs);
+            break;
+        case 3:
+            PoissonSolverExecute3D(solver, phi, rhs, ngs_phi, ngs_rhs);
+            break;
+        default:
+            throw std::invalid_argument("Invalid amount of dimensions" +
+                                        std::to_string(solver->dim) + ".");
+    }
 }
 
 void PoissonSolverFinalize(PoissonSolver *solver) {
-    delete static_cast<psd::ISolver<double> *>(solver->handle);
+    switch (solver->dim) {
+        case 1:
+            PoissonSolverFinalize1D(solver);
+            break;
+        case 2:
+            PoissonSolverFinalize2D(solver);
+            break;
+        case 3:
+            PoissonSolverFinalize3D(solver);
+            break;
+        default:
+            throw std::invalid_argument("Invalid amount of dimensions" +
+                                        std::to_string(solver->dim) + ".");
+    }
     solver->handle = nullptr;
     solver->grid_size = 0;
 }
@@ -190,7 +270,7 @@ void PoissonSolver1DNewFloat(PoissonSolver *solver_out,
                              const BoundaryCondition bcs[2],
                              const ps::IApproximation<float> &approx) {
     ps::BCPair bcp = ToCxxBCPair(bcs[0], bcs[1]);
-    psd::ISolver<float> *solver_handle = new psd::SolverWrapper<float, 1>(
+    ps::ISolver<float, 1> *solver_handle = new ps::Solver<float, 1>(
         {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -207,7 +287,7 @@ void PoissonSolver2DNewFloat(PoissonSolver *solver_out,
                              const ps::IApproximation<float> &approx) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
-    psd::ISolver<float> *solver_handle = new psd::SolverWrapper<float, 2>(
+    ps::ISolver<float, 2> *solver_handle = new ps::Solver<float, 2>(
         {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
         {lens[0], lens[1]},
         {bcp1, bcp2},
@@ -228,13 +308,13 @@ void PoissonSolver3DNewFloat(PoissonSolver *solver_out,
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
-    psd::ISolver<float> *solver_handle =
-        new psd::SolverWrapper<float, 3>({static_cast<std::size_t>(ns[0]),
-                                          static_cast<std::size_t>(ns[1]),
-                                          static_cast<std::size_t>(ns[2])},
-                                         {lens[0], lens[1], lens[2]},
-                                         {bcp1, bcp2, bcp3},
-                                         approx);
+    ps::ISolver<float, 3> *solver_handle =
+        new ps::Solver<float, 3>({static_cast<std::size_t>(ns[0]),
+                                  static_cast<std::size_t>(ns[1]),
+                                  static_cast<std::size_t>(ns[2])},
+                                 {lens[0], lens[1], lens[2]},
+                                 {bcp1, bcp2, bcp3},
+                                 approx);
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .dim = 3,
@@ -273,18 +353,37 @@ void PoissonSolverExecuteFloat(PoissonSolver *solver,
                                const float *rhs,
                                const int *ngs_phi,
                                const int *ngs_rhs) {
-    auto *handle = static_cast<psd::ISolver<float> *>(solver->handle);
-    auto ngs_phi_vec = ToSizeTVector(ngs_phi, solver->dim);
-    auto ngs_rhs_vec = ToSizeTVector(ngs_rhs, solver->dim);
-
-    handle->Execute(std::span{phi, solver->grid_size},
-                    std::span{rhs, solver->grid_size},
-                    ngs_phi_vec,
-                    ngs_rhs_vec);
+    switch (solver->dim) {
+        case 1:
+            PoissonSolverExecute1DFloat(solver, phi, rhs, ngs_phi, ngs_rhs);
+            break;
+        case 2:
+            PoissonSolverExecute2DFloat(solver, phi, rhs, ngs_phi, ngs_rhs);
+            break;
+        case 3:
+            PoissonSolverExecute3DFloat(solver, phi, rhs, ngs_phi, ngs_rhs);
+            break;
+        default:
+            throw std::invalid_argument("Invalid amount of dimensions" +
+                                        std::to_string(solver->dim) + ".");
+    }
 }
 
 void PoissonSolverFinalizeFloat(PoissonSolver *solver) {
-    delete static_cast<psd::ISolver<float> *>(solver->handle);
+    switch (solver->dim) {
+        case 1:
+            PoissonSolverFinalize1DFloat(solver);
+            break;
+        case 2:
+            PoissonSolverFinalize2DFloat(solver);
+            break;
+        case 3:
+            PoissonSolverFinalize3DFloat(solver);
+            break;
+        default:
+            throw std::invalid_argument("Invalid amount of dimensions" +
+                                        std::to_string(solver->dim) + ".");
+    }
     solver->handle = nullptr;
     solver->grid_size = 0;
 }

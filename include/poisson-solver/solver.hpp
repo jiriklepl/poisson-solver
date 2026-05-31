@@ -38,32 +38,22 @@ template <std::floating_point T, std::size_t Dim>
  * @tparam T Floating point type (only `float` and `double` supported).
  * @tparam Dim Number of grid dimensions.
  */
-class ISolver {};
+class ISolver {
+public:
+    virtual ~ISolver() = default;
+    virtual void Execute(std::span<T> phi,
+                         std::span<const T> rhs,
+                         GridSizes<Dim> ngs_phi,
+                         GridSizes<Dim> ngs_rhs) = 0;
+    virtual std::size_t GetTotalGridSize() const = 0;
+};
 
 template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 /**
- * @brief Solver fur a uniform grid.
+ * @brief Solver for a uniform grid.
  */
 class Solver : public ISolver<T, Dim> {
-
-};
-
-template <std::floating_point T, std::size_t Dim>
-requires (Dim == 3)
-/**
- * @brief Solver for a non-uniform grid.
- *
- * @warning Only works for 3D grids.
- */
-class NonuniformZSolver<T, Dim> : public ISolver<T, Dim> {
-
-};
-
-// TODO: Doesn't work for Z nonuniform solvers
-template <std::floating_point T, std::size_t Dim>
-    requires(Dim <= 3 && Dim >= 1)
-class Solver {
 public:
     /**
      * @brief Constructs a poisson solver.
@@ -113,10 +103,10 @@ public:
      * @param[in] ngs_rhs Number of ghost cells (on one side)
      * \p rhs has in each dimension.
      */
-    void Execute(std::span<T> phi,
-                 std::span<const T> rhs,
-                 GridSizes<Dim> ngs_phi,
-                 GridSizes<Dim> ngs_rhs) {
+    virtual void Execute(std::span<T> phi,
+                         std::span<const T> rhs,
+                         GridSizes<Dim> ngs_phi,
+                         GridSizes<Dim> ngs_rhs) override {
         // `const_cast` necessary due to
         // CUDA C-like API interaction.
         // Nothing is actually modified.
@@ -135,7 +125,7 @@ public:
                                  cudaMemcpyDeviceToHost);
     }
 
-    std::size_t GetTotalGridSize() const {
+    virtual std::size_t GetTotalGridSize() const override {
         return cnt_;
     }
 
@@ -575,6 +565,18 @@ private:
                   cu_block_size_);
         FFTPolicy::Backward2D(cu_real_workspace_.get(), fft_plan_);
     }
+};
+
+template <std::floating_point T, std::size_t Dim>
+    requires(Dim == 3)
+/**
+ * @brief Solver for a non-uniform grid.
+ *
+ * @warning Only works for 3D grids.
+ */
+class NonuniformZSolver : public ISolver<T, Dim> {
+    // TODO: Start implementing and see what you
+    // need to put from Solver to ISolver.
 };
 }  // namespace poisson_solver
 
