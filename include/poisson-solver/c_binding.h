@@ -1,6 +1,9 @@
 #ifndef C_BINDING_H
 #define C_BINDING_H
 
+// Turn off C++ modernization rules for this pure C header
+// NOLINTBEGIN(modernize-*)
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -56,5 +59,7 @@ void PoissonSolverFinalizeFloat(PoissonSolver *solver);
 #ifdef __cplusplus
 }
 #endif
+
+// NOLINTEND(modernize-*)
 
 #endif  // C_BINDING_H

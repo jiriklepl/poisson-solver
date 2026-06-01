@@ -31,8 +31,7 @@ struct SolverPlan {
 public:
     using AxisStrategies =
         std::array<std::unique_ptr<const IAxisStrategy<T>>, Dim>;
-    using SolveMethod = void (poisson_solver::Solver<T, Dim>::*)(
-        std::span<T>, std::span<const T>);
+    using SolveMethod = void (poisson_solver::Solver<T, Dim>::*)();
 
     AxisStrategies axis_strategies{};
     SolveMethod solve_method{};
@@ -41,37 +40,42 @@ public:
     // if we realize that we don't have full BCs.
     VariantLayout fft_layout{FullLayout{}};
 
-    SolverPlan(BCs<Dim> bcs)
+    explicit SolverPlan(BCs<Dim> bcs)
         : axis_strategies(GetAxisStrategies(bcs)) {
         bool all_bcs_identical = TryConstructFromFullBCs(bcs);
-        if (all_bcs_identical)
+        if (all_bcs_identical) {
             return;
+        }
         ConstructFromNonFullBCs(bcs);
     }
 
 private:
-    static std::unique_ptr<IAxisStrategy<T>> GetAxisStrategy(BCPair bcp) {
+    static auto GetAxisStrategy(BCPair bcp)
+        -> std::unique_ptr<IAxisStrategy<T>> {
         if (IsPeriodic(bcp)) {
             return std::make_unique<PeriodicStrategy<T>>();
-        } else if (IsDirichlet(bcp)) {
-            return std::make_unique<DirichletStrategy<T>>();
-        } else if (IsNeumann(bcp)) {
-            return std::make_unique<NeumannStrategy<T>>();
-        } else if (IsDirichletStag(bcp)) {
-            return std::make_unique<DirichletStagStrategy<T>>();
-        } else if (IsNeumannStag(bcp)) {
-            return std::make_unique<NeumannStagStrategy<T>>();
-        } else if (IsDirichletNeumann(bcp) || IsNeumannDirichlet(bcp) ||
-                   IsDirichletStagNeumannStag(bcp) ||
-                   IsNeumannStagDirichletStag(bcp)) {
-            return std::make_unique<MixedStrategy<T>>();
-        } else {
-            throw std::invalid_argument(
-                "Invalid boundary condition combination.");
         }
+        if (IsDirichlet(bcp)) {
+            return std::make_unique<DirichletStrategy<T>>();
+        }
+        if (IsNeumann(bcp)) {
+            return std::make_unique<NeumannStrategy<T>>();
+        }
+        if (IsDirichletStag(bcp)) {
+            return std::make_unique<DirichletStagStrategy<T>>();
+        }
+        if (IsNeumannStag(bcp)) {
+            return std::make_unique<NeumannStagStrategy<T>>();
+        }
+        if (IsDirichletNeumann(bcp) || IsNeumannDirichlet(bcp) ||
+            IsDirichletStagNeumannStag(bcp) ||
+            IsNeumannStagDirichletStag(bcp)) {
+            return std::make_unique<MixedStrategy<T>>();
+        }
+        throw std::invalid_argument("Invalid boundary condition combination.");
     }
 
-    static AxisStrategies GetAxisStrategies(BCs<Dim> bcs) {
+    static auto GetAxisStrategies(BCs<Dim> bcs) -> AxisStrategies {
         AxisStrategies strats{};
         for (std::size_t d = 0; d < Dim; ++d) {
             strats[d] = GetAxisStrategy(bcs[d]);
@@ -83,37 +87,44 @@ private:
     // an already validated BC pair.
     // Caller is responsible for throwing in
     // case boundary conditions aren't valid.
-    FFTTransformType GetAxisFFTType(BCPair bcp) {
+    auto GetAxisFFTType(BCPair bcp) -> FFTTransformType {
         using enum FFTTransformType;
 
         if (IsPeriodic(bcp)) {
             return Complex;
-        } else if (IsDirichlet(bcp)) {
-            return DST1;
-        } else if (IsDirichletStag(bcp)) {
-            return DST2;
-        } else if (IsNeumann(bcp)) {
-            return DCT1;
-        } else if (IsNeumannStag(bcp)) {
-            return DCT2;
-        } else if (IsDirichletNeumann(bcp)) {
-            return DST3;
-        } else if (IsNeumannDirichlet(bcp)) {
-            return DCT3;
-        } else if (IsDirichletStagNeumannStag(bcp)) {
-            return DST4;
-        } else if (IsNeumannStagDirichletStag(bcp)) {
-            return DCT4;
-        } else {
-            assert(false && "Invalid BC pair.");
         }
+        if (IsDirichlet(bcp)) {
+            return DST1;
+        }
+        if (IsDirichletStag(bcp)) {
+            return DST2;
+        }
+        if (IsNeumann(bcp)) {
+            return DCT1;
+        }
+        if (IsNeumannStag(bcp)) {
+            return DCT2;
+        }
+        if (IsDirichletNeumann(bcp)) {
+            return DST3;
+        }
+        if (IsNeumannDirichlet(bcp)) {
+            return DCT3;
+        }
+        if (IsDirichletStagNeumannStag(bcp)) {
+            return DST4;
+        }
+        if (IsNeumannStagDirichletStag(bcp)) {
+            return DCT4;
+        }
+        assert(false && "Invalid BC pair.");
     }
 
     // Tries to construct the object in the case
     // all BCs are identical as this behavior is
     // shared among all dimensions.
-    bool TryConstructFromFullBCs(BCs<Dim> bcs) {
-        using namespace std::ranges;
+    auto TryConstructFromFullBCs(BCs<Dim> bcs) -> bool {
+        using std::ranges::all_of;
         using enum FFTTransformType;
 
         auto &layout = std::get<FullLayout>(fft_layout);
@@ -162,7 +173,8 @@ private:
     }
 
     void ConstructFromNonFullBCs3D(BCs<3> bcs) {
-        using namespace std::ranges;
+        using std::ranges::any_of;
+        using std::ranges::none_of;
         using enum FFTTransformType;
 
         // Non-full 3D case => layout must be split.

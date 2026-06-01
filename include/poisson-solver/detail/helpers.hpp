@@ -12,10 +12,6 @@
 #include <memory>
 
 namespace poisson_solver::detail {
-// === Variables ===
-template <typename T>
-inline constexpr bool always_false = false;
-
 // === Structs ===
 struct CudaFreeDeleter {
     void operator()(void *ptr) {
@@ -52,7 +48,8 @@ using DenomConstPtrs = std::array<const T *, Dim>;
 
 // === Functions ===
 template <std::size_t Dim>
-constexpr std::size_t FlatIndex(MultidimIdx<Dim> midx, GridSizes<Dim> ns) {
+constexpr auto FlatIndex(MultidimIdx<Dim> midx,
+                         GridSizes<Dim> ns) -> std::size_t {
     std::size_t idx = 0;
     std::size_t stride = 1;
 
@@ -67,7 +64,7 @@ constexpr std::size_t FlatIndex(MultidimIdx<Dim> midx, GridSizes<Dim> ns) {
 // Creates a unique pointer to memory such that it can hold `size` elements of
 // type `T`
 template <typename T>
-CudaUniquePtr<T> MakeCudaUnique(std::size_t size) {
+auto MakeCudaUnique(std::size_t size) -> CudaUniquePtr<T> {
     T *ptr;
     CUCH(cudaMalloc(&ptr, size * sizeof(T)));
     return CudaUniquePtr<T>(ptr);

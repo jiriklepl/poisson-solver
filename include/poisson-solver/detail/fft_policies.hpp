@@ -17,7 +17,6 @@
 #include <cassert>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <type_traits>
@@ -142,7 +141,7 @@ struct VkFFTApplicationDeleter {
     void operator()(VkFFTApplication *app) const {
         // It's possible that `app` wasn't even initialized, calling
         // `deleteVkFFT` on that could be dangerous.
-        if (app) {
+        if (app != nullptr) {
             deleteVkFFT(app);
             delete app;
         }
@@ -177,12 +176,12 @@ struct VkFFTTypeToPerform {
 
 inline void _VkFFTCheck(VkFFTResult res,
                         int line,
-                        const char *srcFile,
-                        const char *errMsg = NULL) {
+                        const char *src_file,
+                        const char *err_msg = nullptr) {
     if (res != VKFFT_SUCCESS) {
         std::stringstream err_stream{};
         err_stream << "VkFFT Error (" << res << ")\n"
-                   << "at " << srcFile << "[" << line << "]:" << errMsg;
+                   << "at " << src_file << "[" << line << "]:" << err_msg;
         throw std::runtime_error(err_stream.str());
     }
 }
@@ -197,7 +196,7 @@ public:
     static constexpr int ForwardDirection = -1;
     static constexpr int BackwardDirection = 1;
 
-    static Plan Init(GridSizes<Dim> ns, VariantLayout layout) {
+    static auto Init(GridSizes<Dim> ns, VariantLayout layout) -> Plan {
         Plan plan{};
 
         // Shared among all layouts.
@@ -292,10 +291,10 @@ public:
     }
 
 private:
-    static std::unique_ptr<CUdevice> GetCudaDevice() {
+    static auto GetCudaDevice() -> std::unique_ptr<CUdevice> {
         // Ensure CUDA runtime is initialized.
         // This is essentailly a nop but if runtime isn't init, then it does it.
-        cudaFree(0);
+        cudaFree(nullptr);
 
         int ordinal{};
         CUCH(cudaGetDevice(&ordinal));
@@ -307,9 +306,9 @@ private:
     }
 
     // Returns initialized full handle.
-    static FullHandle GetFullHandle(FullLayout layout,
-                                    GridSizes<Dim> ns,
-                                    CUdevice *device_ptr) {
+    static auto GetFullHandle(FullLayout layout,
+                              GridSizes<Dim> ns,
+                              CUdevice *device_ptr) -> FullHandle {
         FullHandle h{};
         auto &config = h.handle.config;
 
@@ -338,9 +337,9 @@ private:
     };
 
     // Returns initialized split handle.
-    static SplitHandle GetSplitHandle(SplitLayout layout,
-                                      GridSizes<Dim> ns,
-                                      CUdevice *device_ptr) {
+    static auto GetSplitHandle(SplitLayout layout,
+                               GridSizes<Dim> ns,
+                               CUdevice *device_ptr) -> SplitHandle {
         SplitHandle h{};
         auto &config_1d = h.handle_1d.config;
         auto &config_2d = h.handle_2d.config;
@@ -350,8 +349,8 @@ private:
 
         // 0 for float, 1 for doubles.
         bool double_prec_used = !std::is_same_v<T, float>;
-        config_1d.doublePrecision = double_prec_used;
-        config_2d.doublePrecision = double_prec_used;
+        config_1d.doublePrecision = static_cast<pfUINT>(double_prec_used);
+        config_2d.doublePrecision = static_cast<pfUINT>(double_prec_used);
 
         // Both configs will know about the
         // grid being 3D but will omit the
@@ -412,7 +411,8 @@ private:
 
     // Maps values of the `FFTTransformType` enum
     // to the `int` values used by VkFFT.
-    static VkFFTTypeToPerform GetVkFFTTransformType(FFTTransformType t) {
+    static auto GetVkFFTTransformType(FFTTransformType t)
+        -> VkFFTTypeToPerform {
         using enum FFTTransformType;
 
         switch (t) {

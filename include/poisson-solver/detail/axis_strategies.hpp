@@ -12,11 +12,11 @@ namespace poisson_solver::detail {
 template <std::floating_point T>
 class IAxisStrategy {
 public:
-    virtual T GetGridDx(std::size_t n, T len) const = 0;
-    virtual T GetApproximationInput(std::size_t i,
-                                    std::size_t n,
-                                    T dkx) const = 0;
-    virtual T ComputeNormalizationFactor(std::size_t n) const = 0;
+    virtual auto GetGridDx(std::size_t n, T len) const -> T = 0;
+    virtual auto GetApproximationInput(std::size_t i,
+                                       std::size_t n,
+                                       T dkx) const -> T = 0;
+    virtual auto ComputeNormalizationFactor(std::size_t n) const -> T = 0;
 
     virtual ~IAxisStrategy() = default;
 };
@@ -24,17 +24,17 @@ public:
 template <std::floating_point T>
 class PeriodicStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(std::size_t n, T len) const override {
+    auto GetGridDx(std::size_t n, T len) const -> T override {
         return len / n;
     }
 
-    virtual T GetApproximationInput(std::size_t i,
-                                    std::size_t n,
-                                    T dkx) const override {
+    auto GetApproximationInput(std::size_t i,
+                               std::size_t n,
+                               T dkx) const -> T override {
         return i < (n / 2) ? i * dkx : (n - i) * dkx;
     }
 
-    virtual T ComputeNormalizationFactor(std::size_t n) const override {
+    auto ComputeNormalizationFactor(std::size_t n) const -> T override {
         return n;
     }
 };
@@ -42,17 +42,17 @@ public:
 template <std::floating_point T>
 class DirichletStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(std::size_t n, T len) const override {
+    auto GetGridDx(std::size_t n, T len) const -> T override {
         return len / (n + 1);
     }
 
-    virtual T GetApproximationInput(std::size_t i,
-                                    std::size_t n,
-                                    T dkx) const override {
+    auto GetApproximationInput(std::size_t i,
+                               [[maybe_unused]] std::size_t n,
+                               T dkx) const -> T override {
         return (i + 1) * (dkx / 2);
     }
 
-    virtual T ComputeNormalizationFactor(std::size_t n) const override {
+    auto ComputeNormalizationFactor(std::size_t n) const -> T override {
         return 2 * (n + 1);
     }
 };
@@ -60,17 +60,17 @@ public:
 template <std::floating_point T>
 class NeumannStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(std::size_t n, T len) const override {
+    auto GetGridDx(std::size_t n, T len) const -> T override {
         return len / (n - 1);
     }
 
-    virtual T GetApproximationInput(std::size_t i,
-                                    std::size_t n,
-                                    T dkx) const override {
+    auto GetApproximationInput(std::size_t i,
+                               [[maybe_unused]] std::size_t n,
+                               T dkx) const -> T override {
         return i * (dkx / 2);
     }
 
-    virtual T ComputeNormalizationFactor(std::size_t n) const override {
+    auto ComputeNormalizationFactor(std::size_t n) const -> T override {
         return 2 * (n - 1);
     }
 };
@@ -78,17 +78,17 @@ public:
 template <std::floating_point T>
 class DirichletStagStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(std::size_t n, T len) const override {
+    auto GetGridDx(std::size_t n, T len) const -> T override {
         return len / n;
     }
 
-    virtual T GetApproximationInput(std::size_t i,
-                                    std::size_t n,
-                                    T dkx) const override {
+    auto GetApproximationInput(std::size_t i,
+                               [[maybe_unused]] std::size_t n,
+                               T dkx) const -> T override {
         return (i + 1) * (dkx / 2);
     }
 
-    virtual T ComputeNormalizationFactor(std::size_t n) const override {
+    auto ComputeNormalizationFactor(std::size_t n) const -> T override {
         return 2 * n;
     }
 };
@@ -96,17 +96,17 @@ public:
 template <std::floating_point T>
 class NeumannStagStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(std::size_t n, T len) const override {
+    auto GetGridDx(std::size_t n, T len) const -> T override {
         return len / n;
     }
 
-    virtual T GetApproximationInput(std::size_t i,
-                                    std::size_t n,
-                                    T dkx) const override {
+    auto GetApproximationInput(std::size_t i,
+                               [[maybe_unused]] std::size_t n,
+                               T dkx) const -> T override {
         return i * (dkx / 2);
     }
 
-    virtual T ComputeNormalizationFactor(std::size_t n) const override {
+    auto ComputeNormalizationFactor(std::size_t n) const -> T override {
         return 2 * n;
     }
 };
@@ -114,17 +114,17 @@ public:
 template <std::floating_point T>
 class MixedStrategy : public IAxisStrategy<T> {
 public:
-    virtual T GetGridDx(std::size_t n, T len) const override {
+    auto GetGridDx(std::size_t n, T len) const -> T override {
         return len / n;
     }
 
-    virtual T GetApproximationInput(std::size_t i,
-                                    std::size_t n,
-                                    T dkx) const override {
+    auto GetApproximationInput(std::size_t i,
+                               [[maybe_unused]] std::size_t n,
+                               T dkx) const -> T override {
         return (i + 1 - static_cast<T>(0.5)) * (dkx / 2);
     }
 
-    virtual T ComputeNormalizationFactor(std::size_t n) const override {
+    auto ComputeNormalizationFactor(std::size_t n) const -> T override {
         return 2 * n;
     }
 };

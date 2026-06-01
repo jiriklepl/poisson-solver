@@ -39,7 +39,7 @@ public:
                          std::span<const T> rhs,
                          GridSizes<Dim> ngs_phi,
                          GridSizes<Dim> ngs_rhs) = 0;
-    virtual std::size_t GetTotalGridSize() const = 0;
+    virtual auto GetTotalGridSize() const -> std::size_t = 0;
 };
 
 template <std::floating_point T, std::size_t Dim>
@@ -72,7 +72,7 @@ public:
           ns_(ns),
           bcs_(bcs),
           cnt_(ComputeTotalGridSize(ns_)),
-          norm_factor_(ComputeNormFactor(ns_, bcs_)),
+          norm_factor_(ComputeNormFactor(ns_)),
           cu_block_size_(cuda_block_size),
           cu_grid_size_(ComputeGridSize(ns_, cu_block_size_)) {
         AllocDeviceBuffers();
@@ -97,10 +97,10 @@ public:
      * @param[in] ngs_rhs Number of ghost cells (on one side)
      * \p rhs has in each dimension.
      */
-    virtual void Execute(std::span<T> phi,
-                         std::span<const T> rhs,
-                         GridSizes<Dim> ngs_phi,
-                         GridSizes<Dim> ngs_rhs) override {
+    void Execute(std::span<T> phi,
+                 std::span<const T> rhs,
+                 GridSizes<Dim> ngs_phi,
+                 GridSizes<Dim> ngs_rhs) override {
         // `const_cast` necessary due to
         // CUDA C-like API interaction.
         // Nothing is actually modified.
@@ -110,7 +110,7 @@ public:
                                  ngs_rhs,
                                  cudaMemcpyHostToDevice);
 
-        (this->*solver_plan_.solve_method)(phi, rhs);
+        (this->*solver_plan_.solve_method)();
 
         detail::MemcpyActiveGrid(phi.data(),
                                  cu_real_workspace_.get(),
@@ -119,7 +119,7 @@ public:
                                  cudaMemcpyDeviceToHost);
     }
 
-    virtual std::size_t GetTotalGridSize() const override {
+    auto GetTotalGridSize() const -> std::size_t override {
         return cnt_;
     }
 
@@ -166,7 +166,7 @@ private:
     dim3 cu_block_size_;
     dim3 cu_grid_size_;
 
-    static constexpr dim3 DefaultBlockSize() {
+    static constexpr auto DefaultBlockSize() -> dim3 {
         if constexpr (Dim == 1) {
             return {256};
         } else if constexpr (Dim == 2) {
@@ -176,7 +176,7 @@ private:
         }
     }
 
-    static std::size_t ComputeTotalGridSize(GridSizes<Dim> ns) {
+    static auto ComputeTotalGridSize(GridSizes<Dim> ns) -> std::size_t {
         return std::accumulate(
             ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>{});
     }
@@ -185,7 +185,7 @@ private:
      * @note `solver_plan_` has to be initialized
      * before this function is called.
      */
-    T ComputeNormFactor(GridSizes<Dim> ns, BCs<Dim> bcs) const {
+    auto ComputeNormFactor(GridSizes<Dim> ns) const -> T {
         T factor = 1.0;
         for (std::size_t d = 0; d < Dim; ++d) {
             const auto &strategy = solver_plan_.axis_strategies[d];
@@ -194,7 +194,7 @@ private:
         return factor;
     }
 
-    static dim3 ComputeGridSize(GridSizes<Dim> ns, dim3 block) {
+    static auto ComputeGridSize(GridSizes<Dim> ns, dim3 block) -> dim3 {
         if constexpr (Dim == 1) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x};
         } else if constexpr (Dim == 2) {
@@ -234,11 +234,11 @@ private:
      * @note `solver_plan_` has to be initialized
      * before this function is called.
      */
-    HostOneAxisDenoms GetOneAxisEigenvalues(
-        std::size_t n,
-        T len,
-        std::size_t axis,
-        const IApproximation<T> &approx) const {
+    auto GetOneAxisEigenvalues(std::size_t n,
+                               T len,
+                               std::size_t axis,
+                               const IApproximation<T> &approx) const
+        -> HostOneAxisDenoms {
         HostOneAxisDenoms eigenvals(n);
         const auto &strategy = solver_plan_.axis_strategies[axis];
 
@@ -254,9 +254,9 @@ private:
         return eigenvals;
     }
 
-    HostDenoms GetEigenvalues(GridSizes<Dim> ns,
-                              std::array<T, Dim> lens,
-                              const IApproximation<T> &approx) const {
+    auto GetEigenvalues(GridSizes<Dim> ns,
+                        std::array<T, Dim> lens,
+                        const IApproximation<T> &approx) const -> HostDenoms {
         // TODO: This could be done on GPU
         HostDenoms denoms{};
         for (std::size_t d = 0; d < Dim; ++d) {
@@ -274,7 +274,7 @@ private:
         }
     }
 
-    DenomConstPtrs CreateDenomObservers() {
+    auto CreateDenomObservers() -> DenomConstPtrs {
         DenomConstPtrs observers{};
         for (std::size_t d = 0; d < Dim; ++d) {
             observers[d] = cu_denoms_[d].get();
@@ -282,8 +282,10 @@ private:
         return observers;
     }
 
-    void SolveFullPeriodic(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners::common_cmplx;
+    void SolveFullPeriodic() {
+        using detail::runners::common_cmplx::DivideByDenomsAndZero;
+        using detail::runners::common_cmplx::Init;
+        using detail::runners::common_cmplx::Normalize;
 
         Init(cu_cmplx_workspace_.value().get(),
              cu_real_workspace_.get(),
@@ -308,27 +310,8 @@ private:
                   cu_block_size_);
     }
 
-    void SolveFullDirichlet(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners::common_real;
-
-        FFTPolicy::Forward(cu_real_workspace_.get(), fft_plan_);
-
-        DivideByDenoms(cu_real_workspace_.get(),
-                       ns_,
-                       cu_denom_observers_,
-                       cu_grid_size_,
-                       cu_block_size_);
-
-        FFTPolicy::Backward(cu_real_workspace_.get(), fft_plan_);
-        Normalize(cu_real_workspace_.get(),
-                  ns_,
-                  norm_factor_,
-                  cu_grid_size_,
-                  cu_block_size_);
-    }
-
-    void SolveFullNeumann(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners::full_neumann;
+    void SolveFullDirichlet() {
+        using detail::runners::common_real::DivideByDenoms;
         using detail::runners::common_real::Normalize;
 
         FFTPolicy::Forward(cu_real_workspace_.get(), fft_plan_);
@@ -347,8 +330,30 @@ private:
                   cu_block_size_);
     }
 
-    void SolvePPNs(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners::common_cmplx;
+    void SolveFullNeumann() {
+        using detail::runners::common_real::Normalize;
+        using detail::runners::full_neumann::DivideByDenoms;
+
+        FFTPolicy::Forward(cu_real_workspace_.get(), fft_plan_);
+
+        DivideByDenoms(cu_real_workspace_.get(),
+                       ns_,
+                       cu_denom_observers_,
+                       cu_grid_size_,
+                       cu_block_size_);
+
+        FFTPolicy::Backward(cu_real_workspace_.get(), fft_plan_);
+        Normalize(cu_real_workspace_.get(),
+                  ns_,
+                  norm_factor_,
+                  cu_grid_size_,
+                  cu_block_size_);
+    }
+
+    void SolvePPNs() {
+        using detail::runners::common_cmplx::DivideByDenomsAndZero;
+        using detail::runners::common_cmplx::Init;
+        using detail::runners::common_cmplx::Normalize;
 
         FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -374,8 +379,10 @@ private:
         FFTPolicy::Backward1D(cu_real_workspace_.get(), fft_plan_);
     }
 
-    void SolvePPD(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners::common_cmplx;
+    void SolvePPD() {
+        using detail::runners::common_cmplx::DivideByDenoms;
+        using detail::runners::common_cmplx::Init;
+        using detail::runners::common_cmplx::Normalize;
 
         FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -401,11 +408,13 @@ private:
         FFTPolicy::Backward1D(cu_real_workspace_.get(), fft_plan_);
     }
 
-    void SolveNsPP(std::span<T> phi, std::span<const T> rhs) {
+    void SolveNsPP() {
         // TODO: Same body as PPNs.
         // Only is change in `fft_plan_` construction
         // but this doesn't concern this function.
-        using namespace detail::runners::common_cmplx;
+        using detail::runners::common_cmplx::DivideByDenomsAndZero;
+        using detail::runners::common_cmplx::Init;
+        using detail::runners::common_cmplx::Normalize;
 
         FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -431,8 +440,10 @@ private:
         FFTPolicy::Backward1D(cu_real_workspace_.get(), fft_plan_);
     }
 
-    void SolvePNsNs(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners::common_cmplx;
+    void SolvePNsNs() {
+        using detail::runners::common_cmplx::DivideByDenomsAndZero;
+        using detail::runners::common_cmplx::Init;
+        using detail::runners::common_cmplx::Normalize;
 
         FFTPolicy::Forward2D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -458,11 +469,13 @@ private:
         FFTPolicy::Backward2D(cu_real_workspace_.get(), fft_plan_);
     }
 
-    void SolvePNsP(std::span<T> phi, std::span<const T> rhs) {
+    void SolvePNsP() {
         // TODO: Same body as PPNs.
         // Only is change in `fft_plan_` construction
         // but this doesn't concern this function.
-        using namespace detail::runners::common_cmplx;
+        using detail::runners::common_cmplx::DivideByDenomsAndZero;
+        using detail::runners::common_cmplx::Init;
+        using detail::runners::common_cmplx::Normalize;
 
         FFTPolicy::Forward1D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -488,8 +501,10 @@ private:
         FFTPolicy::Backward1D(cu_real_workspace_.get(), fft_plan_);
     }
 
-    void SolveDDP(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners::common_cmplx;
+    void SolveDDP() {
+        using detail::runners::common_cmplx::DivideByDenoms;
+        using detail::runners::common_cmplx::Init;
+        using detail::runners::common_cmplx::Normalize;
 
         FFTPolicy::Forward2D(cu_real_workspace_.get(), fft_plan_);
         Init(cu_cmplx_workspace_.value().get(),
@@ -515,8 +530,9 @@ private:
         FFTPolicy::Backward2D(cu_real_workspace_.get(), fft_plan_);
     }
 
-    void Solve2Real1Real(std::span<T> phi, std::span<const T> rhs) {
-        using namespace detail::runners::common_real;
+    void Solve2Real1Real() {
+        using detail::runners::common_real::DivideByDenoms;
+        using detail::runners::common_real::Normalize;
 
         FFTPolicy::Forward2D(cu_real_workspace_.get(), fft_plan_);
 
@@ -536,11 +552,12 @@ private:
         FFTPolicy::Backward2D(cu_real_workspace_.get(), fft_plan_);
     }
 
-    void Solve1Real2Real(std::span<T> phi, std::span<const T> rhs) {
+    void Solve1Real2Real() {
         // TODO: Same body as 2Real1Real.
         // Only is change in `fft_plan_` construction
         // but this doesn't concern this function.
-        using namespace detail::runners::common_real;
+        using detail::runners::common_real::DivideByDenoms;
+        using detail::runners::common_real::Normalize;
 
         FFTPolicy::Forward2D(cu_real_workspace_.get(), fft_plan_);
 

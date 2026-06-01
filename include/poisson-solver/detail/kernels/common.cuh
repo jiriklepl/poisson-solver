@@ -11,7 +11,7 @@
 namespace poisson_solver::detail::kernels {
 // Returns indices of the current thread
 template <std::size_t Dim>
-__device__ MultidimIdx<Dim> GetIdxs() {
+__device__ auto GetIdxs() -> MultidimIdx<Dim> {
     if constexpr (Dim == 1) {
         return {blockIdx.x * blockDim.x + threadIdx.x};
     } else if constexpr (Dim == 2) {
@@ -26,7 +26,7 @@ __device__ MultidimIdx<Dim> GetIdxs() {
 
 // Returns strides for each dimension
 template <std::size_t Dim>
-__device__ std::array<std::size_t, Dim> GetStrides() {
+__device__ auto GetStrides() -> std::array<std::size_t, Dim> {
     if constexpr (Dim == 1) {
         return {gridDim.x * blockDim.x};
     } else if constexpr (Dim == 2) {
@@ -70,8 +70,8 @@ __device__ void ApplyStrideLoop(GridSizes<Dim> ns, Func f) {
 }
 
 template <std::floating_point T, std::size_t Dim>
-__device__ T SumIndexedDenoms(DenomConstPtrs<T, Dim> denoms,
-                              MultidimIdx<Dim> midx) {
+__device__ auto SumIndexedDenoms(DenomConstPtrs<T, Dim> denoms,
+                                 MultidimIdx<Dim> midx) -> T {
     T res = 0.0;
     for (std::size_t d = 0; d < Dim; ++d) {
         res += denoms[d][midx[d]];

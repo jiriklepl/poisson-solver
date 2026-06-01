@@ -31,19 +31,21 @@ void Normalize(T *real_workspace,
 }
 
 // === Explicit Instantiations ===
-#define INSTANTIATE_DIVISION(TYPE, DIM)                                       \
-    template void DivideByDenoms<TYPE, DIM>(TYPE * real_workspace,            \
-                                            GridSizes<DIM> ns,                \
-                                            DenomConstPtrs<TYPE, DIM> denoms, \
-                                            dim3 cu_grid_size,                \
-                                            dim3 cu_block_size);
+#define INSTANTIATE_DIVISION(TYPE, DIM)                                 \
+    template void DivideByDenoms<TYPE, DIM>(                            \
+        TYPE * real_workspace, /* NOLINT(bugprone-macro-parentheses) */ \
+        GridSizes<DIM> ns,                                              \
+        DenomConstPtrs<TYPE, DIM> denoms,                               \
+        dim3 cu_grid_size,                                              \
+        dim3 cu_block_size);
 
-#define INSTANTIATE_NORMALIZATION(TYPE, DIM)                  \
-    template void Normalize<TYPE, DIM>(TYPE * real_workspace, \
-                                       GridSizes<DIM> ns,     \
-                                       TYPE norm_factor,      \
-                                       dim3 cu_grid_size,     \
-                                       dim3 cu_block_size);
+#define INSTANTIATE_NORMALIZATION(TYPE, DIM)                            \
+    template void Normalize<TYPE, DIM>(                                 \
+        TYPE * real_workspace, /* NOLINT(bugprone-macro-parentheses) */ \
+        GridSizes<DIM> ns,                                              \
+        TYPE norm_factor,                                               \
+        dim3 cu_grid_size,                                              \
+        dim3 cu_block_size);
 
 #define INSTANTIATE_DIVISION_ALL_DIMS(TYPE) \
     INSTANTIATE_DIVISION(TYPE, 1)           \

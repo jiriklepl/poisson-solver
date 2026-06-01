@@ -75,13 +75,13 @@ void Normalize(T *res,
         dim3 cu_grid_size,                      \
         dim3 cu_block_size);
 
-#define INSTANTIATE_NORMALIZATION(TYPE, DIM)         \
-    template void Normalize<TYPE, DIM>(              \
-        TYPE * res,                                  \
-        const CuComplexTrait<TYPE> *cmplx_workspace, \
-        GridSizes<DIM> ns,                           \
-        TYPE norm_factor,                            \
-        dim3 cu_grid_size,                           \
+#define INSTANTIATE_NORMALIZATION(TYPE, DIM)                 \
+    template void Normalize<TYPE, DIM>(                      \
+        TYPE * res, /* NOLINT(bugprone-macro-parentheses) */ \
+        const CuComplexTrait<TYPE> *cmplx_workspace,         \
+        GridSizes<DIM> ns,                                   \
+        TYPE norm_factor,                                    \
+        dim3 cu_grid_size,                                   \
         dim3 cu_block_size);
 
 #define INSTANTIATE_INIT_DIV_NORM(TYPE, DIM)    \

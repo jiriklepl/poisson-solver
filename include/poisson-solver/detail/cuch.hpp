@@ -1,65 +1,69 @@
-// Written by Martin Kruliš for CUDA Blur Stencil lab assignment
-
 #ifndef CUCH_HPP
 #define CUCH_HPP
+
+// Written by Martin Kruliš for CUDA Blur Stencil lab assignment.
+// Modified by Matouš Zatloukal.
 
 #include <cuda_runtime.h>
 #include <exception>
 #include <sstream>
+#include <utility>
 
 namespace poisson_solver::detail {
 /**
  * A stream exception that is base for all runtime errors.
  */
 class CudaError : public std::exception {
-protected:
-    std::string mMessage;  ///< Internal buffer where the message is kept.
-    cudaError_t mStatus;
-
 public:
-    CudaError(cudaError_t status = cudaSuccess)
+    explicit CudaError(cudaError_t status = cudaSuccess)
         : std::exception(),
-          mStatus(status) {}
+          status_(status) {}
 
-    CudaError(const char *msg, cudaError_t status = cudaSuccess)
+    explicit CudaError(const char *msg, cudaError_t status = cudaSuccess)
         : std::exception(),
-          mMessage(msg),
-          mStatus(status) {}
+          message_(msg),
+          status_(status) {}
 
-    CudaError(const std::string &msg, cudaError_t status = cudaSuccess)
+    explicit CudaError(std::string msg, cudaError_t status = cudaSuccess)
         : std::exception(),
-          mMessage(msg),
-          mStatus(status) {}
+          message_(std::move(msg)),
+          status_(status) {}
 
-    virtual ~CudaError() throw() {}
+    ~CudaError() noexcept override = default;
 
-    virtual const char *what() const throw() {
-        return mMessage.c_str();
+    auto what() const noexcept -> const char * override {
+        return message_.c_str();
     }
 
     // Overloading << operator that uses stringstream to append data to
     // mMessage.
     template <typename T>
-    CudaError &operator<<(const T &data) {
+    auto operator<<(const T &data) -> CudaError & {
         std::stringstream stream;
-        stream << mMessage << data;
-        mMessage = stream.str();
+        stream << message_ << data;
+        message_ = stream.str();
         return *this;
     }
+
+protected:
+    // Internal buffer where the message is kept.
+    std::string message_;
+
+    cudaError_t status_;
 };
 
 /**
  * CUDA error code check. This is internal function used by CUCH macro.
  */
-inline void _cuda_check(cudaError_t status,
-                        int line,
-                        const char *srcFile,
-                        const char *errMsg = NULL) {
+inline void CudaCheck(cudaError_t status,
+                      int line,
+                      const char *src_file,
+                      const char *err_msg = nullptr) {
     if (status != cudaSuccess) {
         throw(CudaError(status)
               << "CUDA Error (" << status << "): " << cudaGetErrorString(status)
               << "\n"
-              << "at " << srcFile << "[" << line << "]: " << errMsg);
+              << "at " << src_file << "[" << line << "]: " << err_msg);
     }
 }
 
@@ -67,7 +71,7 @@ inline void _cuda_check(cudaError_t status,
  * Macro wrapper for CUDA calls checking.
  */
 #define CUCH(status) \
-    ::poisson_solver::detail::_cuda_check(status, __LINE__, __FILE__, #status)
+    ::poisson_solver::detail::CudaCheck(status, __LINE__, __FILE__, #status)
 }  // namespace poisson_solver::detail
 
 #endif  // CUCH_HPP

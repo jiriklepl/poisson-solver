@@ -19,7 +19,7 @@ namespace ps = poisson_solver;
 
 namespace {
 template <std::floating_point T>
-std::unique_ptr<ps::IApproximation<T>> GetApprox(Approximation approx) {
+auto GetApprox(Approximation approx) -> std::unique_ptr<ps::IApproximation<T>> {
     switch (approx) {
         case kSpectral:
             return std::make_unique<ps::SpectralApproximation<T>>();
@@ -34,13 +34,45 @@ std::unique_ptr<ps::IApproximation<T>> GetApprox(Approximation approx) {
 }
 
 template <std::size_t Dim>
-ps::GridSizes<Dim> ToGridSizes(const int *ns) {
+auto ToGridSizes(const int *ns) -> ps::GridSizes<Dim> {
     ps::GridSizes<Dim> gs{};
     std::transform(ns, ns + Dim, gs.begin(), [](int n) {
         return static_cast<std::size_t>(n);
     });
     return gs;
 }
+
+auto ToCxxBC(BoundaryCondition c_bc) -> ps::BoundaryCondition {
+    using CxxBC = ps::BoundaryCondition;
+
+    constexpr auto cxx_p = CxxBC::kPeriodic;
+    constexpr auto cxx_d = CxxBC::kDirichlet;
+    constexpr auto cxx_n = CxxBC::kNeumann;
+    constexpr auto cxx_ds = CxxBC::kDirichletStag;
+    constexpr auto cxx_ns = CxxBC::kNeumannStag;
+
+    switch (c_bc) {
+        case kPeriodic:
+            return cxx_p;
+        case kDirichlet:
+            return cxx_d;
+        case kNeumann:
+            return cxx_n;
+        case kDirichletStag:
+            return cxx_ds;
+        case kNeumannStag:
+            return cxx_ns;
+        default:
+            throw std::invalid_argument(
+                "Invalid boundary condition: " + std::to_string(c_bc) + ".");
+    }
+}
+
+auto ToCxxBCPair(BoundaryCondition c_bc1,
+                 BoundaryCondition c_bc2) -> ps::BCPair {
+    return ps::BCPair{ToCxxBC(c_bc1), ToCxxBC(c_bc2)};
+}
+
 }  // namespace
 
 #define DEFINE_EXECUTE(DIM)                                          \
@@ -106,35 +138,6 @@ DEFINE_FINALIZE_FLOAT(3)
 #undef DEFINE_FINALIZE_FLOAT
 
 extern "C" {
-ps::BoundaryCondition ToCxxBC(BoundaryCondition c_bc) {
-    using CxxBC = ps::BoundaryCondition;
-
-    constexpr auto cxxP = CxxBC::kPeriodic;
-    constexpr auto cxxD = CxxBC::kDirichlet;
-    constexpr auto cxxN = CxxBC::kNeumann;
-    constexpr auto cxxDS = CxxBC::kDirichletStag;
-    constexpr auto cxxNS = CxxBC::kNeumannStag;
-
-    switch (c_bc) {
-        case kPeriodic:
-            return cxxP;
-        case kDirichlet:
-            return cxxD;
-        case kNeumann:
-            return cxxN;
-        case kDirichletStag:
-            return cxxDS;
-        case kNeumannStag:
-            return cxxNS;
-        default:
-            throw std::invalid_argument(
-                "Invalid boundary condition: " + std::to_string(c_bc) + ".");
-    }
-}
-
-ps::BCPair ToCxxBCPair(BoundaryCondition c_bc1, BoundaryCondition c_bc2) {
-    return ps::BCPair{ToCxxBC(c_bc1), ToCxxBC(c_bc2)};
-}
 
 // === DOUBLE VERSIONS ===
 

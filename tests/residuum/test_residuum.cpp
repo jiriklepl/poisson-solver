@@ -22,7 +22,7 @@
 namespace ps = poisson_solver;
 namespace psd = ps::detail;
 using BC = ps::BoundaryCondition;
-using namespace tests;
+using tests::Initialize;
 
 namespace {
 constexpr auto P = BC::kPeriodic;
@@ -46,8 +46,8 @@ struct TestConfig {
 };
 
 template <std::size_t Dim>
-psd::MultidimIdx<Dim> FlatToMultidimIdx(std::size_t idx,
-                                        ps::GridSizes<Dim> ns) {
+auto FlatToMultidimIdx(std::size_t idx,
+                       ps::GridSizes<Dim> ns) -> psd::MultidimIdx<Dim> {
     psd::MultidimIdx<Dim> midx{};
     for (std::size_t i = 0; i < Dim; ++i) {
         midx[i] = idx % ns[i];
@@ -60,13 +60,13 @@ template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 class MaxResiduumCalculator {
 public:
-    MaxResiduumCalculator(ps::GridSizes<Dim> ns)
+    explicit MaxResiduumCalculator(ps::GridSizes<Dim> ns)
         : ns_(ns) {}
 
-    T operator()(std::span<T> phi,
-                 std::span<const T> rhs,
-                 ps::BCs<Dim> bcs,
-                 std::array<T, 2 * Dim> coeffs) const {
+    auto operator()(std::span<T> phi,
+                    std::span<const T> rhs,
+                    ps::BCs<Dim> bcs,
+                    std::array<T, 2 * Dim> coeffs) const -> T {
         assert(rhs.size() == phi.size());
 
         const std::size_t size = rhs.size();
@@ -91,7 +91,7 @@ public:
                     ApplyBorderBC(phi,
                                   midx,
                                   d,
-                                  Side::kLeft,
+                                  Side::Left,
                                   bcs[d].first,
                                   coeff_left,
                                   neighbor_sum,
@@ -108,7 +108,7 @@ public:
                     ApplyBorderBC(phi,
                                   midx,
                                   d,
-                                  Side::kRight,
+                                  Side::Right,
                                   bcs[d].second,
                                   coeff_right,
                                   neighbor_sum,
@@ -125,7 +125,7 @@ public:
     }
 
 private:
-    enum class Side { kLeft, kRight };
+    enum class Side { Left, Right };
 
     ps::GridSizes<Dim> ns_;
 
@@ -140,7 +140,7 @@ private:
         switch (bc) {
             case P: {
                 auto wrap_idx = midx;
-                wrap_idx[dim] = (side == Side::kLeft) ? (ns_[dim] - 1) : 0;
+                wrap_idx[dim] = (side == Side::Left) ? (ns_[dim] - 1) : 0;
                 neighbor_sum += phi[MultidimToFlatIdx(wrap_idx)] * coeff;
                 coeff_center += coeff;
                 break;
@@ -151,7 +151,7 @@ private:
             }
             case N: {
                 auto inner_idx = midx;
-                inner_idx[dim] = (side == Side::kLeft) ? 1 : (ns_[dim] - 2);
+                inner_idx[dim] = (side == Side::Left) ? 1 : (ns_[dim] - 2);
                 neighbor_sum += phi[MultidimToFlatIdx(inner_idx)] * coeff;
                 coeff_center += coeff;
                 break;
@@ -171,30 +171,30 @@ private:
         }
     }
 
-    std::size_t MultidimToFlatIdx(psd::MultidimIdx<Dim> midx) const {
+    auto MultidimToFlatIdx(psd::MultidimIdx<Dim> midx) const -> std::size_t {
         return psd::FlatIndex<Dim>(midx, ns_);
     }
 };
 
-BoundaryCondition ToCBoundary(BC cxx_bc) {
+auto ToCBoundary(BC cxx_bc) -> BoundaryCondition {
     using CxxBC = ps::BoundaryCondition;
 
-    constexpr auto cxxP = CxxBC::kPeriodic;
-    constexpr auto cxxD = CxxBC::kDirichlet;
-    constexpr auto cxxN = CxxBC::kNeumann;
-    constexpr auto cxxDS = CxxBC::kDirichletStag;
-    constexpr auto cxxNS = CxxBC::kNeumannStag;
+    constexpr auto cxx_p = CxxBC::kPeriodic;
+    constexpr auto cxx_d = CxxBC::kDirichlet;
+    constexpr auto cxx_n = CxxBC::kNeumann;
+    constexpr auto cxx_ds = CxxBC::kDirichletStag;
+    constexpr auto cxx_ns = CxxBC::kNeumannStag;
 
     switch (cxx_bc) {
-        case cxxP:
+        case cxx_p:
             return kPeriodic;
-        case cxxD:
+        case cxx_d:
             return kDirichlet;
-        case cxxN:
+        case cxx_n:
             return kNeumann;
-        case cxxDS:
+        case cxx_ds:
             return kDirichletStag;
-        case cxxNS:
+        case cxx_ns:
             return kNeumannStag;
         default:
             assert(false && "Unknown boundary condition.");
@@ -202,8 +202,8 @@ BoundaryCondition ToCBoundary(BC cxx_bc) {
 }
 
 template <std::floating_point T>
-std::function<void(std::span<T>)> MakePPDRhsCorrector() {
-    using namespace std::ranges;
+auto MakePPDRhsCorrector() -> std::function<void(std::span<T>)> {
+    using std::ranges::for_each;
     return [](std::span<T> rhs) {
         for_each(rhs, [](T &val) {
             val += static_cast<T>(1.0);
@@ -212,8 +212,8 @@ std::function<void(std::span<T>)> MakePPDRhsCorrector() {
 }
 
 template <std::floating_point T, std::size_t Dim>
-std::function<void(std::span<T>)> MakeNeumannRhsCorrector(
-    ps::GridSizes<Dim> ns) {
+auto MakeNeumannRhsCorrector(ps::GridSizes<Dim> ns)
+    -> std::function<void(std::span<T>)> {
     return [ns](std::span<T> rhs) {
         T sum = 0.0;
         std::size_t num_cells = 1.0;
@@ -248,7 +248,7 @@ std::function<void(std::span<T>)> MakeNeumannRhsCorrector(
 }
 
 template <std::floating_point T>
-std::function<void(std::span<T>)> MakeNeumannStagRhsCorrector() {
+auto MakeNeumannStagRhsCorrector() -> std::function<void(std::span<T>)> {
     return [](std::span<T> rhs) {
         T sum = std::accumulate(rhs.begin(), rhs.end(), T{0.0});
         std::ranges::for_each(rhs, [sum](T &elem) {
@@ -258,7 +258,8 @@ std::function<void(std::span<T>)> MakeNeumannStagRhsCorrector() {
 }
 
 template <std::floating_point T, std::size_t Dim>
-ResiduumResult<T> ResiduumBelowThreshold(T residuum, ps::GridSizes<Dim> ns) {
+auto ResiduumBelowThreshold(T residuum,
+                            ps::GridSizes<Dim> ns) -> ResiduumResult<T> {
     constexpr T fudge_factor = static_cast<T>(100.0);
     T max_residuum =
         std::accumulate(
@@ -413,7 +414,7 @@ void RunTestConfigs(std::span<const TestConfig<T, Dim>> configs,
 }
 }  // namespace
 
-int main(int argc, char *argv[]) {
+auto main(int argc, char *argv[]) -> int {
     doctest::Context context(argc, argv);
     int res = context.run();
 
@@ -425,9 +426,12 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
     unsigned seed = dev();
     INFO("Initialized with seed ", seed);
 
-    constexpr std::size_t nx = 21, ny = 32, nz = 25;
+    constexpr std::size_t nx = 21;
+    constexpr std::size_t ny = 32;
+    constexpr std::size_t nz = 25;
     constexpr T lenx = 2 * std::numbers::pi_v<T>;
-    constexpr T leny = lenx * 1.1, lenz = lenx / 1.1;
+    constexpr T leny = lenx * 1.1;
+    constexpr T lenz = lenx / 1.1;
 
     SUBCASE("1D") {
         constexpr ps::GridSizes<1> ns1d{nx};

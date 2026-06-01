@@ -11,15 +11,17 @@
 
 namespace poisson_solver::detail::kernels::common_cmplx {
 template <std::floating_point T>
-__device__ CuComplexTrait<T> MakeCuComplex(T r, T i);
+__device__ auto MakeCuComplex(T r, T i) -> CuComplexTrait<T>;
 
 template <>
-__device__ inline CuComplexTrait<float> MakeCuComplex(float r, float i) {
+__device__ inline auto MakeCuComplex(float r,
+                                     float i) -> CuComplexTrait<float> {
     return make_cuFloatComplex(r, i);
 }
 
 template <>
-__device__ inline CuComplexTrait<double> MakeCuComplex(double r, double i) {
+__device__ inline auto MakeCuComplex(double r,
+                                     double i) -> CuComplexTrait<double> {
     return make_cuDoubleComplex(r, i);
 }
 

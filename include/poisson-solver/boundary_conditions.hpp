@@ -16,10 +16,10 @@ enum class BoundaryCondition {
 
 // === Structs ===
 struct BCPair {
-    const BoundaryCondition first;
-    const BoundaryCondition second;
+    const BoundaryCondition first{};
+    const BoundaryCondition second{};
 
-    bool operator==(const BCPair &) const = default;
+    auto operator==(const BCPair &) const -> bool = default;
 };
 
 // === Aliases ===
@@ -27,77 +27,77 @@ template <std::size_t Dim>
 using BCs = std::array<BCPair, Dim>;
 
 // === Functions ===
-constexpr bool IsPeriodic(BCPair bcp) {
+constexpr auto IsPeriodic(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kPeriodic && bcp.second == BC::kPeriodic;
 }
 
-constexpr bool IsDirichlet(BCPair bcp) {
+constexpr auto IsDirichlet(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kDirichlet && bcp.second == BC::kDirichlet;
 }
 
-constexpr bool IsNeumann(BCPair bcp) {
+constexpr auto IsNeumann(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kNeumann && bcp.second == BC::kNeumann;
 }
 
-constexpr bool IsDirichletStag(BCPair bcp) {
+constexpr auto IsDirichletStag(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kDirichletStag && bcp.second == BC::kDirichletStag;
 }
 
-constexpr bool IsNeumannStag(BCPair bcp) {
+constexpr auto IsNeumannStag(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kNeumannStag && bcp.second == BC::kNeumannStag;
 }
 
-constexpr bool IsDirichletNeumann(BCPair bcp) {
+constexpr auto IsDirichletNeumann(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kDirichlet && bcp.second == BC::kNeumann;
 }
 
-constexpr bool IsNeumannDirichlet(BCPair bcp) {
+constexpr auto IsNeumannDirichlet(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kNeumann && bcp.second == BC::kDirichlet;
 }
 
-constexpr bool IsDirichletStagNeumannStag(BCPair bcp) {
+constexpr auto IsDirichletStagNeumannStag(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kDirichletStag && bcp.second == BC::kNeumannStag;
 }
 
-constexpr bool IsNeumannStagDirichletStag(BCPair bcp) {
+constexpr auto IsNeumannStagDirichletStag(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kNeumannStag && bcp.second == BC::kDirichletStag;
 }
 
 // (D, D) or (DS, DS)
-constexpr bool IsDirichletOrStag(BCPair bcp) {
+constexpr auto IsDirichletOrStag(BCPair bcp) -> bool {
     return IsDirichlet(bcp) || IsDirichletStag(bcp);
 }
 
 // (N, N) or (NS, NS)
-constexpr bool IsNeumannOrStag(BCPair bcp) {
+constexpr auto IsNeumannOrStag(BCPair bcp) -> bool {
     return IsNeumann(bcp) || IsNeumannStag(bcp);
 }
 
-constexpr bool HasPeriodic(BCPair bcp) {
+constexpr auto HasPeriodic(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kPeriodic || bcp.second == BC::kPeriodic;
 }
 
-constexpr bool HasDirichlet(BCPair bcp) {
+constexpr auto HasDirichlet(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kDirichlet || bcp.second == BC::kDirichlet;
 }
 
-constexpr bool HasDirichletStag(BCPair bcp) {
+constexpr auto HasDirichletStag(BCPair bcp) -> bool {
     using BC = BoundaryCondition;
     return bcp.first == BC::kDirichletStag || bcp.second == BC::kDirichletStag;
 }
 
-constexpr bool HasDirichletOrStag(BCPair bcp) {
+constexpr auto HasDirichletOrStag(BCPair bcp) -> bool {
     return HasDirichlet(bcp) || HasDirichletStag(bcp);
 }
 }  // namespace poisson_solver
