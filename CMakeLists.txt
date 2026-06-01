@@ -76,3 +76,17 @@ add_subdirectory(simulation)
 add_subdirectory(tests/residuum)
 add_subdirectory(tests/benchmarks)
 
+# Auto-generate .clangd
+set(CLANGD_CONFIG
+"CompileFlags:
+  Add:
+    - \"-I${CMAKE_SOURCE_DIR}/include\"
+    - \"--no-cuda-version-check\"
+  Remove:
+    - \"--expt-relaxed-constexpr\"
+    - \"-Xcompiler=-fPIC\"
+    - \"--generate-code*\"
+    - \"--options-file\"
+    - \"-forward-unknown-to-host-compiler\"
+")
+file(WRITE "${CMAKE_SOURCE_DIR}/.clangd" "${CLANGD_CONFIG}")

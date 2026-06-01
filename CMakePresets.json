@@ -19,6 +19,7 @@
       "description": "Debug build without MPI support",
       "binaryDir": "${sourceDir}/build-debug",
       "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
         "USE_MPI": "OFF"
       }
@@ -29,6 +30,7 @@
       "description": "Debug build with MPI support",
       "binaryDir": "${sourceDir}/build-debug-mpi",
       "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
         "USE_MPI": "ON"
       }
