@@ -1,13 +1,8 @@
 #ifndef AXIS_STRATEGIES_HPP
 #define AXIS_STRATEGIES_HPP
 
-#include "poisson-solver/boundary_conditions.hpp"
-#include "poisson-solver/detail/helpers.hpp"
-
 #include <concepts>
 #include <cstddef>
-#include <memory>
-#include <stdexcept>
 
 // This file groups together certain calculations that are based on boundary
 // conditions of an axis. Valid boundary conditions on an axis are explicitly

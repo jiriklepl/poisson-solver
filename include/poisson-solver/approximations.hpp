@@ -1,5 +1,5 @@
-#ifndef APPROXIMATION_HPP
-#define APPROXIMATION_HPP
+#ifndef APPROXIMATIONS_HPP
+#define APPROXIMATIONS_HPP
 
 #include <cmath>
 #include <concepts>
@@ -40,4 +40,4 @@ class FiniteDifference4Approximation : public IApproximation<T> {
 };
 }  // namespace poisson_solver
 
-#endif  // APPROXIMATION_HPP
+#endif  // APPROXIMATIONS_HPP

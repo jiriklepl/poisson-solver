@@ -76,12 +76,21 @@ add_subdirectory(simulation)
 add_subdirectory(tests/residuum)
 add_subdirectory(tests/benchmarks)
 
-# Auto-generate .clangd
+# === Auto-generate .clangd ===
 set(CLANGD_CONFIG
 "CompileFlags:
   Add:
     - \"-I${CMAKE_SOURCE_DIR}/include\"
     - \"--no-cuda-version-check\"
+    - \"-std=c++20\"
+")
+
+# Dynamically append the CUDA toolkit include directories
+foreach(CUDA_INC IN LISTS CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES)
+    string(APPEND CLANGD_CONFIG "    - \"-I${CUDA_INC}\"\n")
+endforeach()
+
+string(APPEND CLANGD_CONFIG "
   Remove:
     - \"--expt-relaxed-constexpr\"
     - \"-Xcompiler=-fPIC\"
@@ -89,4 +98,5 @@ set(CLANGD_CONFIG
     - \"--options-file\"
     - \"-forward-unknown-to-host-compiler\"
 ")
+
 file(WRITE "${CMAKE_SOURCE_DIR}/.clangd" "${CLANGD_CONFIG}")

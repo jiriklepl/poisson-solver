@@ -5,6 +5,7 @@
 #include "poisson-solver/detail/axis_strategies.hpp"
 #include "poisson-solver/detail/fft_policies.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <concepts>

@@ -4,7 +4,6 @@
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
-#include "poisson-solver/detail/axis_strategies.hpp"
 #include "poisson-solver/detail/fft_policies.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/runners/common_cmplx.hpp"
@@ -12,20 +11,15 @@
 #include "poisson-solver/detail/runners/full_neumann.hpp"
 #include "poisson-solver/detail/solver_plan.hpp"
 
-#include <algorithm>
 #include <array>
 #include <concepts>
 #include <cstddef>
 #include <cuda_runtime.h>
 #include <functional>
-#include <iostream>
-#include <memory>
 #include <numbers>
 #include <numeric>
 #include <optional>
 #include <span>
-#include <stdexcept>
-#include <utility>
 #include <vector>
 
 namespace poisson_solver {
@@ -130,7 +124,7 @@ public:
     }
 
 private:
-    friend class detail::SolverPlan<T, Dim>;
+    friend struct detail::SolverPlan<T, Dim>;
 
     using SolveMethod = void (Solver::*)(std::span<T>, std::span<const T>);
     using HostOneAxisDenoms = std::vector<T>;

@@ -2,6 +2,7 @@
 #define RUNNERS_COMMON_REAL_HPP
 
 #include "poisson-solver/aliases.hpp"
+#include "poisson-solver/detail/helpers.hpp"
 
 #include <concepts>
 #include <cstddef>

@@ -4,8 +4,8 @@
 #define CUCH_HPP
 
 #include <cuda_runtime.h>
+#include <exception>
 #include <sstream>
-#include <stdexcept>
 
 namespace poisson_solver::detail {
 /**

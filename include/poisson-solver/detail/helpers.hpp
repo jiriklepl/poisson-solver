@@ -2,8 +2,6 @@
 #define HELPERS_HPP
 
 #include "poisson-solver/aliases.hpp"
-#include "poisson-solver/approximations.hpp"
-#include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/cuch.hpp"
 
 #include <array>
@@ -12,10 +10,6 @@
 #include <cuComplex.h>
 #include <cuda_runtime.h>
 #include <memory>
-#include <numbers>
-#include <stdexcept>
-#include <utility>
-#include <vector>
 
 namespace poisson_solver::detail {
 // === Variables ===

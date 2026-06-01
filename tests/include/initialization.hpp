@@ -2,7 +2,6 @@
 #include <concepts>
 #include <random>
 #include <span>
-#include <stdexcept>
 
 namespace tests {
 template <std::floating_point T>

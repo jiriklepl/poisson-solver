@@ -2,13 +2,11 @@
 #define FFT_POLICIES_HPP
 
 #include "poisson-solver/aliases.hpp"
-#include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 
 #include <concepts>
 #include <cstddef>
 #include <memory>
-#include <utility>
 
 #ifdef USE_MPI
 #include <heffte.h>
@@ -16,7 +14,6 @@
 #else
 #include "poisson-solver/detail/cuch.hpp"
 
-#include <algorithm>
 #include <cassert>
 #include <cuda.h>
 #include <cuda_runtime.h>

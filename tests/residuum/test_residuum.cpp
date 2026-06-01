@@ -17,7 +17,6 @@
 #include <numeric>
 #include <random>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace ps = poisson_solver;
