@@ -18,11 +18,11 @@ typedef struct PoissonSolver {
 } PoissonSolver;
 
 typedef enum {
-    kPeriodic,
-    kDirichlet,
-    kNeumann,
-    kDirichletStag,
-    kNeumannStag
+    Periodic,
+    Dirichlet,
+    Neumann,
+    DirichletStag,
+    NeumannStag
 } BoundaryCondition;
 
 typedef enum { Spectral = 0, FD2 = 2, FD4 = 4 } Approximation;

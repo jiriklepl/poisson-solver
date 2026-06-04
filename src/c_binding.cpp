@@ -45,22 +45,22 @@ auto ToGridSizes(const int *ns) -> ps::GridSizes<Dim> {
 auto ToCxxBC(BoundaryCondition c_bc) -> ps::BoundaryCondition {
     using CxxBC = ps::BoundaryCondition;
 
-    constexpr auto cxx_p = CxxBC::kPeriodic;
-    constexpr auto cxx_d = CxxBC::kDirichlet;
-    constexpr auto cxx_n = CxxBC::kNeumann;
-    constexpr auto cxx_ds = CxxBC::kDirichletStag;
-    constexpr auto cxx_ns = CxxBC::kNeumannStag;
+    constexpr auto cxx_p = CxxBC::Periodic;
+    constexpr auto cxx_d = CxxBC::Dirichlet;
+    constexpr auto cxx_n = CxxBC::Neumann;
+    constexpr auto cxx_ds = CxxBC::DirichletStag;
+    constexpr auto cxx_ns = CxxBC::NeumannStag;
 
     switch (c_bc) {
-        case kPeriodic:
+        case Periodic:
             return cxx_p;
-        case kDirichlet:
+        case Dirichlet:
             return cxx_d;
-        case kNeumann:
+        case Neumann:
             return cxx_n;
-        case kDirichletStag:
+        case DirichletStag:
             return cxx_ds;
-        case kNeumannStag:
+        case NeumannStag:
             return cxx_ns;
         default:
             throw std::invalid_argument(

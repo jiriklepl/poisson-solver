@@ -25,11 +25,11 @@ using BC = ps::BoundaryCondition;
 using tests::Initialize;
 
 namespace {
-constexpr auto P = BC::kPeriodic;
-constexpr auto D = BC::kDirichlet;
-constexpr auto N = BC::kNeumann;
-constexpr auto DS = BC::kDirichletStag;
-constexpr auto NS = BC::kNeumannStag;
+constexpr auto P = BC::Periodic;
+constexpr auto D = BC::Dirichlet;
+constexpr auto N = BC::Neumann;
+constexpr auto DS = BC::DirichletStag;
+constexpr auto NS = BC::NeumannStag;
 
 template <std::floating_point T>
 struct ResiduumResult {
@@ -177,25 +177,17 @@ private:
 };
 
 auto ToCBoundary(BC cxx_bc) -> BoundaryCondition {
-    using CxxBC = ps::BoundaryCondition;
-
-    constexpr auto cxx_p = CxxBC::kPeriodic;
-    constexpr auto cxx_d = CxxBC::kDirichlet;
-    constexpr auto cxx_n = CxxBC::kNeumann;
-    constexpr auto cxx_ds = CxxBC::kDirichletStag;
-    constexpr auto cxx_ns = CxxBC::kNeumannStag;
-
     switch (cxx_bc) {
-        case cxx_p:
-            return kPeriodic;
-        case cxx_d:
-            return kDirichlet;
-        case cxx_n:
-            return kNeumann;
-        case cxx_ds:
-            return kDirichletStag;
-        case cxx_ns:
-            return kNeumannStag;
+        case P:
+            return Periodic;
+        case D:
+            return Dirichlet;
+        case N:
+            return Neumann;
+        case DS:
+            return DirichletStag;
+        case NS:
+            return NeumannStag;
         default:
             assert(false && "Unknown boundary condition.");
     }
