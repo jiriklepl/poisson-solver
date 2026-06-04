@@ -404,7 +404,7 @@ void RunTestConfigs(std::span<const TestConfig<T, Dim>> configs,
                                 lens,
                                 tc.bcs,
                                 ps::FiniteDifference2Approximation<T>{},
-                                kFD2,
+                                FD2,
                                 calc);
             }
 

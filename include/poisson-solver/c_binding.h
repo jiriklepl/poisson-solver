@@ -25,7 +25,7 @@ typedef enum {
     kNeumannStag
 } BoundaryCondition;
 
-typedef enum { kSpectral = 0, kFD2 = 2, kFD4 = 4 } Approximation;
+typedef enum { Spectral = 0, FD2 = 2, FD4 = 4 } Approximation;
 
 void PoissonSolverNew(PoissonSolver *solver_out,
                       int dims,

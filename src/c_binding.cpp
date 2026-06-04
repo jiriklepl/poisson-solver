@@ -21,11 +21,11 @@ namespace {
 template <std::floating_point T>
 auto GetApprox(Approximation approx) -> std::unique_ptr<ps::IApproximation<T>> {
     switch (approx) {
-        case kSpectral:
+        case Spectral:
             return std::make_unique<ps::SpectralApproximation<T>>();
-        case kFD2:
+        case FD2:
             return std::make_unique<ps::FiniteDifference2Approximation<T>>();
-        case kFD4:
+        case FD4:
             return std::make_unique<ps::FiniteDifference4Approximation<T>>();
         default:
             throw std::invalid_argument(
