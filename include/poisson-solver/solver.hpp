@@ -70,7 +70,6 @@ public:
            dim3 cuda_block_size = DefaultBlockSize())
         : solver_plan_(bcs),
           ns_(ns),
-          bcs_(bcs),
           cnt_(ComputeTotalGridSize(ns_)),
           norm_factor_(ComputeNormFactor(ns_)),
           cu_block_size_(cuda_block_size),
@@ -126,7 +125,6 @@ public:
 private:
     friend struct detail::SolverPlan<T, Dim>;
 
-    using SolveMethod = void (Solver::*)(std::span<T>, std::span<const T>);
     using HostOneAxisDenoms = std::vector<T>;
     using HostDenoms = std::array<HostOneAxisDenoms, Dim>;
     using CudaUniquePtrT = detail::CudaUniquePtr<T>;
@@ -139,7 +137,6 @@ private:
 
     // === Grid ===
     GridSizes<Dim> ns_;
-    BCs<Dim> bcs_;
     std::size_t cnt_;
 
     // === Physics and math ===
@@ -578,14 +575,13 @@ private:
     }
 };
 
-template <std::floating_point T, std::size_t Dim>
-    requires(Dim == 3)
+template <std::floating_point T>
 /**
  * @brief Solver for a non-uniform grid.
  *
  * @warning Only works for 3D grids.
  */
-class NonuniformZSolver : public ISolver<T, Dim> {
+class NonuniformZSolver : public ISolver<T, 3> {
     // TODO: Start implementing and see what you
     // need to put from Solver to ISolver.
 };
