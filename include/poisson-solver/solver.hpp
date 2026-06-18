@@ -486,6 +486,11 @@ private:
     using TridiagMatrixDiagonal = std::vector<T>;
     using TridiagMatrix = std::array<TridiagMatrixDiagonal, 3>;
 
+    // FFTPolicy needs domain dimension (which is three).
+    // The two-dimensionality of the FFT is handled
+    // by using only the 2D part of a `SplitLayout`.
+    using FFTPolicy = detail::FFTPolicy<T, 3>;
+
     detail::NonuniformZSolverPlan<T> solver_plan_;
     detail::SolverCore<T, 3, 2> core_;
 
@@ -580,11 +585,63 @@ private:
     }
 
     void SolvePPNs() {
-        throw std::runtime_error("Not yet implemented.");
+        using detail::runners::common_cmplx::Init;
+        using detail::runners::common_cmplx::Normalize;
+        using detail::runners::nonuniform_z::TridiagZCmplx;
+
+        Init(core_.cu_cmplx_workspace,
+             core_.cu_real_workspace,
+             core_.ns,
+             core_.cu_grid_size,
+             core_.cu_block_size);
+
+        FFTPolicy::Forward2D(core_.cu_cmplx_workspace.value().get(),
+                             core_.fft_plan);
+
+        TridiagZCmplx(core_.cu_cmplx_workspace.value().get(),
+                      core_.cu_cp_workspace.get(),
+                      core_.ns,
+                      core_.cu_denom_observers,
+                      cu_mat_a_.get(),
+                      cu_mat_b_.get(),
+                      cu_mat_c_.get(),
+                      core_.cu_grid_size,
+                      core_.cu_block_size);
+
+        FFTPolicy::Backward2D(core_.cu_cmplx_workspace.value().get(),
+                              core_.fft_plan);
+
+        Normalize(core_.cu_real_workspace.get(),
+                  core_.cu_cmplx_workspace.value().get(),
+                  core_.ns,
+                  core_.norm_factor,
+                  core_.cu_grid_size,
+                  core_.cu_block_size);
     }
 
     void SolveFullNeumann() {
-        throw std::runtime_error("Not yet implemented.");
+        using detail::runners::common_real::Normalize;
+        using detail::runners::nonuniform_z::TridiagZReal;
+
+        FFTPolicy::Forward2D(core_.cu_real_workspace.get(), core_.fft_plan);
+
+        TridiagZReal(core_.cu_real_workspace.get(),
+                     core_.cu_cp_workspace.get(),
+                     core_.ns,
+                     core_.cu_denom_observers,
+                     cu_mat_a_.get(),
+                     cu_mat_b_.get(),
+                     cu_mat_c_.get(),
+                     core_.cu_grid_size,
+                     core_.cu_block_size);
+
+        FFTPolicy::Backward2D(core_.cu_real_workspace.get(), core_.fft_plan);
+
+        Normalize(core_.cu_real_workspace.get(),
+                  core_.ns,
+                  core_.norm_factor,
+                  core_.cu_grid_size,
+                  core_.cu_block_size);
     }
 };
 }  // namespace poisson_solver
