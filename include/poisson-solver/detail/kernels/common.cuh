@@ -9,8 +9,16 @@
 #include <cstddef>
 #include <cuComplex.h>
 #include <cuda_runtime.h>
+#include <type_traits>
 
 namespace poisson_solver::detail::kernels {
+// === Concepts ===
+// Needed for operators without `std::floating_point T` parameter.
+// `CuComplexTrait<T>` would not be deducible in those.
+template <typename C>
+concept CuComplexType =
+    std::is_same_v<C, cuComplex> || std::is_same_v<C, cuDoubleComplex>;
+
 // === cu(Double)Complex Operators ===
 template <std::floating_point T>
 __host__ __device__ static __inline__ auto operator/=(
@@ -38,15 +46,13 @@ __host__ __device__ static __inline__ auto operator*(T val, CuComplexTrait<T> c)
     return {c.x * val, c.y * val};
 }
 
-template <std::floating_point T>
-__host__ __device__ static __inline__ auto operator-(
-    CuComplexTrait<T> c1, CuComplexTrait<T> c2) -> CuComplexTrait<T> {
+template <CuComplexType C>
+__host__ __device__ static __inline__ auto operator-(C c1, C c2) -> C {
     return {c1.x - c2.x, c1.y - c2.y};
 }
 
-template <std::floating_point T>
-__host__ __device__ static __inline__ auto operator-=(
-    CuComplexTrait<T> &c1, CuComplexTrait<T> c2) -> CuComplexTrait<T> & {
+template <CuComplexType C>
+__host__ __device__ static __inline__ auto operator-=(C &c1, C c2) -> C & {
     c1.x -= c2.x;
     c1.y -= c2.y;
     return c1;

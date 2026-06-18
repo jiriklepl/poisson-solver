@@ -3,6 +3,7 @@
 
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/helpers.hpp"
+#include "poisson-solver/detail/kernels/common.cuh"
 
 #include <concepts>
 #include <cuda_runtime.h>
