@@ -5,10 +5,53 @@
 #include "poisson-solver/detail/helpers.hpp"
 
 #include <array>
+#include <concepts>
 #include <cstddef>
+#include <cuComplex.h>
 #include <cuda_runtime.h>
 
 namespace poisson_solver::detail::kernels {
+// === cu(Double)Complex Operators ===
+template <std::floating_point T>
+__host__ __device__ static __inline__ auto operator/=(
+    CuComplexTrait<T> &c, T val) -> CuComplexTrait<T> & {
+    c.x /= val;
+    c.y /= val;
+    return c;
+}
+
+template <std::floating_point T>
+__host__ __device__ static __inline__ auto operator/(CuComplexTrait<T> c, T val)
+    -> CuComplexTrait<T> {
+    return {c.x / val, c.y / val};
+}
+
+template <std::floating_point T>
+__host__ __device__ static __inline__ auto operator*(CuComplexTrait<T> c, T val)
+    -> CuComplexTrait<T> {
+    return {c.x * val, c.y * val};
+}
+
+template <std::floating_point T>
+__host__ __device__ static __inline__ auto operator*(T val, CuComplexTrait<T> c)
+    -> CuComplexTrait<T> {
+    return {c.x * val, c.y * val};
+}
+
+template <std::floating_point T>
+__host__ __device__ static __inline__ auto operator-(
+    CuComplexTrait<T> c1, CuComplexTrait<T> c2) -> CuComplexTrait<T> {
+    return {c1.x - c2.x, c1.y - c2.y};
+}
+
+template <std::floating_point T>
+__host__ __device__ static __inline__ auto operator-=(
+    CuComplexTrait<T> &c1, CuComplexTrait<T> c2) -> CuComplexTrait<T> & {
+    c1.x -= c2.x;
+    c1.y -= c2.y;
+    return c1;
+}
+
 // Returns indices of the current thread
 template <std::size_t Dim>
 __device__ auto GetIdxs() -> MultidimIdx<Dim> {

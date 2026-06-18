@@ -7,6 +7,7 @@
 #include <array>
 #include <concepts>
 #include <cstddef>
+#include <type_traits>
 #include <cuComplex.h>
 #include <cuda_runtime.h>
 #include <memory>
@@ -45,6 +46,14 @@ using MultidimIdx = std::array<std::size_t, Dim>;
 
 template <std::floating_point T, std::size_t Dim>
 using DenomConstPtrs = std::array<const T *, Dim>;
+
+// === Concepts ===
+// Restricts workspace to be a real or complex workspace
+template <typename Workspace, typename T>
+concept ValidWorkspace = std::floating_point<T> &&
+                         (std::is_same_v<Workspace, T> ||
+                          std::is_same_v<Workspace, CuComplexTrait<T>>);
+
 
 // === Functions ===
 template <std::size_t Dim>

@@ -19,19 +19,11 @@
 #include <cuda_runtime.h>
 #include <sstream>
 #include <stdexcept>
-#include <type_traits>
 #include <variant>
 #include <vkFFT.h>
 #endif  // USE_MPI
 
 namespace poisson_solver::detail {
-// === Concepts ===
-// Restricts workspace to be a real or complex workspace
-template <typename Workspace, typename T>
-concept ValidWorkspace = std::floating_point<T> &&
-                         (std::is_same_v<Workspace, T> ||
-                          std::is_same_v<Workspace, detail::CuComplexTrait<T>>);
-
 // === Enums ===
 enum class FFTTransformType {
     Complex,
