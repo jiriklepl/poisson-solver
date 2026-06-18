@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 #include <span>
+#include <stdexcept>
 
 namespace poisson_solver {
 template <std::floating_point T, std::size_t Dim>
@@ -443,14 +444,148 @@ public:
         GridSizes<3> ns,
         std::array<T, 2> lens,
         BCs<3> bcs,
+        std::span<const T> z,
+        std::span<const T> z_u,
         const IApproximation<T> &approx = SpectralApproximation<T>{},
         dim3 cuda_block_size = ISolver<T, 3>::DefaultBlockSize())
         : solver_plan_(bcs),
-          core_(ns, lens, approx, cuda_block_size, solver_plan_) {}
+          core_(ns, lens, approx, cuda_block_size, solver_plan_) {
+        auto nz = ns[2];
+        AllocateDeviceBuffers(nz);
+        auto mat = BuildTridiagMatrix(z, z_u, nz);
+        CopyTridiagMatrixToDevice(mat, nz);
+    }
+
+    void Execute(std::span<T> phi,
+                 std::span<const T> rhs,
+                 GridSizes<3> ngs_phi,
+                 GridSizes<3> ngs_rhs) override {
+        // `const_cast` necessary due to
+        // CUDA C-like API interaction.
+        // Nothing is actually modified.
+        detail::MemcpyActiveGrid(const_cast<T *>(rhs.data()),
+                                 core_.cu_real_workspace.get(),
+                                 core_.ns,
+                                 ngs_rhs,
+                                 cudaMemcpyHostToDevice);
+        (this->*solver_plan_.solve_method)();
+
+        detail::MemcpyActiveGrid(phi.data(),
+                                 core_.cu_real_workspace.get(),
+                                 core_.ns,
+                                 ngs_phi,
+                                 cudaMemcpyDeviceToHost);
+    }
+
+    auto GetTotalGridSize() const -> std::size_t override {
+        return core_.cnt;
+    }
 
 private:
+    using CudaUniquePtrT = detail::SolverCore<T, 3, 2>::CudaUniquePtrT;
+    using TridiagMatrixDiagonal = std::vector<T>;
+    using TridiagMatrix = std::array<TridiagMatrixDiagonal, 3>;
+
     detail::NonuniformZSolverPlan<T> solver_plan_;
     detail::SolverCore<T, 3, 2> core_;
+
+    CudaUniquePtrT cu_mat_a_;
+    CudaUniquePtrT cu_mat_b_;
+    CudaUniquePtrT cu_mat_c_;
+
+    void AllocateDeviceBuffers(std::size_t nz) {
+        using detail::MakeCudaUnique;
+
+        cu_mat_a_ = MakeCudaUnique<T>(nz);
+        cu_mat_b_ = MakeCudaUnique<T>(nz);
+        cu_mat_c_ = MakeCudaUnique<T>(nz);
+    }
+
+    static auto BuildMatrixDiagonalA(std::span<const T> z,
+                                     std::span<const T> z_u,
+                                     std::size_t nz) -> TridiagMatrixDiagonal {
+        TridiagMatrixDiagonal mat_a(nz, 0);
+        for (std::size_t i = 1; i < nz; ++i) {
+            mat_a[i] = 1.0 / (z[i] - z[i - 1]) / (z_u[i + 1] - z_u[i]);
+        }
+        return mat_a;
+    }
+
+    static auto BuildMatrixDiagonalB(std::span<const T> z,
+                                     std::span<const T> z_u,
+                                     std::size_t nz) -> TridiagMatrixDiagonal {
+        TridiagMatrixDiagonal mat_b(nz, 0);
+        if (nz == 1) {
+            mat_b[0] = 0;
+        } else {
+            mat_b[0] = -1.0 / (z[1] - z[0]) / (z_u[1] - z_u[0]);
+        }
+
+        for (std::size_t i = 1; i < nz - 1; ++i) {
+            mat_b[i] = -1.0 / (z[i + 1] - z[i]) / (z_u[i + 1] - z_u[i]);
+            mat_b[i] -= 1.0 / (z[i] - z[i - 1]) / (z_u[i + 1] - z_u[i]);
+        }
+
+        if (nz > 1) {
+            std::size_t i = nz - 1;
+            mat_b[i] = -1.0 / (z[i] - z[i - 1]) / (z_u[i + 1] - z_u[i]);
+        }
+        return mat_b;
+    }
+
+    static auto BuildMatrixDiagonalC(std::span<const T> z,
+                                     std::span<const T> z_u,
+                                     std::size_t nz) -> TridiagMatrixDiagonal {
+        TridiagMatrixDiagonal mat_c(nz, 0);
+        for (std::size_t i = 0; i < nz - 1; ++i) {
+            mat_c[i] = 1.0 / (z[i + 1] - z[i]) / (z_u[i + 1] - z_u[i]);
+        }
+        return mat_c;
+    }
+
+    static auto BuildTridiagMatrix(std::span<const T> z,
+                                   std::span<const T> z_u,
+                                   std::size_t nz) -> TridiagMatrix {
+        if (z.size() < nz) {
+            throw std::invalid_argument("The size of `z` is too small.");
+        }
+        if (z_u.size() < nz + 1) {
+            throw std::invalid_argument("The size of `z_u` is too small.");
+        }
+
+        return {BuildMatrixDiagonalA(z, z_u, nz),
+                BuildMatrixDiagonalB(z, z_u, nz),
+                BuildMatrixDiagonalC(z, z_u, nz)};
+    }
+
+    /**
+     * @brief Copies all three diagonals to the device.
+     *
+     * @param[in] mat The three diagonals (all allocated to have size \p nz).
+     * @param[in] nz Main diagonal size.
+     */
+    void CopyTridiagMatrixToDevice(TridiagMatrix mat, std::size_t nz) {
+        CUCH(cudaMemcpy(cu_mat_a_.get(),
+                        mat[0].data(),
+                        nz * sizeof(T),
+                        cudaMemcpyHostToDevice));
+        CUCH(cudaMemcpy(cu_mat_b_.get(),
+                        mat[1].data(),
+                        nz * sizeof(T),
+                        cudaMemcpyHostToDevice));
+        CUCH(cudaMemcpy(cu_mat_c_.get(),
+                        mat[2].data(),
+                        nz * sizeof(T),
+                        cudaMemcpyHostToDevice));
+    }
+
+    void SolvePPNs() {
+        throw std::runtime_error("Not yet implemented.");
+    }
+
+    void SolveFullNeumann() {
+        throw std::runtime_error("Not yet implemented.");
+    }
 };
 }  // namespace poisson_solver
 
