@@ -440,6 +440,19 @@ template <std::floating_point T>
  */
 class NonuniformZSolver : public ISolver<T, 3> {
 public:
+    /**
+     * @brief Constructs a poisson solver with nonuniform Z axis.
+     *
+     * @param ns Sizes of the grid in each dimension (without ghost cells).
+     * @param lens Real lengths of the grid in each dimension.
+     * @param bcs Boundary conditions for each axis in the order {{west, east},
+     * {south, north}, {bottom, top}}.
+     * @param z [TODO:description]
+     * @param z_u [TODO:description]
+     * @param approx Desired approximation function. @see approximations.hpp
+     * @param cuda_block_size Optional CUDA block size used in every kernel.
+     * The `z` component will be unused (always set to 1).
+     */
     NonuniformZSolver(
         GridSizes<3> ns,
         std::array<T, 2> lens,
@@ -447,9 +460,11 @@ public:
         std::span<const T> z,
         std::span<const T> z_u,
         const IApproximation<T> &approx = SpectralApproximation<T>{},
-        dim3 cuda_block_size = ISolver<T, 3>::DefaultBlockSize())
+        dim3 cuda_block_size = DefaultBlockSize())
         : solver_plan_(bcs),
           core_(ns, lens, approx, cuda_block_size, solver_plan_) {
+        cuda_block_size.z = 1;
+
         auto nz = ns[2];
         AllocateDeviceBuffers(nz);
         auto mat = BuildTridiagMatrix(z, z_u, nz);
@@ -497,6 +512,16 @@ private:
     CudaUniquePtrT cu_mat_a_;
     CudaUniquePtrT cu_mat_b_;
     CudaUniquePtrT cu_mat_c_;
+
+    /**
+     * @note Shadows the `DefaultBlockSize` method in `ISolver` because
+     * `NonuniformZSolver` doesn't parallelize in Z dimension.
+     *
+     * @return Default block size for `NonuniformZSolver`.
+     */
+    static constexpr auto DefaultBlockSize() -> dim3 {
+        return {16, 16, 1};
+    }
 
     void AllocateDeviceBuffers(std::size_t nz) {
         using detail::MakeCudaUnique;

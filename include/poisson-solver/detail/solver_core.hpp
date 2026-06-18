@@ -100,13 +100,20 @@ private:
         return factor;
     }
 
+    /**
+     * @note The dimensionality of the result is determined by `FFTDim`.
+     * The computations in dimensions not transformed via FFT
+     * (e.g. Z in `NonuniformZSolver`) contain dependencies in that dimension.
+     * This forces the GPU threads to parallelize only on the remaining dims
+     * (e.g. X and Y in `NonuniformZSolver`).
+     */
     static auto ComputeCUDAGridSize(GridSizes<Dim> ns, dim3 block) -> dim3 {
-        if constexpr (Dim == 1) {
+        if constexpr (FFTDim == 1) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x};
-        } else if constexpr (Dim == 2) {
+        } else if constexpr (FFTDim == 2) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x,
                     (static_cast<unsigned>(ns[1]) + block.y - 1) / block.y};
-        } else if constexpr (Dim == 3) {
+        } else if constexpr (FFTDim == 3) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x,
                     (static_cast<unsigned>(ns[1]) + block.y - 1) / block.y,
                     (static_cast<unsigned>(ns[2]) + block.z - 1) / block.z};
