@@ -11,6 +11,7 @@
 #include <concepts>
 #include <cstddef>
 #include <memory>
+#include <stdexcept>
 
 namespace poisson_solver {
 // === Forward Declarations ===
@@ -27,20 +28,21 @@ namespace poisson_solver::detail {
 // === Structs ===
 
 // Holds the behaviour and configuration
-// of the solver that is dependant on BCs.
+// of the solver that is _dependant_ on BCs.
+// Also performs verification of BC combination.
 // Doesn't manage any memory.
-template <std::floating_point T, std::size_t Dim>
-    requires(Dim <= 3 && Dim >= 1)
+template <std::floating_point T, std::size_t FFTDim>
+    requires(FFTDim <= 3 && FFTDim >= 1)
 struct ISolverPlan {
 public:
     using AxisStrategies =
-        std::array<std::unique_ptr<const IAxisStrategy<T>>, Dim>;
+        std::array<std::unique_ptr<const IAxisStrategy<T>>, FFTDim>;
 
     AxisStrategies axis_strategies{};
     VariantLayout fft_layout{};
 
 protected:
-    explicit ISolverPlan(BCs<Dim> bcs, VariantLayout default_layout)
+    ISolverPlan(BCs<FFTDim> bcs, VariantLayout default_layout)
         : axis_strategies(GetAxisStrategies(bcs)),
           fft_layout(default_layout) {}
 
@@ -79,6 +81,9 @@ protected:
             return DCT4;
         }
         assert(false && "Invalid BC pair.");
+
+        // To avoid UB in release builds.
+        throw std::runtime_error("Should be unreachable.");
     }
 
 private:
@@ -107,24 +112,24 @@ private:
         throw std::invalid_argument("Invalid boundary condition combination.");
     }
 
-    static auto GetAxisStrategies(BCs<Dim> bcs) -> AxisStrategies {
+    static auto GetAxisStrategies(BCs<FFTDim> bcs) -> AxisStrategies {
         AxisStrategies strats{};
-        for (std::size_t d = 0; d < Dim; ++d) {
+        for (std::size_t d = 0; d < FFTDim; ++d) {
             strats[d] = GetAxisStrategy(bcs[d]);
         }
         return strats;
     }
 };
 
-template <std::floating_point T, std::size_t Dim>
-struct SolverPlan : public ISolverPlan<T, Dim> {
+template <std::floating_point T, std::size_t FFTDim>
+struct SolverPlan : public ISolverPlan<T, FFTDim> {
 public:
-    using SolveMethod = void (poisson_solver::Solver<T, Dim>::*)();
+    using SolveMethod = void (poisson_solver::Solver<T, FFTDim>::*)();
 
     SolveMethod solve_method{};
 
-    explicit SolverPlan(BCs<Dim> bcs)
-        : ISolverPlan<T, Dim>(bcs, FullLayout{}) {
+    explicit SolverPlan(BCs<FFTDim> bcs)
+        : ISolverPlan<T, FFTDim>(bcs, FullLayout{}) {
         bool all_bcs_identical = TryConstructFromFullBCs(bcs);
         if (all_bcs_identical) {
             return;
@@ -136,26 +141,26 @@ private:
     // Tries to construct the object in the case
     // all BCs are identical as this behavior is
     // shared among all dimensions.
-    auto TryConstructFromFullBCs(BCs<Dim> bcs) -> bool {
+    auto TryConstructFromFullBCs(BCs<FFTDim> bcs) -> bool {
         using std::ranges::all_of;
         using enum FFTTransformType;
 
         auto &layout = std::get<FullLayout>(this->fft_layout);
 
         if (all_of(bcs, IsPeriodic)) {
-            solve_method = &Solver<T, Dim>::SolveFullPeriodic;
+            solve_method = &Solver<T, FFTDim>::SolveFullPeriodic;
             layout.forward_type = Complex;
         } else if (all_of(bcs, IsDirichlet)) {
-            solve_method = &Solver<T, Dim>::SolveFullDirichlet;
+            solve_method = &Solver<T, FFTDim>::SolveFullDirichlet;
             layout.forward_type = DST1;
         } else if (all_of(bcs, IsDirichletStag)) {
-            solve_method = &Solver<T, Dim>::SolveFullDirichlet;
+            solve_method = &Solver<T, FFTDim>::SolveFullDirichlet;
             layout.forward_type = DST2;
         } else if (all_of(bcs, IsNeumann)) {
-            solve_method = &Solver<T, Dim>::SolveFullNeumann;
+            solve_method = &Solver<T, FFTDim>::SolveFullNeumann;
             layout.forward_type = DCT1;
         } else if (all_of(bcs, IsNeumannStag)) {
-            solve_method = &Solver<T, Dim>::SolveFullNeumann;
+            solve_method = &Solver<T, FFTDim>::SolveFullNeumann;
             layout.forward_type = DCT2;
         } else {
             return false;
@@ -182,7 +187,7 @@ private:
         }
 
         // In all non-throwing cases the solve method is full dirichlet.
-        solve_method = &Solver<T, Dim>::SolveFullDirichlet;
+        solve_method = &Solver<T, FFTDim>::SolveFullDirichlet;
     }
 
     void ConstructFromNonFullBCs3D(BCs<3> bcs) {
@@ -197,20 +202,20 @@ private:
         auto [bcx, bcy, bcz] = bcs;
 
         if (IsPeriodic(bcx) && IsPeriodic(bcy) && IsNeumannOrStag(bcz)) {
-            solve_method = &Solver<T, Dim>::SolvePPNs;
+            solve_method = &Solver<T, FFTDim>::SolvePPNs;
             layout.forward_type_1d = this->GetAxisFFTType(bcz);
             layout.forward_type_2d = Complex;
             layout.isolated_dim_idx = 2;
 
         } else if (IsPeriodic(bcx) && IsPeriodic(bcy) && !HasPeriodic(bcz) &&
                    HasDirichletOrStag(bcz)) {
-            solve_method = &Solver<T, Dim>::SolvePPD;
+            solve_method = &Solver<T, FFTDim>::SolvePPD;
             layout.forward_type_1d = this->GetAxisFFTType(bcz);
             layout.forward_type_2d = Complex;
             layout.isolated_dim_idx = 2;
 
         } else if (IsNeumannOrStag(bcx) && IsPeriodic(bcy) && IsPeriodic(bcz)) {
-            solve_method = &Solver<T, Dim>::SolveNsPP;
+            solve_method = &Solver<T, FFTDim>::SolveNsPP;
             layout.forward_type_1d = this->GetAxisFFTType(bcx);
             layout.forward_type_2d = Complex;
             layout.isolated_dim_idx = 0;
@@ -218,13 +223,13 @@ private:
         } else if (IsPeriodic(bcx) &&
                    ((IsNeumann(bcy) && IsNeumann(bcz)) ||
                     (IsNeumannStag(bcy) && IsNeumannStag(bcz)))) {
-            solve_method = &Solver<T, Dim>::SolvePNsNs;
+            solve_method = &Solver<T, FFTDim>::SolvePNsNs;
             layout.forward_type_1d = Complex;
             layout.forward_type_2d = this->GetAxisFFTType(bcy);
             layout.isolated_dim_idx = 0;
 
         } else if (IsPeriodic(bcx) && IsNeumannOrStag(bcy) && IsPeriodic(bcz)) {
-            solve_method = &Solver<T, Dim>::SolvePNsP;
+            solve_method = &Solver<T, FFTDim>::SolvePNsP;
             layout.forward_type_1d = this->GetAxisFFTType(bcy);
             layout.forward_type_2d = Complex;
             layout.isolated_dim_idx = 1;
@@ -232,21 +237,21 @@ private:
         } else if (((IsDirichlet(bcx) && IsDirichlet(bcy)) ||
                     (IsDirichletStag(bcx) && IsDirichletStag(bcy))) &&
                    IsPeriodic(bcz)) {
-            solve_method = &Solver<T, Dim>::SolveDDP;
+            solve_method = &Solver<T, FFTDim>::SolveDDP;
             layout.forward_type_1d = Complex;
             layout.forward_type_2d = this->GetAxisFFTType(bcx);
             layout.isolated_dim_idx = 2;
 
         } else if (none_of(bcs, IsPeriodic) && (bcx == bcy) && (bcx != bcz) &&
                    any_of(bcs, HasDirichletOrStag)) {
-            solve_method = &Solver<T, Dim>::Solve2Real1Real;
+            solve_method = &Solver<T, FFTDim>::Solve2Real1Real;
             layout.forward_type_1d = this->GetAxisFFTType(bcz);
             layout.forward_type_2d = this->GetAxisFFTType(bcx);
             layout.isolated_dim_idx = 2;
 
         } else if (none_of(bcs, IsPeriodic) && (bcy == bcz) && (bcx != bcy) &&
                    any_of(bcs, HasDirichletOrStag)) {
-            solve_method = &Solver<T, Dim>::Solve1Real2Real;
+            solve_method = &Solver<T, FFTDim>::Solve1Real2Real;
             layout.forward_type_1d = this->GetAxisFFTType(bcx);
             layout.forward_type_2d = this->GetAxisFFTType(bcy);
             layout.isolated_dim_idx = 0;
@@ -257,13 +262,13 @@ private:
     }
 
     // Fallback option if all BCs are not identical.
-    void ConstructFromNonFullBCs(BCs<Dim> bcs) {
-        if constexpr (Dim == 1) {
+    void ConstructFromNonFullBCs(BCs<FFTDim> bcs) {
+        if constexpr (FFTDim == 1) {
             ConstructFromNonFullBCs1D(bcs);
-        } else if constexpr (Dim == 2) {
+        } else if constexpr (FFTDim == 2) {
             // In 2D it is only valid to use full BCs.
             throw std::invalid_argument("Invalid combination of 2D BCs.");
-        } else if constexpr (Dim == 3) {
+        } else if constexpr (FFTDim == 3) {
             ConstructFromNonFullBCs3D(bcs);
         }
     }
