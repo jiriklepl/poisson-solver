@@ -4,6 +4,7 @@
 #include "poisson-solver/detail/runners/common_real.hpp"
 
 #include <concepts>
+#include <cuda_runtime.h>
 
 namespace poisson_solver::detail::runners::common_real {
 namespace ker = ::poisson_solver::detail::kernels::common_real;
