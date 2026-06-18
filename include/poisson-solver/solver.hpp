@@ -448,8 +448,10 @@ public:
      * @param lens Real lengths of the grid in each dimension.
      * @param bcs Boundary conditions for each axis in the order {{west, east},
      * {south, north}, {bottom, top}}.
-     * @param z [TODO:description]
-     * @param z_u [TODO:description]
+     * @param z Coordinates representing the cell centers along the Z-axis.
+     * Must contain at least `ns[2]` elements.
+     * @param z_u Coordinates representing the cell faces along the Z-axis.
+     * Must contain at least `ns[2] + 1` elements.
      * @param approx Desired approximation function. @see approximations.hpp
      * @param cuda_block_size Optional CUDA block size used in every kernel.
      * The `z` component will be unused (always set to 1).
