@@ -613,7 +613,7 @@ private:
     void SolvePPNs() {
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
-        using detail::runners::nonuniform_z::TridiagZCmplx;
+        using detail::runners::nonuniform_z::TridiagZ;
 
         Init(core_.cu_cmplx_workspace,
              core_.cu_real_workspace,
@@ -624,15 +624,15 @@ private:
         FFTPolicy::Forward2D(core_.cu_cmplx_workspace.value().get(),
                              core_.fft_plan);
 
-        TridiagZCmplx(core_.cu_cmplx_workspace.value().get(),
-                      core_.cu_cp_workspace.get(),
-                      core_.ns,
-                      core_.cu_denom_observers,
-                      cu_mat_a_.get(),
-                      cu_mat_b_.get(),
-                      cu_mat_c_.get(),
-                      core_.cu_grid_size,
-                      core_.cu_block_size);
+        TridiagZ(core_.cu_cmplx_workspace.value().get(),
+                 core_.cu_cp_workspace.get(),
+                 core_.ns,
+                 core_.cu_denom_observers,
+                 cu_mat_a_.get(),
+                 cu_mat_b_.get(),
+                 cu_mat_c_.get(),
+                 core_.cu_grid_size,
+                 core_.cu_block_size);
 
         FFTPolicy::Backward2D(core_.cu_cmplx_workspace.value().get(),
                               core_.fft_plan);
@@ -647,19 +647,19 @@ private:
 
     void SolveFullNeumann() {
         using detail::runners::common_real::Normalize;
-        using detail::runners::nonuniform_z::TridiagZReal;
+        using detail::runners::nonuniform_z::TridiagZ;
 
         FFTPolicy::Forward2D(core_.cu_real_workspace.get(), core_.fft_plan);
 
-        TridiagZReal(core_.cu_real_workspace.get(),
-                     core_.cu_cp_workspace.get(),
-                     core_.ns,
-                     core_.cu_denom_observers,
-                     cu_mat_a_.get(),
-                     cu_mat_b_.get(),
-                     cu_mat_c_.get(),
-                     core_.cu_grid_size,
-                     core_.cu_block_size);
+        TridiagZ(core_.cu_real_workspace.get(),
+                 core_.cu_cp_workspace.get(),
+                 core_.ns,
+                 core_.cu_denom_observers,
+                 cu_mat_a_.get(),
+                 cu_mat_b_.get(),
+                 cu_mat_c_.get(),
+                 core_.cu_grid_size,
+                 core_.cu_block_size);
 
         FFTPolicy::Backward2D(core_.cu_real_workspace.get(), core_.fft_plan);
 
