@@ -4,6 +4,7 @@ set(LIB_SRC
     detail/runners/common_real.cu
     detail/runners/common_cmplx.cu
     detail/runners/full_neumann.cu
+    detail/runners/nonuniform_z.cu
 )
 
 # Debug files shall have a `_debug` suffix

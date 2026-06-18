@@ -9,6 +9,7 @@
 #include "poisson-solver/detail/runners/common_cmplx.hpp"
 #include "poisson-solver/detail/runners/common_real.hpp"
 #include "poisson-solver/detail/runners/full_neumann.hpp"
+#include "poisson-solver/detail/runners/nonuniform_z.hpp"
 #include "poisson-solver/detail/solver_core.hpp"
 #include "poisson-solver/detail/solver_plan.hpp"
 
