@@ -116,6 +116,7 @@ auto ToCxxBCPair(BoundaryCondition c_bc1,
         delete static_cast<ps::ISolver<float, DIM> *>(solver->handle); \
     }
 
+namespace {
 DEFINE_EXECUTE(1)
 DEFINE_EXECUTE(2)
 DEFINE_EXECUTE(3)
@@ -131,6 +132,7 @@ DEFINE_EXECUTE_FLOAT(3)
 DEFINE_FINALIZE_FLOAT(1)
 DEFINE_FINALIZE_FLOAT(2)
 DEFINE_FINALIZE_FLOAT(3)
+}  // namespace
 
 #undef DEFINE_EXECUTE
 #undef DEFINE_FINALIZE
