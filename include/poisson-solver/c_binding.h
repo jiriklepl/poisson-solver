@@ -61,7 +61,7 @@ void PoissonSolverFinalizeFloat(PoissonSolver *solver);
 // === Nonuniform Solvers ===
 // `z` has to be of length `ns[2]` and `z_u` of `ns[2] + 1`
 // `lens` should contain only the lengths in X and Y dimension
-void PoissonSolverNonuniformNew(PoissonSolver *solver_out,
+void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
                                 const int ns[3],
                                 const double lens[2],
                                 const double *z,
@@ -69,15 +69,15 @@ void PoissonSolverNonuniformNew(PoissonSolver *solver_out,
                                 const BoundaryCondition bcs[6],
                                 Approximation approx);
 
-void PoissonSolverNonuniformExecute(PoissonSolver *solver,
+void PoissonSolverNonuniformZExecute(PoissonSolver *solver,
                                     double *phi,
                                     const double *rhs,
                                     const int *ngs_phi,
                                     const int *ngs_rhs);
 
-void PoissonSolverNonuniformFinalize(PoissonSolver *solver);
+void PoissonSolverNonuniformZFinalize(PoissonSolver *solver);
 
-void PoissonSolverNonuniformNewFloat(PoissonSolver *solver_out,
+void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
                                      const int *ns,
                                      const float *lens,
                                      const float *z,
@@ -85,13 +85,13 @@ void PoissonSolverNonuniformNewFloat(PoissonSolver *solver_out,
                                      const BoundaryCondition *bcs,
                                      Approximation approx);
 
-void PoissonSolverNonuniformExecuteFloat(PoissonSolver *solver,
+void PoissonSolverNonuniformZExecuteFloat(PoissonSolver *solver,
                                          float *phi,
                                          const float *rhs,
                                          const int *ngs_phi,
                                          const int *ngs_rhs);
 
-void PoissonSolverNonuniformFinalizeFloat(PoissonSolver *solver);
+void PoissonSolverNonuniformZFinalizeFloat(PoissonSolver *solver);
 #ifdef __cplusplus
 }
 #endif

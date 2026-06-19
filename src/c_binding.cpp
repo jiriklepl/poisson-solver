@@ -396,7 +396,7 @@ void PoissonSolverFinalizeFloat(PoissonSolver *solver) {
 
 // === Nonuniform Versions ===
 // == Double Versions ==
-void PoissonSolverNonuniformNew(PoissonSolver *solver_out,
+void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
                                 const int *ns,
                                 const double *lens,
                                 const double *z,
@@ -428,7 +428,7 @@ void PoissonSolverNonuniformNew(PoissonSolver *solver_out,
                    .nz = static_cast<std::size_t>(ns[2])};
 }
 
-void PoissonSolverNonuniformExecute(PoissonSolver *solver,
+void PoissonSolverNonuniformZExecute(PoissonSolver *solver,
                                     double *phi,
                                     const double *rhs,
                                     const int *ngs_phi,
@@ -444,14 +444,14 @@ void PoissonSolverNonuniformExecute(PoissonSolver *solver,
                     ngs_rhs_gs);
 }
 
-void PoissonSolverNonuniformFinalize(PoissonSolver *solver) {
+void PoissonSolverNonuniformZFinalize(PoissonSolver *solver) {
     delete static_cast<ps::ISolver<double, 3> *>(solver->handle);
     solver->handle = nullptr;
     solver->grid_size = 0;
 }
 
 // == Float Versions ==
-void PoissonSolverNonuniformNewFloat(PoissonSolver *solver_out,
+void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
                                      const int *ns,
                                      const float *lens,
                                      const float *z,
@@ -483,7 +483,7 @@ void PoissonSolverNonuniformNewFloat(PoissonSolver *solver_out,
                    .nz = static_cast<std::size_t>(ns[2])};
 }
 
-void PoissonSolverNonuniformExecuteFloat(PoissonSolver *solver,
+void PoissonSolverNonuniformZExecuteFloat(PoissonSolver *solver,
                                          float *phi,
                                          const float *rhs,
                                          const int *ngs_phi,
@@ -499,7 +499,7 @@ void PoissonSolverNonuniformExecuteFloat(PoissonSolver *solver,
                     ngs_rhs_gs);
 }
 
-void PoissonSolverNonuniformFinalizeFloat(PoissonSolver *solver) {
+void PoissonSolverNonuniformZFinalizeFloat(PoissonSolver *solver) {
     delete static_cast<ps::ISolver<float, 3> *>(solver->handle);
     solver->handle = nullptr;
     solver->grid_size = 0;
