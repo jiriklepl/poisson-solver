@@ -19,7 +19,8 @@ module PoisSolver
     integer(c_int), parameter :: PoisSolver_FiniteDifference2      = 2
     integer(c_int), parameter :: PoisSolver_FiniteDifference4      = 4
 
-    ! Doubles
+    ! === Uniform Solvers ===
+    ! == Doubles ==
     interface
 
         subroutine poisson_solver_new_c(solver_out, dims, ns, lens, bcs, approx) &
@@ -51,7 +52,7 @@ module PoisSolver
 
     end interface
 
-    ! Floats
+    ! == Floats ==
     interface
 
         subroutine poisson_solver_new_float_c(solver_out, dims, ns, lens, bcs, approx) &
@@ -83,6 +84,74 @@ module PoisSolver
 
     end interface
 
+    ! === Nonuniform Solvers ===
+    ! == Doubles ==
+    interface
+
+         subroutine poisson_solver_nonuniform_z_new_c(solver_out, ns, lens, &
+                 z, z_u, bcs, approx) &
+                bind(C, name="PoissonSolverNonuniformZNew")
+             import :: c_int, c_double, PoissonSolver
+             type(PoissonSolver), intent(out) :: solver_out
+             integer(c_int),      intent(in)  :: ns(*)
+             real(c_double),      intent(in)  :: lens(*)
+             real(c_double), intent(in) :: z(*)
+             real(c_double), intent(in) :: z_u(*)
+             integer(c_int),      intent(in)  :: bcs(*)
+             integer(c_int),      value       :: approx
+        end subroutine poisson_solver_nonuniform_z_new_c
+
+        subroutine poisson_solver_nonuniform_z_execute_c(solver, phi, rhs, ngs_phi, ngs_rhs) &
+                bind(C, name="PoissonSolverNonuniformZExecute")
+            import :: c_int, c_double, PoissonSolver
+            type(PoissonSolver), intent(inout) :: solver
+            real(c_double),      intent(out)   :: phi(*)
+            real(c_double),      intent(in)    :: rhs(*)
+            integer(c_int),      intent(in)    :: ngs_phi(*)
+            integer(c_int),      intent(in)    :: ngs_rhs(*)
+        end subroutine poisson_solver_nonuniform_z_execute_c
+
+        subroutine poisson_solver_nonuniform_z_finalize_c(solver) &
+                bind(C, name="PoissonSolverNonuniformZFinalize")
+            import :: PoissonSolver
+            type(PoissonSolver), intent(inout) :: solver
+        end subroutine poisson_solver_nonuniform_z_finalize_c
+
+    end interface
+
+    ! == Floats ==
+    interface
+
+         subroutine poisson_solver_nonuniform_z_new_float_c(solver_out, ns, lens, &
+                 z, z_u, bcs, approx) &
+                bind(C, name="PoissonSolverNonuniformZNewFloat")
+             import :: c_int, c_float, PoissonSolver
+             type(PoissonSolver), intent(out) :: solver_out
+             integer(c_int),      intent(in)  :: ns(*)
+             real(c_float),      intent(in)  :: lens(*)
+             real(c_float), intent(in) :: z(*)
+             real(c_float), intent(in) :: z_u(*)
+             integer(c_int),      intent(in)  :: bcs(*)
+             integer(c_int),      value       :: approx
+        end subroutine poisson_solver_nonuniform_z_new_float_c
+
+        subroutine poisson_solver_nonuniform_z_execute_float_c(solver, phi, rhs, ngs_phi, ngs_rhs) &
+                bind(C, name="PoissonSolverNonuniformZExecuteFloat")
+            import :: c_int, c_float, PoissonSolver
+            type(PoissonSolver), intent(inout) :: solver
+            real(c_float),      intent(out)   :: phi(*)
+            real(c_float),      intent(in)    :: rhs(*)
+            integer(c_int),      intent(in)    :: ngs_phi(*)
+            integer(c_int),      intent(in)    :: ngs_rhs(*)
+        end subroutine poisson_solver_nonuniform_z_execute_float_c
+
+        subroutine poisson_solver_nonuniform_z_finalize_float_c(solver) &
+                bind(C, name="PoissonSolverNonuniformZFinalizeFloat")
+            import :: PoissonSolver
+            type(PoissonSolver), intent(inout) :: solver
+        end subroutine poisson_solver_nonuniform_z_finalize_float_c
+    end interface
+
     interface poisson_solver_execute
         module procedure poisson_solver_execute_1d
         module procedure poisson_solver_execute_2d
@@ -95,8 +164,10 @@ module PoisSolver
         module procedure poisson_solver_execute_3d_float
     end interface
 
-
 contains
+    ! === Uniform Solvers ===
+    ! == Doubles ==
+
     ! Creates a new solver, writing the result into `solver`.
     !
     ! dims        : number of spatial dimensions (1, 2, or 3)
@@ -168,6 +239,8 @@ contains
         call poisson_solver_finalize_c(solver)
     end subroutine poisson_solver_finalize
 
+    ! == Floats ==
+
     ! Creates a new solver, writing the result into `solver`.
     !
     ! dims        : number of spatial dimensions (1, 2, or 3)
@@ -238,5 +311,72 @@ contains
 
         call poisson_solver_finalize_float_c(solver)
     end subroutine poisson_solver_finalize_float
+
+    ! === Nonuniform Solvers ===
+    ! == Doubles ==
+    subroutine poisson_solver_nonuniform_z_new(solver, ns, lens,&
+            z, z_u, bcs, approx)
+        type(PoissonSolver), intent(out) :: solver
+        integer,             intent(in)  :: ns(3)
+        real(c_double),      intent(in)  :: lens(2)
+        real(c_double),      intent(in)  :: z(:)
+        real(c_double),      intent(in)  :: z_u(:)
+        integer,             intent(in)  :: bcs(2 * 3)
+        integer,             intent(in)  :: approx
+        
+        call poisson_solver_nonuniform_z_new_c(solver, int(ns, c_int), lens, &
+            z, z_u, int(bcs, c_int), int(approx, c_int))
+    end subroutine poisson_solver_nonuniform_z_new
+
+    subroutine poisson_solver_nonuniform_z_execute(solver, phi, rhs)
+        type(PoissonSolver), intent(inout) :: solver
+        real(c_double),      intent(out)   :: phi(:, :, :)
+        real(c_double),      intent(in)    :: rhs(:, :, :)
+        integer(c_int) :: ngs_phi(3), ngs_rhs(3)
+
+        ngs_phi = int((shape(phi) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+        ngs_rhs = int((shape(rhs) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+
+        call poisson_solver_nonuniform_z_execute_c(solver, phi, rhs, ngs_phi, ngs_rhs)
+    end subroutine poisson_solver_nonuniform_z_execute
+
+    subroutine poisson_solver_nonuniform_z_finalize(solver)
+        type(PoissonSolver), intent(inout) :: solver
+
+        call poisson_solver_nonuniform_z_finalize_c(solver)
+    end subroutine poisson_solver_nonuniform_z_finalize
+
+    ! == Floats ==
+    subroutine poisson_solver_nonuniform_z_new_float(solver, ns, lens,&
+            z, z_u, bcs, approx)
+        type(PoissonSolver), intent(out) :: solver
+        integer,             intent(in)  :: ns(3)
+        real(c_float),      intent(in)  :: lens(2)
+        real(c_float),      intent(in)  :: z(:)
+        real(c_float),      intent(in)  :: z_u(:)
+        integer,             intent(in)  :: bcs(2 * 3)
+        integer,             intent(in)  :: approx
+        
+        call poisson_solver_nonuniform_z_new_float_c(solver, int(ns, c_int), lens, &
+            z, z_u, int(bcs, c_int), int(approx, c_int))
+    end subroutine poisson_solver_nonuniform_z_new_float
+
+    subroutine poisson_solver_nonuniform_z_execute_float(solver, phi, rhs)
+        type(PoissonSolver), intent(inout) :: solver
+        real(c_float),      intent(out)   :: phi(:, :, :)
+        real(c_float),      intent(in)    :: rhs(:, :, :)
+        integer(c_int) :: ngs_phi(3), ngs_rhs(3)
+
+        ngs_phi = int((shape(phi) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+        ngs_rhs = int((shape(rhs) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+
+        call poisson_solver_nonuniform_z_execute_float_c(solver, phi, rhs, ngs_phi, ngs_rhs)
+    end subroutine poisson_solver_nonuniform_z_execute_float
+
+    subroutine poisson_solver_nonuniform_z_finalize_float(solver)
+        type(PoissonSolver), intent(inout) :: solver
+
+        call poisson_solver_nonuniform_z_finalize_float_c(solver)
+    end subroutine poisson_solver_nonuniform_z_finalize_float
 
 end module PoisSolver
