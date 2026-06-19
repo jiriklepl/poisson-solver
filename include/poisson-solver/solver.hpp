@@ -459,9 +459,9 @@ public:
     NonuniformZSolver(
         GridSizes<3> ns,
         std::array<T, 2> lens,
-        BCs<3> bcs,
         std::span<const T> z,
         std::span<const T> z_u,
+        BCs<3> bcs,
         const IApproximation<T> &approx = SpectralApproximation<T>{},
         dim3 cuda_block_size = DefaultBlockSize())
         : solver_plan_(bcs),
