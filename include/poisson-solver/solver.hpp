@@ -500,6 +500,8 @@ public:
     }
 
 private:
+    friend struct detail::NonuniformZSolverPlan<T>;
+
     using CudaUniquePtrT = detail::SolverCore<T, 3, 2>::CudaUniquePtrT;
     using TridiagMatrixDiagonal = std::vector<T>;
     using TridiagMatrix = std::array<TridiagMatrixDiagonal, 3>;
@@ -515,6 +517,8 @@ private:
     CudaUniquePtrT cu_mat_a_;
     CudaUniquePtrT cu_mat_b_;
     CudaUniquePtrT cu_mat_c_;
+
+    CudaUniquePtrT cu_cp_workspace_;
 
     /**
      * @note Shadows the `DefaultBlockSize` method in `ISolver` because
@@ -532,6 +536,7 @@ private:
         cu_mat_a_ = MakeCudaUnique<T>(nz);
         cu_mat_b_ = MakeCudaUnique<T>(nz);
         cu_mat_c_ = MakeCudaUnique<T>(nz);
+        cu_cp_workspace_ = MakeCudaUnique<T>(core_.cnt);
     }
 
     static auto BuildMatrixDiagonalA(std::span<const T> z,
@@ -617,8 +622,8 @@ private:
         using detail::runners::common_cmplx::Normalize;
         using detail::runners::nonuniform_z::TridiagZ;
 
-        Init(core_.cu_cmplx_workspace,
-             core_.cu_real_workspace,
+        Init(core_.cu_cmplx_workspace.value().get(),
+             core_.cu_real_workspace.get(),
              core_.ns,
              core_.cu_grid_size,
              core_.cu_block_size);
@@ -627,7 +632,7 @@ private:
                              core_.fft_plan);
 
         TridiagZ(core_.cu_cmplx_workspace.value().get(),
-                 core_.cu_cp_workspace.get(),
+                 cu_cp_workspace_.get(),
                  core_.ns,
                  core_.cu_denom_observers,
                  cu_mat_a_.get(),
@@ -654,7 +659,7 @@ private:
         FFTPolicy::Forward2D(core_.cu_real_workspace.get(), core_.fft_plan);
 
         TridiagZ(core_.cu_real_workspace.get(),
-                 core_.cu_cp_workspace.get(),
+                 cu_cp_workspace_.get(),
                  core_.ns,
                  core_.cu_denom_observers,
                  cu_mat_a_.get(),

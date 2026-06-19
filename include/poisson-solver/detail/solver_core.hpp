@@ -14,6 +14,7 @@
 #include <numbers>
 #include <numeric>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace poisson_solver::detail {
@@ -69,7 +70,7 @@ public:
                const IApproximation<T> &approx,
                dim3 cuda_block_size,
                const ISolverPlan<T, FFTDim> &sp)
-        : fft_plan(FFTPolicy<T, FFTDim>::Init(ns, sp.fft_layout)),
+        : fft_plan(FFTPolicy<T, FFTDim>::Init(Truncate(ns), sp.fft_layout)),
           ns(ns),
           cnt(ComputeTotalGridSize(ns)),
           norm_factor(ComputeNormFactor(ns, sp)),
@@ -85,6 +86,23 @@ public:
     }
 
 private:
+    template <std::size_t N, std::size_t... Is>
+    static constexpr auto TruncateImpl(GridSizes<N> ns,
+                                       std::index_sequence<Is...> /*unused*/)
+        -> GridSizes<sizeof...(Is)> {
+        return {ns[Is]...};
+    }
+
+    /**
+     * @brief Truncates the \p ns from size `Dim` to size `FFTDim`.
+     *
+     * @param ns
+     * @return Truncated \p ns.
+     */
+    static constexpr auto Truncate(GridSizes<Dim> ns) -> GridSizes<FFTDim> {
+        return TruncateImpl(ns, std::make_index_sequence<FFTDim>{});
+    }
+
     static auto ComputeTotalGridSize(GridSizes<Dim> ns) -> std::size_t {
         return std::accumulate(
             ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>{});
