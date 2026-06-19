@@ -62,34 +62,34 @@ void PoissonSolverFinalizeFloat(PoissonSolver *solver);
 // `z` has to be of length `ns[2]` and `z_u` of `ns[2] + 1`
 // `lens` should contain only the lengths in X and Y dimension
 void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
-                                const int ns[3],
-                                const double lens[2],
-                                const double *z,
-                                const double *z_u,
-                                const BoundaryCondition bcs[6],
-                                Approximation approx);
+                                 const int ns[3],
+                                 const double lens[2],
+                                 const double *z,
+                                 const double *z_u,
+                                 const BoundaryCondition bcs[6],
+                                 Approximation approx);
 
 void PoissonSolverNonuniformZExecute(PoissonSolver *solver,
-                                    double *phi,
-                                    const double *rhs,
-                                    const int *ngs_phi,
-                                    const int *ngs_rhs);
+                                     double *phi,
+                                     const double *rhs,
+                                     const int *ngs_phi,
+                                     const int *ngs_rhs);
 
 void PoissonSolverNonuniformZFinalize(PoissonSolver *solver);
 
 void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
-                                     const int *ns,
-                                     const float *lens,
-                                     const float *z,
-                                     const float *z_u,
-                                     const BoundaryCondition *bcs,
-                                     Approximation approx);
+                                      const int *ns,
+                                      const float *lens,
+                                      const float *z,
+                                      const float *z_u,
+                                      const BoundaryCondition *bcs,
+                                      Approximation approx);
 
 void PoissonSolverNonuniformZExecuteFloat(PoissonSolver *solver,
-                                         float *phi,
-                                         const float *rhs,
-                                         const int *ngs_phi,
-                                         const int *ngs_rhs);
+                                          float *phi,
+                                          const float *rhs,
+                                          const int *ngs_phi,
+                                          const int *ngs_rhs);
 
 void PoissonSolverNonuniformZFinalizeFloat(PoissonSolver *solver);
 #ifdef __cplusplus
