@@ -397,12 +397,12 @@ void PoissonSolverFinalizeFloat(PoissonSolver *solver) {
 // === Nonuniform Versions ===
 // == Double Versions ==
 void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
-                                const int *ns,
-                                const double *lens,
-                                const double *z,
-                                const double *z_u,
-                                const BoundaryCondition *bcs,
-                                Approximation approx) {
+                                 const int *ns,
+                                 const double *lens,
+                                 const double *z,
+                                 const double *z_u,
+                                 const BoundaryCondition *bcs,
+                                 Approximation approx) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
@@ -429,10 +429,10 @@ void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
 }
 
 void PoissonSolverNonuniformZExecute(PoissonSolver *solver,
-                                    double *phi,
-                                    const double *rhs,
-                                    const int *ngs_phi,
-                                    const int *ngs_rhs) {
+                                     double *phi,
+                                     const double *rhs,
+                                     const int *ngs_phi,
+                                     const int *ngs_rhs) {
     auto *handle = static_cast<ps::ISolver<double, 3> *>(solver->handle);
 
     auto ngs_phi_gs = ToGridSizes<3>(ngs_phi);
@@ -452,12 +452,12 @@ void PoissonSolverNonuniformZFinalize(PoissonSolver *solver) {
 
 // == Float Versions ==
 void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
-                                     const int *ns,
-                                     const float *lens,
-                                     const float *z,
-                                     const float *z_u,
-                                     const BoundaryCondition *bcs,
-                                     Approximation approx) {
+                                      const int *ns,
+                                      const float *lens,
+                                      const float *z,
+                                      const float *z_u,
+                                      const BoundaryCondition *bcs,
+                                      Approximation approx) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
@@ -484,10 +484,10 @@ void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
 }
 
 void PoissonSolverNonuniformZExecuteFloat(PoissonSolver *solver,
-                                         float *phi,
-                                         const float *rhs,
-                                         const int *ngs_phi,
-                                         const int *ngs_rhs) {
+                                          float *phi,
+                                          const float *rhs,
+                                          const int *ngs_phi,
+                                          const int *ngs_rhs) {
     auto *handle = static_cast<ps::ISolver<float, 3> *>(solver->handle);
 
     auto ngs_phi_gs = ToGridSizes<3>(ngs_phi);
