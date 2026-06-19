@@ -6,9 +6,9 @@
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/fft_policies.hpp"
 #include "poisson-solver/detail/helpers.hpp"
+#include "poisson-solver/detail/runners/common.hpp"
 #include "poisson-solver/detail/runners/common_cmplx.hpp"
 #include "poisson-solver/detail/runners/common_real.hpp"
-#include "poisson-solver/detail/runners/full_neumann.hpp"
 #include "poisson-solver/detail/runners/nonuniform_z.hpp"
 #include "poisson-solver/detail/solver_core.hpp"
 #include "poisson-solver/detail/solver_plan.hpp"
@@ -124,7 +124,7 @@ private:
     detail::SolverCore<T, Dim> core_;
 
     void SolveFullPeriodic() {
-        using detail::runners::common_cmplx::DivideByDenomsAndZero;
+        using detail::runners::DivideByDenomsAndZero;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -154,7 +154,7 @@ private:
     }
 
     void SolveFullDirichlet() {
-        using detail::runners::common_real::DivideByDenoms;
+        using detail::runners::DivideByDenoms;
         using detail::runners::common_real::Normalize;
 
         FFTPolicy::Forward(core_.cu_real_workspace.get(), core_.fft_plan);
@@ -174,16 +174,16 @@ private:
     }
 
     void SolveFullNeumann() {
+        using detail::runners::DivideByDenomsAndZero;
         using detail::runners::common_real::Normalize;
-        using detail::runners::full_neumann::DivideByDenoms;
 
         FFTPolicy::Forward(core_.cu_real_workspace.get(), core_.fft_plan);
 
-        DivideByDenoms(core_.cu_real_workspace.get(),
-                       core_.ns,
-                       core_.cu_denom_observers,
-                       core_.cu_grid_size,
-                       core_.cu_block_size);
+        DivideByDenomsAndZero(core_.cu_real_workspace.get(),
+                              core_.ns,
+                              core_.cu_denom_observers,
+                              core_.cu_grid_size,
+                              core_.cu_block_size);
 
         FFTPolicy::Backward(core_.cu_real_workspace.get(), core_.fft_plan);
         Normalize(core_.cu_real_workspace.get(),
@@ -194,7 +194,7 @@ private:
     }
 
     void SolvePPNs() {
-        using detail::runners::common_cmplx::DivideByDenomsAndZero;
+        using detail::runners::DivideByDenomsAndZero;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -225,7 +225,7 @@ private:
     }
 
     void SolvePPD() {
-        using detail::runners::common_cmplx::DivideByDenoms;
+        using detail::runners::DivideByDenoms;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -259,7 +259,7 @@ private:
         // TODO: Same body as PPNs.
         // Only is change in `fft_plan_` construction
         // but this doesn't concern this function.
-        using detail::runners::common_cmplx::DivideByDenomsAndZero;
+        using detail::runners::DivideByDenomsAndZero;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -290,7 +290,7 @@ private:
     }
 
     void SolvePNsNs() {
-        using detail::runners::common_cmplx::DivideByDenomsAndZero;
+        using detail::runners::DivideByDenomsAndZero;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -324,7 +324,7 @@ private:
         // TODO: Same body as PPNs.
         // Only is change in `fft_plan_` construction
         // but this doesn't concern this function.
-        using detail::runners::common_cmplx::DivideByDenomsAndZero;
+        using detail::runners::DivideByDenomsAndZero;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -355,7 +355,7 @@ private:
     }
 
     void SolveDDP() {
-        using detail::runners::common_cmplx::DivideByDenoms;
+        using detail::runners::DivideByDenoms;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -386,7 +386,7 @@ private:
     }
 
     void Solve2Real1Real() {
-        using detail::runners::common_real::DivideByDenoms;
+        using detail::runners::DivideByDenoms;
         using detail::runners::common_real::Normalize;
 
         FFTPolicy::Forward2D(core_.cu_real_workspace.get(), core_.fft_plan);
@@ -411,7 +411,7 @@ private:
         // TODO: Same body as 2Real1Real.
         // Only is change in `fft_plan_` construction
         // but this doesn't concern this function.
-        using detail::runners::common_real::DivideByDenoms;
+        using detail::runners::DivideByDenoms;
         using detail::runners::common_real::Normalize;
 
         FFTPolicy::Forward2D(core_.cu_real_workspace.get(), core_.fft_plan);

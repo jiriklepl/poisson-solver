@@ -20,6 +20,9 @@ concept CuComplexType =
     std::is_same_v<C, cuComplex> || std::is_same_v<C, cuDoubleComplex>;
 
 // === cu(Double)Complex Operators ===
+// These facilitate kernel writing so that real and
+// complex kernels don't differ syntactically.
+
 template <std::floating_point T>
 __host__ __device__ static __inline__ auto operator/=(
     CuComplexTrait<T> &c, T val) -> CuComplexTrait<T> & {
@@ -126,6 +129,30 @@ __device__ auto SumIndexedDenoms(DenomConstPtrs<T, Dim> denoms,
         res += denoms[d][midx[d]];
     }
     return res;
+}
+
+template <std::floating_point T, std::size_t Dim, ValidWorkspace<T> Workspace>
+__global__ void DivideByDenoms(Workspace *workspace,
+                               GridSizes<Dim> ns,
+                               DenomConstPtrs<T, Dim> denoms) {
+    ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
+        const std::size_t idx = FlatIndex(midx, ns);
+        workspace[idx] /= SumIndexedDenoms(denoms, midx);
+    });
+}
+
+template <std::floating_point T, std::size_t Dim, ValidWorkspace<T> Workspace>
+__global__ void DivideByDenomsAndZero(Workspace *workspace,
+                                      GridSizes<Dim> ns,
+                                      DenomConstPtrs<T, Dim> denoms) {
+    ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
+        const std::size_t idx = FlatIndex(midx, ns);
+        if (idx == 0) {
+            workspace[idx] = Workspace{T{0.0}};
+            return;
+        }
+        workspace[idx] /= SumIndexedDenoms(denoms, midx);
+    });
 }
 }  // namespace poisson_solver::detail::kernels
 
