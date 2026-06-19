@@ -141,7 +141,8 @@ DEFINE_FINALIZE_FLOAT(3)
 
 extern "C" {
 
-// === DOUBLE VERSIONS ===
+// === Uniform Versions ===
+// == Double Version ==
 
 void PoissonSolver1DNew(PoissonSolver *solver_out,
                         const int ns[1],
@@ -267,7 +268,7 @@ void PoissonSolverFinalize(PoissonSolver *solver) {
     solver->grid_size = 0;
 }
 
-// === FLOAT VERSIONS ===
+// == Float Versions ==
 
 void PoissonSolver1DNewFloat(PoissonSolver *solver_out,
                              const int ns[1],
@@ -389,6 +390,117 @@ void PoissonSolverFinalizeFloat(PoissonSolver *solver) {
             throw std::invalid_argument("Invalid amount of dimensions" +
                                         std::to_string(solver->dim) + ".");
     }
+    solver->handle = nullptr;
+    solver->grid_size = 0;
+}
+
+// === Nonuniform Versions ===
+// == Double Versions ==
+void PoissonSolverNonuniformNew(PoissonSolver *solver_out,
+                                const int *ns,
+                                const double *lens,
+                                const double *z,
+                                const double *z_u,
+                                const BoundaryCondition *bcs,
+                                Approximation approx) {
+    ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
+    ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
+    ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
+
+    ps::GridSizes<3> grid_sizes = {static_cast<std::size_t>(ns[0]),
+                                   static_cast<std::size_t>(ns[1]),
+                                   static_cast<std::size_t>(ns[2])};
+
+    auto ps_approx = GetApprox<double>(approx);
+
+    ps::ISolver<double, 3> *solver_handle =
+        new ps::NonuniformZSolver<double>(grid_sizes,
+                                          {lens[0], lens[1]},
+                                          std::span{z, grid_sizes[2]},
+                                          std::span{z_u, grid_sizes[2] + 1},
+                                          {bcp1, bcp2, bcp3},
+                                          *ps_approx);
+    *solver_out = {.handle = solver_handle,
+                   .grid_size = solver_handle->GetTotalGridSize(),
+                   .dim = 3,
+                   .nx = static_cast<std::size_t>(ns[0]),
+                   .ny = static_cast<std::size_t>(ns[1]),
+                   .nz = static_cast<std::size_t>(ns[2])};
+}
+
+void PoissonSolverNonuniformExecute(PoissonSolver *solver,
+                                    double *phi,
+                                    const double *rhs,
+                                    const int *ngs_phi,
+                                    const int *ngs_rhs) {
+    auto *handle = static_cast<ps::ISolver<double, 3> *>(solver->handle);
+
+    auto ngs_phi_gs = ToGridSizes<3>(ngs_phi);
+    auto ngs_rhs_gs = ToGridSizes<3>(ngs_rhs);
+
+    handle->Execute(std::span{phi, solver->grid_size},
+                    std::span{rhs, solver->grid_size},
+                    ngs_phi_gs,
+                    ngs_rhs_gs);
+}
+
+void PoissonSolverNonuniformFinalize(PoissonSolver *solver) {
+    delete static_cast<ps::ISolver<double, 3> *>(solver->handle);
+    solver->handle = nullptr;
+    solver->grid_size = 0;
+}
+
+// == Float Versions ==
+void PoissonSolverNonuniformNewFloat(PoissonSolver *solver_out,
+                                     const int *ns,
+                                     const float *lens,
+                                     const float *z,
+                                     const float *z_u,
+                                     const BoundaryCondition *bcs,
+                                     Approximation approx) {
+    ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
+    ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
+    ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
+
+    ps::GridSizes<3> grid_sizes = {static_cast<std::size_t>(ns[0]),
+                                   static_cast<std::size_t>(ns[1]),
+                                   static_cast<std::size_t>(ns[2])};
+
+    auto ps_approx = GetApprox<float>(approx);
+
+    ps::ISolver<float, 3> *solver_handle =
+        new ps::NonuniformZSolver<float>(grid_sizes,
+                                         {lens[0], lens[1]},
+                                         std::span{z, grid_sizes[2]},
+                                         std::span{z_u, grid_sizes[2] + 1},
+                                         {bcp1, bcp2, bcp3},
+                                         *ps_approx);
+    *solver_out = {.handle = solver_handle,
+                   .grid_size = solver_handle->GetTotalGridSize(),
+                   .dim = 3,
+                   .nx = static_cast<std::size_t>(ns[0]),
+                   .ny = static_cast<std::size_t>(ns[1]),
+                   .nz = static_cast<std::size_t>(ns[2])};
+}
+
+void PoissonSolverNonuniformExecuteFloat(PoissonSolver *solver,
+                                         float *phi,
+                                         const float *rhs,
+                                         const int *ngs_phi,
+                                         const int *ngs_rhs) {
+    auto *handle = static_cast<ps::ISolver<float, 3> *>(solver->handle);
+
+    auto ngs_phi_gs = ToGridSizes<3>(ngs_phi);
+    auto ngs_rhs_gs = ToGridSizes<3>(ngs_rhs);
+
+    handle->Execute(std::span{phi, solver->grid_size},
+                    std::span{rhs, solver->grid_size},
+                    ngs_phi_gs,
+                    ngs_rhs_gs);
+}
+
+void PoissonSolverNonuniformFinalizeFloat(PoissonSolver *solver) {
+    delete static_cast<ps::ISolver<float, 3> *>(solver->handle);
     solver->handle = nullptr;
     solver->grid_size = 0;
 }

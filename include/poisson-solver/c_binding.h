@@ -27,6 +27,7 @@ typedef enum {
 
 typedef enum { Spectral = 0, FD2 = 2, FD4 = 4 } Approximation;
 
+// === Uniform Solvers ===
 void PoissonSolverNew(PoissonSolver *solver_out,
                       int dims,
                       const int *ns,
@@ -56,6 +57,41 @@ void PoissonSolverExecuteFloat(PoissonSolver *solver,
                                const int *ngs_rhs);
 
 void PoissonSolverFinalizeFloat(PoissonSolver *solver);
+
+// === Nonuniform Solvers ===
+// `z` has to be of length `ns[2]` and `z_u` of `ns[2] + 1`
+// `lens` should contain only the lengths in X and Y dimension
+void PoissonSolverNonuniformNew(PoissonSolver *solver_out,
+                                const int ns[3],
+                                const double lens[2],
+                                const double *z,
+                                const double *z_u,
+                                const BoundaryCondition bcs[6],
+                                Approximation approx);
+
+void PoissonSolverNonuniformExecute(PoissonSolver *solver,
+                                    double *phi,
+                                    const double *rhs,
+                                    const int *ngs_phi,
+                                    const int *ngs_rhs);
+
+void PoissonSolverNonuniformFinalize(PoissonSolver *solver);
+
+void PoissonSolverNonuniformNewFloat(PoissonSolver *solver_out,
+                                     const int *ns,
+                                     const float *lens,
+                                     const float *z,
+                                     const float *z_u,
+                                     const BoundaryCondition *bcs,
+                                     Approximation approx);
+
+void PoissonSolverNonuniformExecuteFloat(PoissonSolver *solver,
+                                         float *phi,
+                                         const float *rhs,
+                                         const int *ngs_phi,
+                                         const int *ngs_rhs);
+
+void PoissonSolverNonuniformFinalizeFloat(PoissonSolver *solver);
 #ifdef __cplusplus
 }
 #endif
