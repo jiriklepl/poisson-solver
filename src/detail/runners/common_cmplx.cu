@@ -29,6 +29,7 @@ void Normalize(T *res,
                dim3 cu_block_size) {
     ker::Normalize<<<cu_grid_size, cu_block_size>>>(
         res, cmplx_workspace, ns, norm_factor);
+    CUCH(cudaGetLastError());
 }
 
 // === Explicit Instantiations ===

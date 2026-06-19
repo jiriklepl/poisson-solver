@@ -3,6 +3,8 @@
 #include "poisson-solver/detail/kernels/common.cuh"
 #include "poisson-solver/detail/runners/common.hpp"
 
+#include <concepts>
+
 namespace poisson_solver::detail::runners {
 namespace ker = ::poisson_solver::detail::kernels;
 
