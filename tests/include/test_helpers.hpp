@@ -1,5 +1,6 @@
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
+#include "poisson-solver/c_binding.h"
 #include "poisson-solver/detail/helpers.hpp"
 
 #include <algorithm>
@@ -8,6 +9,7 @@
 #include <functional>
 #include <random>
 #include <span>
+#include <stdexcept>
 
 namespace poisson_solver::tests {
 namespace psd = ::poisson_solver::detail;
@@ -24,6 +26,32 @@ auto FlatToMultidimIdx(std::size_t idx,
                        GridSizes<Dim> ns) -> psd::MultidimIdx<Dim>;
 
 // === Structs and Classes ===
+
+/**
+ * struct SolverConfig - Data for solver construction.
+ * Exists mainly to reduce the amount of function params.
+ */
+template <std::floating_point T, std::size_t Dim>
+struct SolverConfig {
+public:
+    GridSizes<Dim> ns{};
+    std::array<T, Dim> lens{};
+    BCs<Dim> bcs{};
+    GridSizes<Dim> ngs_phi{};
+    GridSizes<Dim> ngs_rhs{};
+};
+
+/**
+ * struct NonuniformZSolverConfig - Data for nonuniform Z solver construction.
+ * Exists mainly to reduce the amount of function params.
+ */
+template <std::floating_point T>
+struct NonuniformZSolverConfig : SolverConfig<T, 3> {
+public:
+    std::vector<T> z{};
+    std::vector<T> z_u{};
+};
+
 template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 class MaxResiduumCalculator {
@@ -87,7 +115,7 @@ public:
         return max_residuum;
     }
 
-private:
+protected:
     using MultidimIdx = psd::MultidimIdx<Dim>;
 
     enum class Side { Left, Right };
@@ -97,7 +125,7 @@ private:
         T coeff_center{};
     };
 
-    auto GetBorderContrib(std::span<T> phi,
+    auto GetBorderContrib(std::span<const T> phi,
                           GridSizes<Dim> ns,
                           MultidimIdx midx,
                           std::size_t dim,
@@ -197,6 +225,26 @@ void Initialize(std::span<T> phi, std::span<T> rhs, unsigned seed) {
     for (std::size_t i = 0; i < size; ++i) {
         rhs[i] -= avg;
     }
+}
+
+inline auto ToCBoundary(BC cxx_bc) -> ::BoundaryCondition {
+    switch (cxx_bc) {
+        case BC::Periodic:
+            return Periodic;
+        case BC::Dirichlet:
+            return Dirichlet;
+        case BC::Neumann:
+            return Neumann;
+        case BC::DirichletStag:
+            return DirichletStag;
+        case BC::NeumannStag:
+            return NeumannStag;
+        default:
+            assert(false && "Unknown boundary condition.");
+    }
+
+    // To prevent UB in release builds.
+    throw std::runtime_error("We should never get here!");
 }
 
 template <std::size_t Dim>

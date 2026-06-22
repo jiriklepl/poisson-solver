@@ -15,7 +15,9 @@ include("${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake")
 
 # == C/C++ Residuum Tests ==
 set(CXX_TEST_SRC
+    test_main.cpp
     test_residuum.cpp
+    test_residuum_nonuniform_z.cpp
 )
 
 # By default, only the lib is built

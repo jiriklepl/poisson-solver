@@ -1,5 +1,3 @@
-#define DOCTEST_CONFIG_IMPLEMENT
-#include "doctest.h"
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/c_binding.h"
@@ -10,10 +8,10 @@
 #include <cassert>
 #include <cmath>
 #include <concepts>
+#include <doctest.h>
 #include <functional>
 #include <numbers>
 #include <random>
-#include <stdexcept>
 #include <vector>
 
 namespace {
@@ -25,6 +23,7 @@ using ps::BCs;
 using ps::GridSizes;
 using ps::IApproximation;
 using pst::MaxResiduumCalculator;
+using pst::SolverConfig;
 using pst::TestConfig;
 
 constexpr BC P = BC::Periodic;
@@ -33,45 +32,13 @@ constexpr BC N = BC::Neumann;
 constexpr BC DS = BC::DirichletStag;
 constexpr BC NS = BC::NeumannStag;
 
-/**
- * struct SolverContext - Data for solver construction.
- * Exists mainly to reduce the amount of function params.
- */
-template <std::floating_point T, std::size_t Dim>
-struct SolverContext {
-public:
-    GridSizes<Dim> ns{};
-    std::array<T, Dim> lens{};
-    BCs<Dim> bcs{};
-    GridSizes<Dim> ngs_phi{};
-    GridSizes<Dim> ngs_rhs{};
-};
-
-auto ToCBoundary(BC cxx_bc) -> BoundaryCondition {
-    switch (cxx_bc) {
-        case P:
-            return Periodic;
-        case D:
-            return Dirichlet;
-        case N:
-            return Neumann;
-        case DS:
-            return DirichletStag;
-        case NS:
-            return NeumannStag;
-        default:
-            assert(false && "Unknown boundary condition.");
-    }
-
-    // To prevent UB in release builds.
-    throw std::runtime_error("We should never get here!");
-}
-
 template <std::floating_point T, std::size_t Dim>
 void ExecuteCBinding(std::span<T> phi,
                      std::span<const T> rhs,
-                     SolverContext<T, Dim> ctx,
+                     SolverConfig<T, Dim> cfg,
                      Approximation approx) {
+    using pst::ToCBoundary;
+
     PoissonSolver solver;
     std::array<int, Dim> c_ns;
     std::array<T, Dim> c_lens;
@@ -80,12 +47,12 @@ void ExecuteCBinding(std::span<T> phi,
     std::array<int, Dim> c_ngs_rhs;
 
     for (std::size_t i = 0; i < Dim; ++i) {
-        c_ns[i] = static_cast<int>(ctx.ns[i]);
-        c_lens[i] = ctx.lens[i];
-        c_bcs[2 * i] = ToCBoundary(ctx.bcs[i].first);
-        c_bcs[2 * i + 1] = ToCBoundary(ctx.bcs[i].second);
-        c_ngs_phi[i] = static_cast<int>(ctx.ngs_phi[i]);
-        c_ngs_rhs[i] = static_cast<int>(ctx.ngs_rhs[i]);
+        c_ns[i] = static_cast<int>(cfg.ns[i]);
+        c_lens[i] = cfg.lens[i];
+        c_bcs[2 * i] = ToCBoundary(cfg.bcs[i].first);
+        c_bcs[2 * i + 1] = ToCBoundary(cfg.bcs[i].second);
+        c_ngs_phi[i] = static_cast<int>(cfg.ngs_phi[i]);
+        c_ngs_rhs[i] = static_cast<int>(cfg.ngs_rhs[i]);
     }
 
     if constexpr (std::is_same_v<T, double>) {
@@ -113,14 +80,14 @@ void ExecuteCBinding(std::span<T> phi,
 template <std::floating_point T, std::size_t Dim>
 void RunApis(std::span<T> phi,
              std::span<const T> rhs,
-             SolverContext<T, Dim> ctx,
+             SolverConfig<T, Dim> cfg,
              const IApproximation<T> &approx,
              Approximation c_approx,
              const std::function<T()> &calc_residuum) {
     using ps::Solver;
     using pst::ResiduumBelowThreshold;
 
-    auto verify_residuum = [&calc_residuum, ns = ctx.ns]() {
+    auto verify_residuum = [&calc_residuum, ns = cfg.ns]() {
         T residuum = calc_residuum();
         CHECK_MESSAGE(residuum != T{0.0},
                       "Residuum is exactly 0.0 (suspicious).");
@@ -135,13 +102,13 @@ void RunApis(std::span<T> phi,
     };
 
     SUBCASE("API: C++") {
-        Solver<T, Dim> solver(ctx.ns, ctx.lens, ctx.bcs, approx);
-        solver.Execute(phi, rhs, ctx.ngs_phi, ctx.ngs_rhs);
+        Solver<T, Dim> solver(cfg.ns, cfg.lens, cfg.bcs, approx);
+        solver.Execute(phi, rhs, cfg.ngs_phi, cfg.ngs_rhs);
         verify_residuum();
     }
 
     SUBCASE("API: C Binding") {
-        ExecuteCBinding(phi, rhs, ctx, c_approx);
+        ExecuteCBinding(phi, rhs, cfg, c_approx);
         verify_residuum();
     }
 }
@@ -176,11 +143,11 @@ void RunTestConfigs(std::span<const TestConfig<T, Dim>> configs,
                     [&mrc, &phi, &local_rhs, &ns, &bcs = tc.bcs, &coeffs]() {
                         return mrc(phi, local_rhs, ns, bcs, coeffs);
                     };
-                SolverContext<T, Dim> ctx{ns, lens, tc.bcs};
+                SolverConfig<T, Dim> cfg{ns, lens, tc.bcs};
 
                 RunApis<T, Dim>(phi,
                                 local_rhs,
-                                ctx,
+                                cfg,
                                 FiniteDifference2Approximation<T>{},
                                 FD2,
                                 calc_max_residuum);
@@ -313,10 +280,3 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
     }
 }
 }  // namespace
-
-auto main(int argc, char *argv[]) -> int {
-    doctest::Context context(argc, argv);
-    int res = context.run();
-
-    return res;
-}
