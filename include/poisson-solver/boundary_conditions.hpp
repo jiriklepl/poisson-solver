@@ -2,7 +2,9 @@
 #define BOUNDARY_CONDITIONS_HPP
 
 #include <array>
+#include <cassert>
 #include <cstddef>
+#include <string>
 
 namespace poisson_solver {
 // === Enums ===
@@ -23,52 +25,45 @@ struct BCPair {
 };
 
 // === Aliases ===
+using BC = BoundaryCondition;
+
 template <std::size_t Dim>
 using BCs = std::array<BCPair, Dim>;
 
 // === Functions ===
 constexpr auto IsPeriodic(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::Periodic && bcp.second == BC::Periodic;
 }
 
 constexpr auto IsDirichlet(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::Dirichlet && bcp.second == BC::Dirichlet;
 }
 
 constexpr auto IsNeumann(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::Neumann && bcp.second == BC::Neumann;
 }
 
 constexpr auto IsDirichletStag(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::DirichletStag && bcp.second == BC::DirichletStag;
 }
 
 constexpr auto IsNeumannStag(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::NeumannStag && bcp.second == BC::NeumannStag;
 }
 
 constexpr auto IsDirichletNeumann(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::Dirichlet && bcp.second == BC::Neumann;
 }
 
 constexpr auto IsNeumannDirichlet(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::Neumann && bcp.second == BC::Dirichlet;
 }
 
 constexpr auto IsDirichletStagNeumannStag(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::DirichletStag && bcp.second == BC::NeumannStag;
 }
 
 constexpr auto IsNeumannStagDirichletStag(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::NeumannStag && bcp.second == BC::DirichletStag;
 }
 
@@ -83,22 +78,41 @@ constexpr auto IsNeumannOrStag(BCPair bcp) -> bool {
 }
 
 constexpr auto HasPeriodic(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::Periodic || bcp.second == BC::Periodic;
 }
 
 constexpr auto HasDirichlet(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::Dirichlet || bcp.second == BC::Dirichlet;
 }
 
 constexpr auto HasDirichletStag(BCPair bcp) -> bool {
-    using BC = BoundaryCondition;
     return bcp.first == BC::DirichletStag || bcp.second == BC::DirichletStag;
 }
 
 constexpr auto HasDirichletOrStag(BCPair bcp) -> bool {
     return HasDirichlet(bcp) || HasDirichletStag(bcp);
+}
+
+constexpr auto ToString(BC bc) -> std::string {
+    // This could probably be done in a prettier
+    // and more robust way but it's not really
+    // a part of core functionality
+    // so I'll leave it like this.
+    switch (bc) {
+        case BoundaryCondition::Periodic:
+            return "Periodic";
+        case BoundaryCondition::Dirichlet:
+            return "Dirichlet";
+        case BoundaryCondition::Neumann:
+            return "Neumann";
+        case BoundaryCondition::DirichletStag:
+            return "DirichletStag";
+        case BoundaryCondition::NeumannStag:
+            return "NeumannStag";
+        default:
+            assert(false && "Should be unreachable");
+    }
+    return "WE SHOULD NEVER GET HERE!";
 }
 }  // namespace poisson_solver
 
