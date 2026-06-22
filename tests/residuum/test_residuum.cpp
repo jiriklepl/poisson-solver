@@ -1,14 +1,11 @@
-#include <stdexcept>
 #define DOCTEST_CONFIG_IMPLEMENT
 #include "doctest.h"
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/c_binding.h"
-#include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/solver.hpp"
 #include "test_helpers.hpp"
 
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -16,17 +13,18 @@
 #include <functional>
 #include <numbers>
 #include <random>
+#include <stdexcept>
 #include <vector>
 
 namespace {
 namespace ps = ::poisson_solver;
-namespace psd = ps::detail;
 namespace pst = ps::tests;
 
 using ps::BC;
 using ps::BCs;
 using ps::GridSizes;
 using ps::IApproximation;
+using pst::MaxResiduumCalculator;
 using pst::TestConfig;
 
 constexpr BC P = BC::Periodic;
@@ -35,127 +33,18 @@ constexpr BC N = BC::Neumann;
 constexpr BC DS = BC::DirichletStag;
 constexpr BC NS = BC::NeumannStag;
 
+/**
+ * struct SolverContext - Data for solver construction.
+ * Exists mainly to reduce the amount of function params.
+ */
 template <std::floating_point T, std::size_t Dim>
-    requires(Dim <= 3 && Dim >= 1)
-class MaxResiduumCalculator {
+struct SolverContext {
 public:
-    explicit MaxResiduumCalculator(GridSizes<Dim> ns)
-        : ns_(ns) {}
-
-    auto operator()(std::span<T> phi,
-                    std::span<const T> rhs,
-                    BCs<Dim> bcs,
-                    std::array<T, 2 * Dim> coeffs) const -> T {
-        using pst::FlatToMultidimIdx;
-
-        assert(rhs.size() == phi.size());
-
-        const std::size_t size = rhs.size();
-        T max_residuum = 0.0;
-
-        for (std::size_t i = 0; i < size; ++i) {
-            T neighbor_sum = 0.0;
-            T coeff_center = 0.0;
-            auto midx = FlatToMultidimIdx<Dim>(i, ns_);
-
-            for (std::size_t d = 0; d < Dim; ++d) {
-                const T coeff_left = coeffs[2 * d];
-                const T coeff_right = coeffs[2 * d + 1];
-
-                if (midx[d] > 0) {
-                    auto left_idx = midx;
-                    left_idx[d] -= 1;
-                    neighbor_sum += phi[FlatIdx(left_idx)] * coeff_left;
-                    coeff_center += coeff_left;
-                } else {
-                    ApplyBorderBC(phi,
-                                  midx,
-                                  d,
-                                  Side::Left,
-                                  bcs[d].first,
-                                  coeff_left,
-                                  neighbor_sum,
-                                  coeff_center);
-                }
-
-                if (midx[d] < ns_[d] - 1) {
-                    auto right_idx = midx;
-                    right_idx[d] += 1;
-                    neighbor_sum += phi[FlatIdx(right_idx)] * coeff_right;
-                    coeff_center += coeff_right;
-                } else {
-                    ApplyBorderBC(phi,
-                                  midx,
-                                  d,
-                                  Side::Right,
-                                  bcs[d].second,
-                                  coeff_right,
-                                  neighbor_sum,
-                                  coeff_center);
-                }
-            }
-
-            neighbor_sum -= rhs[i];
-            const T local_residuum =
-                std::abs(coeff_center * phi[i] - neighbor_sum);
-            max_residuum = std::max(max_residuum, local_residuum);
-        }
-        return max_residuum;
-    }
-
-private:
-    using MultidimIdx = psd::MultidimIdx<Dim>;
-
-    enum class Side { Left, Right };
-
-    GridSizes<Dim> ns_;
-
-    void ApplyBorderBC(std::span<T> phi,
-                       MultidimIdx midx,
-                       std::size_t dim,
-                       Side side,
-                       BC bc,
-                       T coeff,
-                       T &neighbor_sum,
-                       T &coeff_center) const {
-        switch (bc) {
-            case P: {
-                auto wrap_idx = midx;
-                wrap_idx[dim] = (side == Side::Left) ? (ns_[dim] - 1) : 0;
-                neighbor_sum += phi[FlatIdx(wrap_idx)] * coeff;
-                coeff_center += coeff;
-                break;
-            }
-            case D: {
-                coeff_center += coeff;
-                break;
-            }
-            case N: {
-                auto inner_idx = midx;
-                inner_idx[dim] = (side == Side::Left) ? 1 : (ns_[dim] - 2);
-                neighbor_sum += phi[FlatIdx(inner_idx)] * coeff;
-                coeff_center += coeff;
-                break;
-            }
-            case DS: {
-                neighbor_sum -= phi[FlatIdx(midx)] * coeff;
-                coeff_center += coeff;
-                break;
-            }
-            case NS: {
-                // nop
-                break;
-            }
-            default: {
-                assert(false && "Unknown boundary condition.");
-            }
-        }
-    }
-
-    auto FlatIdx(MultidimIdx midx) const -> std::size_t {
-        using psd::FlatIndex;
-        return FlatIndex<Dim>(midx, ns_);
-    }
+    GridSizes<Dim> ns{};
+    std::array<T, Dim> lens{};
+    BCs<Dim> bcs{};
+    GridSizes<Dim> ngs_phi{};
+    GridSizes<Dim> ngs_rhs{};
 };
 
 auto ToCBoundary(BC cxx_bc) -> BoundaryCondition {
@@ -172,9 +61,51 @@ auto ToCBoundary(BC cxx_bc) -> BoundaryCondition {
             return NeumannStag;
         default:
             assert(false && "Unknown boundary condition.");
+    }
 
-            // To prevent UB by not returning from a non-void function.
-            throw std::runtime_error("We should never get here!");
+    // To prevent UB in release builds.
+    throw std::runtime_error("We should never get here!");
+}
+
+template <std::floating_point T, std::size_t Dim>
+void ExecuteCBinding(std::span<T> phi,
+                     std::span<const T> rhs,
+                     SolverContext<T, Dim> ctx,
+                     Approximation approx) {
+    PoissonSolver solver;
+    std::array<int, Dim> c_ns;
+    std::array<T, Dim> c_lens;
+    std::array<BoundaryCondition, 2 * Dim> c_bcs;
+    std::array<int, Dim> c_ngs_phi;
+    std::array<int, Dim> c_ngs_rhs;
+
+    for (std::size_t i = 0; i < Dim; ++i) {
+        c_ns[i] = static_cast<int>(ctx.ns[i]);
+        c_lens[i] = ctx.lens[i];
+        c_bcs[2 * i] = ToCBoundary(ctx.bcs[i].first);
+        c_bcs[2 * i + 1] = ToCBoundary(ctx.bcs[i].second);
+        c_ngs_phi[i] = static_cast<int>(ctx.ngs_phi[i]);
+        c_ngs_rhs[i] = static_cast<int>(ctx.ngs_rhs[i]);
+    }
+
+    if constexpr (std::is_same_v<T, double>) {
+        PoissonSolverNew(
+            &solver, Dim, c_ns.data(), c_lens.data(), c_bcs.data(), approx);
+        PoissonSolverExecute(&solver,
+                             phi.data(),
+                             rhs.data(),
+                             c_ngs_phi.data(),
+                             c_ngs_rhs.data());
+        PoissonSolverFinalize(&solver);
+    } else {
+        PoissonSolverNewFloat(
+            &solver, Dim, c_ns.data(), c_lens.data(), c_bcs.data(), approx);
+        PoissonSolverExecuteFloat(&solver,
+                                  phi.data(),
+                                  rhs.data(),
+                                  c_ngs_phi.data(),
+                                  c_ngs_rhs.data());
+        PoissonSolverFinalizeFloat(&solver);
     }
 }
 
@@ -182,100 +113,36 @@ auto ToCBoundary(BC cxx_bc) -> BoundaryCondition {
 template <std::floating_point T, std::size_t Dim>
 void RunApis(std::span<T> phi,
              std::span<const T> rhs,
-             GridSizes<Dim> ns,
-             std::array<T, Dim> lens,
-             BCs<Dim> bcs,
+             SolverContext<T, Dim> ctx,
              const IApproximation<T> &approx,
              Approximation c_approx,
-             const std::function<T()> &calc_residuum,
-             GridSizes<Dim> ngs_phi = {},
-             GridSizes<Dim> ngs_rhs = {}) {
+             const std::function<T()> &calc_residuum) {
     using ps::Solver;
     using pst::ResiduumBelowThreshold;
 
-    SUBCASE("API: C++") {
-        Solver<T, Dim> solver(ns, lens, bcs, approx);
-        solver.Execute(phi, rhs, ngs_phi, ngs_rhs);
-
+    auto verify_residuum = [&calc_residuum, ns = ctx.ns]() {
         T residuum = calc_residuum();
-
-        // If residuum is exactly equal to 0.0, something might be off.
         CHECK_MESSAGE(residuum != T{0.0},
-                      "Residuum is ",
-                      residuum,
-                      " which is exactly 0.0 and thats weird.");
+                      "Residuum is exactly 0.0 (suspicious).");
 
         auto result = ResiduumBelowThreshold<T>(residuum, ns);
         CHECK_MESSAGE(result.success,
                       "Residuum is ",
                       residuum,
-                      " and max allowed is ",
-                      result.max_residuum);
+                      " (Max allowed: ",
+                      result.max_residuum,
+                      ")");
+    };
+
+    SUBCASE("API: C++") {
+        Solver<T, Dim> solver(ctx.ns, ctx.lens, ctx.bcs, approx);
+        solver.Execute(phi, rhs, ctx.ngs_phi, ctx.ngs_rhs);
+        verify_residuum();
     }
 
     SUBCASE("API: C Binding") {
-        PoissonSolver solver;
-        std::array<int, Dim> c_ns;
-        std::array<T, Dim> c_lens;
-        std::array<BoundaryCondition, 2 * Dim> c_bcs;
-        std::array<int, Dim> c_ngs_phi;
-        std::array<int, Dim> c_ngs_rhs;
-
-        for (std::size_t i = 0; i < Dim; ++i) {
-            c_ns[i] = static_cast<int>(ns[i]);
-            c_lens[i] = lens[i];
-            c_bcs[2 * i] = ToCBoundary(bcs[i].first);
-            c_bcs[2 * i + 1] = ToCBoundary(bcs[i].second);
-            c_ngs_phi[i] = static_cast<int>(ngs_phi[i]);
-            c_ngs_rhs[i] = static_cast<int>(ngs_rhs[i]);
-        }
-
-        if constexpr (std::is_same_v<T, double>) {
-            PoissonSolverNew(&solver,
-                             Dim,
-                             c_ns.data(),
-                             c_lens.data(),
-                             c_bcs.data(),
-                             c_approx);
-            PoissonSolverExecute(&solver,
-                                 phi.data(),
-                                 rhs.data(),
-                                 c_ngs_phi.data(),
-                                 c_ngs_rhs.data());
-        } else {
-            PoissonSolverNewFloat(&solver,
-                                  Dim,
-                                  c_ns.data(),
-                                  c_lens.data(),
-                                  c_bcs.data(),
-                                  c_approx);
-            PoissonSolverExecuteFloat(&solver,
-                                      phi.data(),
-                                      rhs.data(),
-                                      c_ngs_phi.data(),
-                                      c_ngs_rhs.data());
-        }
-
-        T residuum = calc_residuum();
-
-        // If residuum is exactly equal to 0.0, something might be off.
-        CHECK_MESSAGE(residuum != T{0.0},
-                      "Residuum is ",
-                      residuum,
-                      " which is exactly 0.0 and thats weird.");
-
-        auto result = ResiduumBelowThreshold<T>(residuum, ns);
-        CHECK_MESSAGE(result.success,
-                      "Residuum is ",
-                      residuum,
-                      " and max allowed is ",
-                      result.max_residuum);
-
-        if constexpr (std::is_same_v<T, double>) {
-            PoissonSolverFinalize(&solver);
-        } else {
-            PoissonSolverFinalizeFloat(&solver);
-        }
+        ExecuteCBinding(phi, rhs, ctx, c_approx);
+        verify_residuum();
     }
 }
 
@@ -284,12 +151,10 @@ void RunTestConfigs(std::span<const TestConfig<T, Dim>> configs,
                     std::span<T> phi,
                     std::span<const T> rhs,
                     GridSizes<Dim> ns,
-                    std::array<T, Dim> lens,
-                    MaxResiduumCalculator<T, Dim> mrc) {
+                    std::array<T, Dim> lens) {
     for (const auto &tc : configs) {
         SUBCASE("Boundary: " + tc.Name()) {
             std::vector<T> local_rhs(rhs.begin(), rhs.end());
-
             tc.rhs_adjust(local_rhs);
 
             // TODO: Test for Spectral approx
@@ -306,18 +171,19 @@ void RunTestConfigs(std::span<const TestConfig<T, Dim>> configs,
                     coeffs[2 * d + 1] = inv_dx2;
                 }
 
-                auto calc = [&]() {
-                    return mrc(phi, local_rhs, tc.bcs, coeffs);
-                };
+                MaxResiduumCalculator<T, Dim> mrc{};
+                auto calc_max_residuum =
+                    [&mrc, &phi, &local_rhs, &ns, &bcs = tc.bcs, &coeffs]() {
+                        return mrc(phi, local_rhs, ns, bcs, coeffs);
+                    };
+                SolverContext<T, Dim> ctx{ns, lens, tc.bcs};
 
                 RunApis<T, Dim>(phi,
                                 local_rhs,
-                                ns,
-                                lens,
-                                tc.bcs,
+                                ctx,
                                 FiniteDifference2Approximation<T>{},
                                 FD2,
-                                calc);
+                                calc_max_residuum);
             }
 
             // TODO: Test for FD4
@@ -351,7 +217,6 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
         constexpr std::array<T, 1> lens1d = {lenx};
         std::array<T, nx> phi1d{};
         std::array<T, nx> rhs1d{};
-        MaxResiduumCalculator<T, 1> mrc1d(ns1d);
 
         std::vector<TestConfig<T, 1>> configs = {
             {{{{P, P}}}, {nx}},
@@ -365,7 +230,7 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
             {{{{N, D}}}, {nx}}};
 
         Initialize<T>(phi1d, rhs1d, seed);
-        RunTestConfigs<T, 1>(configs, phi1d, rhs1d, ns1d, lens1d, mrc1d);
+        RunTestConfigs<T, 1>(configs, phi1d, rhs1d, ns1d, lens1d);
     }
 
     SUBCASE("2D") {
@@ -376,7 +241,6 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
         constexpr std::array<T, 2> lens2d = {lenx, leny};
         std::array<T, nx * ny> phi2d{};
         std::array<T, nx * ny> rhs2d{};
-        MaxResiduumCalculator<T, 2> mrc2d(ns2d);
 
         std::vector<TestConfig<T, 2>> configs = {
             {{{{P, P}, {P, P}}}, {nx, ny}},
@@ -390,7 +254,7 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
              MakeNeumannStagRhsCorrector<T>()}};
 
         Initialize<T>(phi2d, rhs2d, seed);
-        RunTestConfigs<T, 2>(configs, phi2d, rhs2d, ns2d, lens2d, mrc2d);
+        RunTestConfigs<T, 2>(configs, phi2d, rhs2d, ns2d, lens2d);
     }
 
     SUBCASE("3D") {
@@ -401,7 +265,6 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
         constexpr std::array<T, 3> lens3d = {lenx, leny, lenz};
         std::array<T, nx * ny * nz> phi3d{};
         std::array<T, nx * ny * nz> rhs3d{};
-        MaxResiduumCalculator<T, 3> mrc3d(ns3d);
 
         std::vector<TestConfig<T, 3>> configs = {
             {{{{P, P}, {P, P}, {P, P}}}, {nx, ny, nz}},
@@ -446,7 +309,7 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
             {{{{N, D}, {N, N}, {N, N}}}, {nx, ny - 1, nz - 1}}};
 
         Initialize<T>(phi3d, rhs3d, seed);
-        RunTestConfigs<T, 3>(configs, phi3d, rhs3d, ns3d, lens3d, mrc3d);
+        RunTestConfigs<T, 3>(configs, phi3d, rhs3d, ns3d, lens3d);
     }
 }
 }  // namespace
