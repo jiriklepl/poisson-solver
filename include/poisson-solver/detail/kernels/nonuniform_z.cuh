@@ -26,7 +26,7 @@ __global__ void TridiagZ(Workspace *workspace,
         auto nz = ns[2];
 
         T c1 = (idx == 0) ? T{0.0} : mat_c[0];
-        T lam = denoms[0][x] + denoms[0][y];
+        T lam = denoms[0][x] + denoms[1][y];
         T m = mat_b[0] + lam;
 
         workspace[idx] /= m;
