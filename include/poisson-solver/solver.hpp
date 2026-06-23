@@ -502,17 +502,15 @@ public:
 private:
     friend struct detail::NonuniformZSolverPlan<T>;
 
-    using CudaUniquePtrT = detail::SolverCore<T, 3, 2>::CudaUniquePtrT;
-    using TridiagMatrixDiagonal = std::vector<T>;
-    using TridiagMatrix = std::array<TridiagMatrixDiagonal, 3>;
-
-    // FFTPolicy needs domain dimension (which is three).
-    // The two-dimensionality of the FFT is handled
-    // by using only the 2D part of a `SplitLayout`.
-    using FFTPolicy = detail::FFTPolicy<T, 3>;
-
+    // Plan has to be initialized before core
     detail::NonuniformZSolverPlan<T> solver_plan_;
     detail::SolverCore<T, 3, 2> core_;
+
+    using FFTPolicy = decltype(core_)::CoreFFTPolicy;
+    using CudaUniquePtrT = decltype(core_)::CudaUniquePtrT;
+
+    using TridiagMatrixDiagonal = std::vector<T>;
+    using TridiagMatrix = std::array<TridiagMatrixDiagonal, 3>;
 
     CudaUniquePtrT cu_mat_a_;
     CudaUniquePtrT cu_mat_b_;

@@ -14,7 +14,6 @@
 #include <numbers>
 #include <numeric>
 #include <optional>
-#include <utility>
 #include <vector>
 
 namespace poisson_solver::detail {
@@ -37,8 +36,13 @@ public:
         detail::CudaUniquePtr<detail::CuComplexTrait<T>>;
     using DenomConstPtrs = detail::DenomConstPtrs<T, FFTDim>;
 
+    // FFT needs to know the dimensionality of the whole grid.
+    // Transformation of only some subgrids are handled using
+    // the 1D and 2D methods of FFTPolicy.
+    using CoreFFTPolicy = FFTPolicy<T, Dim>;
+
     // === Plans ===
-    typename FFTPolicy<T, FFTDim>::Plan fft_plan;
+    typename CoreFFTPolicy::Plan fft_plan;
 
     // === Grid ===
     GridSizes<Dim> ns;
@@ -70,7 +74,7 @@ public:
                const IApproximation<T> &approx,
                dim3 cuda_block_size,
                const ISolverPlan<T, FFTDim> &sp)
-        : fft_plan(FFTPolicy<T, FFTDim>::Init(Truncate(ns), sp.fft_layout)),
+        : fft_plan(CoreFFTPolicy::Init(ns, sp.fft_layout)),
           ns(ns),
           cnt(ComputeTotalGridSize(ns)),
           norm_factor(ComputeNormFactor(ns, sp)),
@@ -86,23 +90,6 @@ public:
     }
 
 private:
-    template <std::size_t N, std::size_t... Is>
-    static constexpr auto TruncateImpl(GridSizes<N> ns,
-                                       std::index_sequence<Is...> /*unused*/)
-        -> GridSizes<sizeof...(Is)> {
-        return {ns[Is]...};
-    }
-
-    /**
-     * @brief Truncates the \p ns from size `Dim` to size `FFTDim`.
-     *
-     * @param ns
-     * @return Truncated \p ns.
-     */
-    static constexpr auto Truncate(GridSizes<Dim> ns) -> GridSizes<FFTDim> {
-        return TruncateImpl(ns, std::make_index_sequence<FFTDim>{});
-    }
-
     static auto ComputeTotalGridSize(GridSizes<Dim> ns) -> std::size_t {
         return std::accumulate(
             ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>{});

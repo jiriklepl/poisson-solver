@@ -298,6 +298,8 @@ public:
         auto &layout = std::get<SplitLayout>(this->fft_layout);
         auto [bcx, bcy, bcz] = bcs;
 
+        layout.isolated_dim_idx = 2;
+
         if (all_of(bcs, IsNeumann) || all_of(bcs, IsNeumannStag)) {
             solve_method = &NonuniformZSolver<T>::SolveFullNeumann;
             layout.forward_type_2d = this->GetAxisFFTType(bcx);
