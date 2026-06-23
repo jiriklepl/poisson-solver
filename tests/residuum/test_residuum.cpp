@@ -182,8 +182,8 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
 
         constexpr GridSizes<1> ns1d{nx};
         constexpr std::array<T, 1> lens1d = {lenx};
-        std::array<T, nx> phi1d{};
-        std::array<T, nx> rhs1d{};
+        std::vector<T> phi1d(nx);
+        std::vector<T> rhs1d(nx);
 
         std::vector<TestConfig<T, 1>> configs = {
             {{{{P, P}}}, {nx}},
@@ -206,8 +206,8 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
 
         constexpr GridSizes<2> ns2d{nx, ny};
         constexpr std::array<T, 2> lens2d = {lenx, leny};
-        std::array<T, nx * ny> phi2d{};
-        std::array<T, nx * ny> rhs2d{};
+        std::vector<T> phi2d(nx * ny);
+        std::vector<T> rhs2d(nx * ny);
 
         std::vector<TestConfig<T, 2>> configs = {
             {{{{P, P}, {P, P}}}, {nx, ny}},
@@ -230,8 +230,8 @@ TEST_CASE_TEMPLATE("Poisson Solver Residuum Suite", T, float, double) {
 
         constexpr GridSizes<3> ns3d{nx, ny, nz};
         constexpr std::array<T, 3> lens3d = {lenx, leny, lenz};
-        std::array<T, nx * ny * nz> phi3d{};
-        std::array<T, nx * ny * nz> rhs3d{};
+        std::vector<T> phi3d(nx * ny * nz);
+        std::vector<T> rhs3d(nx * ny * nz);
 
         std::vector<TestConfig<T, 3>> configs = {
             {{{{P, P}, {P, P}, {P, P}}}, {nx, ny, nz}},
