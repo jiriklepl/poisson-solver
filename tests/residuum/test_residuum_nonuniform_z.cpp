@@ -334,7 +334,10 @@ void RunTestConfigsNonuniformZ(std::span<const TestConfig<T, 3>> configs,
                     return mrc(phi, local_rhs, ns, tc.bcs, z, z_u, xy_coeffs);
                 };
 
-                NonuniformZSolverConfig<T> cfg{{ns, lens, tc.bcs}, z, z_u};
+                // Only the internal part of `z` is passed to the solver
+                std::vector<T> z_internal(z.begin() + 1, z.end() - 1);
+                NonuniformZSolverConfig<T> cfg{
+                    {ns, lens, tc.bcs}, z_internal, z_u};
                 RunApisNonuniformZ<T>(phi,
                                       local_rhs,
                                       cfg,
