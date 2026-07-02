@@ -80,10 +80,7 @@ protected:
         if (IsNeumannStagDirichletStag(bcp)) {
             return DCT4;
         }
-        assert(false && "Invalid BC pair.");
-
-        // To avoid UB in release builds.
-        throw std::runtime_error("Should be unreachable.");
+        throw std::invalid_argument("Invalid combination of 1D BCs.");
     }
 
 private:
@@ -168,23 +165,19 @@ private:
         return true;
     }
 
+    /**
+     * @warning `TryConstructFromFullBCs` should be called first and only in
+     * case of its failure should we call this function.
+     */
     void ConstructFromNonFullBCs1D(BCs<1> bcs) {
         using enum FFTTransformType;
 
         auto &layout = std::get<FullLayout>(this->fft_layout);
         BCPair bcp = bcs[0];
 
-        if (IsDirichletNeumann(bcp)) {
-            layout.forward_type = DST3;
-        } else if (IsNeumannDirichlet(bcp)) {
-            layout.forward_type = DCT3;
-        } else if (IsDirichletStagNeumannStag(bcp)) {
-            layout.forward_type = DST4;
-        } else if (IsNeumannStagDirichletStag(bcp)) {
-            layout.forward_type = DCT4;
-        } else {
-            throw std::invalid_argument("Invalid combination of 1D BCs.");
-        }
+        // The function can also return FFT types for full bcs but
+        // as the warning above this function states, that
+        layout.forward_type = this->GetAxisFFTType(bcp);
 
         // In all non-throwing cases the solve method is full dirichlet.
         solve_method = &Solver<T, FFTDim>::SolveFullDirichlet;
