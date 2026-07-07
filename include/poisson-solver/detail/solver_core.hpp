@@ -37,7 +37,7 @@ public:
     using DenomConstPtrs = detail::DenomConstPtrs<T, FFTDim>;
 
     // FFT needs to know the dimensionality of the whole grid.
-    // Transformation of only some subgrids are handled using
+    // Transformation of only some dimensions are handled using
     // the 1D and 2D methods of FFTPolicy.
     using CoreFFTPolicy = FFTPolicy<T, Dim>;
 
