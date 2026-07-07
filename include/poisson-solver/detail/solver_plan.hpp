@@ -46,10 +46,6 @@ protected:
         : axis_strategies(GetAxisStrategies(bcs)),
           fft_layout(default_layout) {}
 
-    // This function should be called with
-    // an already validated BC pair.
-    // Caller is responsible for throwing in
-    // case boundary conditions aren't valid.
     auto GetAxisFFTType(BCPair bcp) -> FFTTransformType {
         using enum FFTTransformType;
 
@@ -176,7 +172,7 @@ private:
         BCPair bcp = bcs[0];
 
         // The function can also return FFT types for full bcs but
-        // as the warning above this function states, that
+        // as the warning above this function states, that shouldn't happen
         layout.forward_type = this->GetAxisFFTType(bcp);
 
         // In all non-throwing cases the solve method is full dirichlet.
