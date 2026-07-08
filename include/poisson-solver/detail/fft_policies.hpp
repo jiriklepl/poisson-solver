@@ -4,22 +4,23 @@
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 
+#include <cassert>
 #include <concepts>
 #include <cstddef>
 #include <memory>
+#include <variant>
 
 #ifdef USE_MPI
 #include <heffte.h>
 #include <mpi.h>
+#include <utility>
 #else
 #include "poisson-solver/detail/cuch.hpp"
 
-#include <cassert>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <sstream>
 #include <stdexcept>
-#include <variant>
 #include <vkFFT.h>
 #endif  // USE_MPI
 
@@ -37,6 +38,13 @@ enum class FFTTransformType {
     DST2,
     DST3,
     DST4
+};
+
+// === Structs ===
+// Helper struct for `std::variant` visiting.
+template <typename... Ts>
+struct Overloaded : Ts... {
+    using Ts::operator()...;
 };
 
 // === Layout Structs ===
@@ -62,51 +70,304 @@ struct SplitLayout {
 using VariantLayout = std::variant<std::monostate, FullLayout, SplitLayout>;
 
 #ifdef USE_MPI
+// == Forward Declarations ===
+template <std::floating_point T, ValidWorkspace<T> Workspace>
+struct IHeFFTeHandle;
+
+// === Aliases ===
+// Variant conforming to the ValidWorkspace<T> concept
+template <std::floating_point T>
+using VariantHandle =
+    std::variant<std::monostate,
+                 std::unique_ptr<IHeFFTeHandle<T, T>>,
+                 std::unique_ptr<IHeFFTeHandle<T, CuComplexTrait<T>>>>;
+
+// === Structs ===
+// We have to use the type erasure idiom with heFFTe to
+// transform the compile-time tags into run-time virtual calls.
+
+template <std::floating_point T, ValidWorkspace<T> Workspace>
+class IHeFFTeHandle {
+public:
+    virtual ~IHeFFTeHandle() = default;
+
+    // Provide default asserts to catch invalid calls
+    // (e.g., calling Forward1D on a Full plan)
+    virtual void Forward(Workspace *dev_buffer) const {
+        assert(false && "Not a full plan");
+    }
+
+    virtual void Backward(Workspace *dev_buffer) const {
+        assert(false && "Not a full plan");
+    }
+
+    virtual void Forward1D(Workspace *dev_buffer) const {
+        assert(false && "Not a split plan");
+    }
+
+    virtual void Backward1D(Workspace *dev_buffer) const {
+        assert(false && "Not a split plan");
+    }
+
+    virtual void Forward2D(Workspace *dev_buffer) const {
+        assert(false && "Not a split plan");
+    }
+
+    virtual void Backward2D(Workspace *dev_buffer) const {
+        assert(false && "Not a split plan");
+    }
+
+protected:
+    IHeFFTeHandle(std::size_t workspace_size)
+        : workspace_{MakeCudaUnique(workspace_size)} {}
+
+    // If we didn't choose to provide a workspace, heFFTe
+    // would allocate and deallocate it itself in every FFT call.
+    CudaUniquePtr<Workspace> workspace_{};
+};
+
+template <std::floating_point T,
+          ValidWorkspace<T> Workspace,
+          typename TransformTag>
+struct HeFFTeFullHandle : public IHeFFTeHandle<T, Workspace> {
+public:
+    HeFFTeFullHandle(heffte::fft3d<TransformTag> &&plan)
+        : IHeFFTeHandle{plan.size_workspace()},
+          plan_{std::move(plan)} {}
+
+    void Forward(Workspace *dev_buffer) const override {
+        plan_.forward(dev_buffer, dev_buffer, this->workspace_.get());
+    }
+
+    void Backward(Workspace *dev_buffer) const override {
+        plan_.backward(dev_buffer, dev_buffer, this->workspace_.get());
+    }
+
+private:
+    heffte::fft3d<TransformTag> plan_;
+};
+
+// TODO - My concept of how heFFTe works with split solvers is incorrect
+// This whole class needs reworking
+template <std::floating_point T,
+          ValidWorkspace<T> Workspace,
+          typename TransformTag1D,
+          typename TransformTag2D>
+struct HeFFTeSplitHandle : public IHeFFTeHandle<T, Workspace> {
+public:
+    // TODO - Can I take it via rval?
+    HeFFTeSplitHandle(const heffte::fft3d<TransformTag1D> &plan_1d,
+                      const heffte::fft3d<TransformTag2D> &plan_2d,
+                      std::size_t num_pencils,
+                      std::size_t num_slabs)
+        // The size of 1D plan covers only one 1x1 pencil and
+        // the size of 2D plan covers only one 2D slab.
+        // Multiplying them covers the whole 3D domain.
+        : IHeFFTeHandle{plan_1d.size_workspace() * plan_2d.size_workspace()},
+          plan_1d{plan_1d},
+          plan_2d{plan_2d},
+          num_pencils_{num_pencils},
+          num_slabs_{num_slabs} {}
+
+    void Forward1D(Workspace *dev_buffer) const override {
+        plan_1d_.forward(
+            num_pencils_, dev_buffer, dev_buffer, this->workspace_.get());
+    }
+
+    void Backward1D(Workspace *dev_buffer) const override {
+        plan_1d_.backward(
+            num_pencils_, dev_buffer, dev_buffer, this->workspace_.get());
+    }
+
+    void Forward2D(Workspace *dev_buffer) const override {
+        plan_2d_.forward(
+            num_slabs_, dev_buffer, dev_buffer, this->workspace_.get());
+    }
+
+    void Backward2D(Workspace *dev_buffer) const override {
+        plan_2d_.backward(
+            num_slabs_, dev_buffer, dev_buffer, this->workspace_.get());
+    }
+
+private:
+    heffte::fft3d<TransformTag1D> plan_1d_;
+    heffte::fft3d<TransformTag2D> plan_2d_;
+
+    // The batch sizes of 1D and 2D batched FFTs (respectivelly).
+    std::size_t num_pencils_{};
+    std::size_t num_slabs_{};
+};
+
+template <std::floating_point T>
+struct HeFFTePlan {
+public:
+    VariantHandle handle{};
+};
 
 // TODO: NOT TESTED!
 template <std::floating_point T, std::size_t Dim>
 struct HeFFTePolicy {
-    // This needs to be a ptr because `heffte::fft3d` doesn't have a default
-    // ctor and we defer initialization to a solver ctor body
-    using Plan = std::unique_ptr<heffte::fft3d<heffte::backend::cufft>>;
+public:
+    using Plan = HeFFTePlan<T>;
 
-    static Plan Init(GridSizes<Dim> ns,
-                     // TODO: Currently unused but will be needed to determine
-                     // the FFT plan type.
-                     BCs<Dim> bcs) {
-        int nx = ns[0];
-        int ny = (Dim >= 2) ? ns[1] : 1;
-        int nz = (Dim >= 3) ? ns[2] : 1;
-        // TODO: Order is not used right now, but may improve performance in
-        // distributed environmnet i->slowest, j->middle, k->fastest growing
-        // indices `std::array<int, 3> order = {2, 1, 0};`
-
-        // Apparently `box3d`s first index is the fastest changing, second is
-        // middle and last is slowest changing.
-        // Also, the order apparently doesn't affect this and serves only as an
-        // optimization parameter for better data spliting for the MPI ranks.
-        heffte::box3d<> grid_box({0, 0, 0}, {nz - 1, ny - 1, nx - 1});
-        // TODO: Accept custom comm through param
-        return std::make_unique<heffte::fft3d<heffte::backend::cufft>>(
-            grid_box, grid_box, MPI_COMM_SELF);
+    static auto Init(GridSizes<Dim> ns,
+                     GridOffsets<Dim> offs,
+                     MPI_Comm comm,
+                     VariantLayout layout) -> Plan {
+        return std::visit(
+            Overloaded{[ns, offs, comm](FullLayout l) {
+                           return GetFullPlan(l, ns, offs, comm);
+                       },
+                       [ns, offs, comm](SplitLayout l) {
+                           return GetSplitPlan(l, ns, offs, comm);
+                       },
+                       [](std::monostate) {
+                           throw std::runtime_error("Visited a monostate.");
+                       }},
+            layout);
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Forward(Workspace *dev_buffer, Plan &plan) {
-        plan->forward(dev_buffer, dev_buffer, heffte::scale::none);
+        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        std::get<ExpectedVariant>(plan.handle)->Forward(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
-    static void Backward(Workspace *dev_buffer, Plan &plan) {
-        plan->backward(dev_buffer, dev_buffer, heffte::scale::none);
+    static void Backward(Workspace *dev_buffer, Plan<Workspace> &plan) {
+        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        std::get<ExpectedVariant>(plan.handle)->Backward(dev_buffer);
+    }
+
+    template <ValidWorkspace<T> Workspace>
+    static void Forward1D(Workspace *dev_buffer, Plan<Workspace> &plan) {
+        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        std::get<ExpectedVariant>(plan.handle)->Forward1D(dev_buffer);
+    }
+
+    template <ValidWorkspace<T> Workspace>
+    static void Backward1D(Workspace *dev_buffer, Plan<Workspace> &plan) {
+        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        std::get<ExpectedVariant>(plan.handle)->Backward1D(dev_buffer);
+    }
+
+    template <ValidWorkspace<T> Workspace>
+    static void Forward2D(Workspace *dev_buffer, Plan<Workspace> &plan) {
+        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        std::get<ExpectedVariant>(plan.handle)->Forward2D(dev_buffer);
+    }
+
+    template <ValidWorkspace<T> Workspace>
+    static void Backward2D(Workspace *dev_buffer, Plan<Workspace> &plan) {
+        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        std::get<ExpectedVariant>(plan.handle)->Backward2D(dev_buffer);
+    }
+
+private:
+    static auto GetGridBox(GridSizes<Dim> ns, GridOffsets<Dim> offs) {
+        auto begin_x = offs[0];
+        auto begin_y = (Dim >= 2) ? offs[1] : 0;
+        auto begin_z = (Dim >= 3) ? offs[2] : 0;
+
+        auto end_x = begin_x + ns[0] - 1;
+        auto end_y = (Dim >= 2) ? (begin_y + ns[1] - 1) : 0;
+        auto end_z = (Dim >= 3) ? (begin_z + ns[2] - 1) : 0;
+
+        return heffte::box3d<std::size_t>{{begin_x, begin_y, begin_z},
+                                          {end_x, end_y, end_z}};
+    }
+
+    static auto GetFullPlan(FullLayout l,
+                            GridSizes<Dim> ns,
+                            GridOffsets<Dim> offs,
+                            MPI_Comm comm) -> Plan {
+        using enum FFTTransformType;
+
+        auto grid_box = GetGridBox(ns, offs);
+
+        switch (l.forward_type) {
+            case Complex: {
+                using TransformTag = heffte::backend::cufft;
+                auto plan =
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                return {std::make_unique<
+                    HeFFTeFullHandle<T, CuComplexTrait<T>, TransformTag>>(
+                    std::move(plan))};
+            }
+            case DCT1: {
+                using TransformTag = heffte::backend::cufft_cos1;
+                auto plan =
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::move(plan))};
+            }
+            case DCT2: {
+                using TransformTag = heffte::backend::cufft_cos;
+                auto plan =
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::move(plan))};
+            }
+            case DCT3:
+                // There is never a situation where full solver has DCT3 set as
+                // a forward FFT type.
+                throw std::runtime_error(
+                    "Internal error. Full solver shouldn't have DCT3 as "
+                    "forward FFT.");
+            case DCT4: {
+                using TransformTag = heffte::backend::cufft_cos4;
+                auto plan =
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::move(plan))};
+            }
+            case DST1: {
+                using TransformTag = heffte::backend::cufft_sin1;
+                auto plan =
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::move(plan))};
+            }
+            case DST2: {
+                using TransformTag = heffte::backend::cufft_sin;
+                auto plan =
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::move(plan))};
+            }
+            case DST3:
+                // There is never a situation where full solver has DST3 set as
+                // a forward FFT type.
+                throw std::runtime_error(
+                    "Internal error. Full solver shouldn't have DST3 as "
+                    "forward FFT.");
+            case DST4: {
+                using TransformTag = heffte::backend::cufft_sin4;
+                auto plan =
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::move(plan))};
+            }
+            default:
+                throw std::runtime_error("Invalid FFT forward type.");
+        }
+    }
+
+    static auto GetSplitPlan(SplitLayout l,
+                             GridSizes<Dim> ns,
+                             GridOffsets<Dim> offs,
+                             MPI_Comm comm) -> Plan {
+        // TODO Implement - probably use MPI manually and then run
+        // VkFFT once transposed
+        // Or use cuFFTMp?
+        throw std::runtime_error("Not implemented");
     }
 };
 
 template <std::floating_point T, std::size_t Dim>
-using FFTPolicy = HefftePolicy<T, Dim>;
+using FFTPolicy = HeFFTePolicy<T, Dim>;
 
 #else
-
 // === Forward Declarations ===
 struct FullHandle;
 
@@ -122,13 +383,6 @@ template <std::floating_point T, std::size_t Dim>
 using FFTPolicy = VkFFTPolicy<T, Dim>;
 
 // === Structs ===
-
-// Helper struct for `std::variant` visiting.
-template <typename... Ts>
-struct Overloaded : Ts... {
-    using Ts::operator()...;
-};
-
 struct VkFFTApplicationDeleter {
     void operator()(VkFFTApplication *app) const {
         // It's possible that `app` wasn't even initialized, calling
@@ -428,6 +682,7 @@ private:
                 return {.dct = 0, .dst = 4};
             default:
                 assert(false && "Unhandled VkFFT transform type mapping.");
+                return {0, 0};
         }
     }
 };
