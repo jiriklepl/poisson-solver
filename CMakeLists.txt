@@ -30,8 +30,8 @@ if (USE_MPI)
 
     FetchContent_Declare(
         heffte
-        GIT_REPOSITORY https://github.com/icl-utk-edu/heffte
-        GIT_TAG v2.4.1
+        GIT_REPOSITORY https://github.com/mntjams/heffte
+        GIT_TAG 818288f295cedcc025187322dfd5d1bcc49b1fac
     )
 
     # This variable is then read by HeFFTe's CMake.
@@ -39,6 +39,8 @@ if (USE_MPI)
     # `FORCE` writes to the variable even if e.g. user specified otherwise
     # with the `-D...` command line option.
     set(Heffte_ENABLE_CUDA ON CACHE BOOL "Enable heFFTe CUDA backend" FORCE)
+    set(Heffte_ENABLE_GPU_AWARE_MPI ON CACHE BOOL "Enable heFFTe GPU aware MPI" FORCE)
+
     FetchContent_MakeAvailable(heffte)
 else()
     FetchContent_Populate(
