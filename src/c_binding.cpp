@@ -13,6 +13,10 @@
 #include <stdexcept>
 #include <string>
 
+#ifdef USE_MPI
+#include <mpi.h>
+#endif  // USE_MPI
+
 // Here is the mapping between the C interface and C++ implementation.
 
 namespace ps = poisson_solver;
@@ -148,10 +152,26 @@ void PoissonSolver1DNew(PoissonSolver *solver_out,
                         const int ns[1],
                         const double lens[1],
                         const BoundaryCondition bcs[2],
-                        const ps::IApproximation<double> &approx) {
+                        const ps::IApproximation<double> &approx,
+                        const int *gns,
+                        const int *offs,
+                        const void *mpi_comm) {
     ps::BCPair bcp = ToCxxBCPair(bcs[0], bcs[1]);
+
+#ifdef USE_MPI
+    ps::ISolver<double, 1> *solver_handle =
+        new ps::Solver<double, 1>({static_cast<std::size_t>(ns[0])},
+                                  {lens[0]},
+                                  {bcp},
+                                  {static_cast<std::size_t>(gns[0])},
+                                  {static_cast<std::size_t>(offs[0])},
+                                  *static_cast<const MPI_Comm *>(mpi_comm),
+                                  approx);
+#else
     ps::ISolver<double, 1> *solver_handle = new ps::Solver<double, 1>(
         {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
+#endif  // USE_MPI
+
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .dim = 1,
@@ -164,14 +184,30 @@ void PoissonSolver2DNew(PoissonSolver *solver_out,
                         const int ns[2],
                         const double lens[2],
                         const BoundaryCondition bcs[4],
-                        const ps::IApproximation<double> &approx) {
+                        const ps::IApproximation<double> &approx,
+                        const int *gns,
+                        const int *offs,
+                        const void *mpi_comm) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
+
+#ifdef USE_MPI
+    ps::ISolver<double, 2> *solver_handle = new ps::Solver<double, 2>(
+        {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
+        {lens[0], lens[1]},
+        {bcp1, bcp2},
+        {static_cast<std::size_t>(gns[0]), static_cast<std::size_t>(gns[1])},
+        {static_cast<std::size_t>(offs[0]), static_cast<std::size_t>(offs[1])},
+        *static_cast<const MPI_Comm *>(mpi_comm),
+        approx);
+#else
     ps::ISolver<double, 2> *solver_handle = new ps::Solver<double, 2>(
         {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
         {lens[0], lens[1]},
         {bcp1, bcp2},
         approx);
+#endif  // USE_MPI
+
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .dim = 2,
@@ -184,10 +220,30 @@ void PoissonSolver3DNew(PoissonSolver *solver_out,
                         const int ns[3],
                         const double lens[3],
                         const BoundaryCondition bcs[6],
-                        const ps::IApproximation<double> &approx) {
+                        const ps::IApproximation<double> &approx,
+                        const int *gns,
+                        const int *offs,
+                        const void *mpi_comm) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
+
+#ifdef USE_MPI
+    ps::ISolver<double, 3> *solver_handle =
+        new ps::Solver<double, 3>({static_cast<std::size_t>(ns[0]),
+                                   static_cast<std::size_t>(ns[1]),
+                                   static_cast<std::size_t>(ns[2])},
+                                  {lens[0], lens[1], lens[2]},
+                                  {bcp1, bcp2, bcp3},
+                                  {static_cast<std::size_t>(gns[0]),
+                                   static_cast<std::size_t>(gns[1]),
+                                   static_cast<std::size_t>(gns[2])},
+                                  {static_cast<std::size_t>(offs[0]),
+                                   static_cast<std::size_t>(offs[1]),
+                                   static_cast<std::size_t>(offs[2])},
+                                  *static_cast<const MPI_Comm *>(mpi_comm),
+                                  approx);
+#else
     ps::ISolver<double, 3> *solver_handle =
         new ps::Solver<double, 3>({static_cast<std::size_t>(ns[0]),
                                    static_cast<std::size_t>(ns[1]),
@@ -195,6 +251,8 @@ void PoissonSolver3DNew(PoissonSolver *solver_out,
                                   {lens[0], lens[1], lens[2]},
                                   {bcp1, bcp2, bcp3},
                                   approx);
+#endif  // USE_MPI
+
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .dim = 3,
@@ -208,19 +266,25 @@ void PoissonSolverNew(PoissonSolver *solver_out,
                       const int *ns,
                       const double *lens,
                       const BoundaryCondition *bcs,
-                      Approximation approx) {
+                      Approximation approx,
+                      const int *gns,
+                      const int *offs,
+                      const void *mpi_comm) {
     std::unique_ptr<ps::IApproximation<double>> ps_approx =
         GetApprox<double>(approx);
 
     switch (dims) {
         case 1:
-            PoissonSolver1DNew(solver_out, ns, lens, bcs, *ps_approx);
+            PoissonSolver1DNew(
+                solver_out, ns, lens, bcs, *ps_approx, gns, offs, mpi_comm);
             break;
         case 2:
-            PoissonSolver2DNew(solver_out, ns, lens, bcs, *ps_approx);
+            PoissonSolver2DNew(
+                solver_out, ns, lens, bcs, *ps_approx, gns, offs, mpi_comm);
             break;
         case 3:
-            PoissonSolver3DNew(solver_out, ns, lens, bcs, *ps_approx);
+            PoissonSolver3DNew(
+                solver_out, ns, lens, bcs, *ps_approx, gns, offs, mpi_comm);
             break;
         default:
             throw std::invalid_argument("Invalid amount of dimensions" +
@@ -274,10 +338,26 @@ void PoissonSolver1DNewFloat(PoissonSolver *solver_out,
                              const int ns[1],
                              const float lens[1],
                              const BoundaryCondition bcs[2],
-                             const ps::IApproximation<float> &approx) {
+                             const ps::IApproximation<float> &approx,
+                             const int *gns,
+                             const int *offs,
+                             const void *mpi_comm) {
     ps::BCPair bcp = ToCxxBCPair(bcs[0], bcs[1]);
+
+#ifdef USE_MPI
+    ps::ISolver<float, 1> *solver_handle =
+        new ps::Solver<float, 1>({static_cast<std::size_t>(ns[0])},
+                                 {lens[0]},
+                                 {bcp},
+                                 {static_cast<std::size_t>(gns[0])},
+                                 {static_cast<std::size_t>(offs[0])},
+                                 *static_cast<const MPI_Comm *>(mpi_comm),
+                                 approx);
+#else
     ps::ISolver<float, 1> *solver_handle = new ps::Solver<float, 1>(
         {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
+#endif  // USE_MPI
+
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .dim = 1,
@@ -290,14 +370,30 @@ void PoissonSolver2DNewFloat(PoissonSolver *solver_out,
                              const int ns[2],
                              const float lens[2],
                              const BoundaryCondition bcs[4],
-                             const ps::IApproximation<float> &approx) {
+                             const ps::IApproximation<float> &approx,
+                             const int *gns,
+                             const int *offs,
+                             const void *mpi_comm) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
+
+#ifdef USE_MPI
+    ps::ISolver<float, 2> *solver_handle = new ps::Solver<float, 2>(
+        {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
+        {lens[0], lens[1]},
+        {bcp1, bcp2},
+        {static_cast<std::size_t>(gns[0]), static_cast<std::size_t>(gns[1])},
+        {static_cast<std::size_t>(offs[0]), static_cast<std::size_t>(offs[1])},
+        *static_cast<const MPI_Comm *>(mpi_comm),
+        approx);
+#else
     ps::ISolver<float, 2> *solver_handle = new ps::Solver<float, 2>(
         {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
         {lens[0], lens[1]},
         {bcp1, bcp2},
         approx);
+#endif  // USE_MPI
+
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .dim = 2,
@@ -310,10 +406,30 @@ void PoissonSolver3DNewFloat(PoissonSolver *solver_out,
                              const int ns[3],
                              const float lens[3],
                              const BoundaryCondition bcs[6],
-                             const ps::IApproximation<float> &approx) {
+                             const ps::IApproximation<float> &approx,
+                             const int *gns,
+                             const int *offs,
+                             const void *mpi_comm) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
+
+#ifdef USE_MPI
+    ps::ISolver<float, 3> *solver_handle =
+        new ps::Solver<float, 3>({static_cast<std::size_t>(ns[0]),
+                                  static_cast<std::size_t>(ns[1]),
+                                  static_cast<std::size_t>(ns[2])},
+                                 {lens[0], lens[1], lens[2]},
+                                 {bcp1, bcp2, bcp3},
+                                 {static_cast<std::size_t>(gns[0]),
+                                  static_cast<std::size_t>(gns[1]),
+                                  static_cast<std::size_t>(gns[2])},
+                                 {static_cast<std::size_t>(offs[0]),
+                                  static_cast<std::size_t>(offs[1]),
+                                  static_cast<std::size_t>(offs[2])},
+                                 *static_cast<const MPI_Comm *>(mpi_comm),
+                                 approx);
+#else
     ps::ISolver<float, 3> *solver_handle =
         new ps::Solver<float, 3>({static_cast<std::size_t>(ns[0]),
                                   static_cast<std::size_t>(ns[1]),
@@ -321,6 +437,8 @@ void PoissonSolver3DNewFloat(PoissonSolver *solver_out,
                                  {lens[0], lens[1], lens[2]},
                                  {bcp1, bcp2, bcp3},
                                  approx);
+#endif  // USE_MPI
+
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .dim = 3,
@@ -334,19 +452,25 @@ void PoissonSolverNewFloat(PoissonSolver *solver_out,
                            const int *ns,
                            const float *lens,
                            const BoundaryCondition *bcs,
-                           Approximation approx) {
+                           Approximation approx,
+                           const int *gns,
+                           const int *offs,
+                           const void *mpi_comm) {
     std::unique_ptr<ps::IApproximation<float>> ps_approx =
         GetApprox<float>(approx);
 
     switch (dims) {
         case 1:
-            PoissonSolver1DNewFloat(solver_out, ns, lens, bcs, *ps_approx);
+            PoissonSolver1DNewFloat(
+                solver_out, ns, lens, bcs, *ps_approx, gns, offs, mpi_comm);
             break;
         case 2:
-            PoissonSolver2DNewFloat(solver_out, ns, lens, bcs, *ps_approx);
+            PoissonSolver2DNewFloat(
+                solver_out, ns, lens, bcs, *ps_approx, gns, offs, mpi_comm);
             break;
         case 3:
-            PoissonSolver3DNewFloat(solver_out, ns, lens, bcs, *ps_approx);
+            PoissonSolver3DNewFloat(
+                solver_out, ns, lens, bcs, *ps_approx, gns, offs, mpi_comm);
             break;
         default:
             throw std::invalid_argument("Invalid amount of dimensions" +

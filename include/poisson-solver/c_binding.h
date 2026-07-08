@@ -33,7 +33,10 @@ void PoissonSolverNew(PoissonSolver *solver_out,
                       const int *ns,
                       const double *lens,
                       const BoundaryCondition *bcs,
-                      Approximation approx);
+                      Approximation approx,
+                      const int *gns,
+                      const int *offs,
+                      const void *mpi_comm);
 
 void PoissonSolverExecute(PoissonSolver *solver,
                           double *phi,
@@ -48,7 +51,10 @@ void PoissonSolverNewFloat(PoissonSolver *solver_out,
                            const int *ns,
                            const float *lens,
                            const BoundaryCondition *bcs,
-                           Approximation approx);
+                           Approximation approx,
+                           const int *gns,
+                           const int *offs,
+                           const void *mpi_comm);
 
 void PoissonSolverExecuteFloat(PoissonSolver *solver,
                                float *phi,
