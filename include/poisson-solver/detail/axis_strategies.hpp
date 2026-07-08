@@ -14,7 +14,8 @@ class IAxisStrategy {
 public:
     virtual auto GetGridDx(std::size_t n, T len) const -> T = 0;
     virtual auto GetApproximationInput(std::size_t i,
-                                       std::size_t n,
+                                       std::size_t offset,
+                                       std::size_t gn,
                                        T dkx) const -> T = 0;
     virtual auto ComputeNormalizationFactor(std::size_t n) const -> T = 0;
 
@@ -29,9 +30,11 @@ public:
     }
 
     auto GetApproximationInput(std::size_t i,
-                               std::size_t n,
+                               std::size_t offset,
+                               std::size_t gn,
                                T dkx) const -> T override {
-        return i < (n / 2) ? i * dkx : (n - i) * dkx;
+        auto gi = i + offset;
+        return gi <= (gn / 2) ? gi * dkx : (gn - gi) * dkx;
     }
 
     auto ComputeNormalizationFactor(std::size_t n) const -> T override {
@@ -47,9 +50,11 @@ public:
     }
 
     auto GetApproximationInput(std::size_t i,
-                               [[maybe_unused]] std::size_t n,
+                               std::size_t offset,
+                               [[maybe_unused]] std::size_t gn,
                                T dkx) const -> T override {
-        return (i + 1) * (dkx / 2);
+        auto gi = i + offset;
+        return (gi + 1) * (dkx / 2);
     }
 
     auto ComputeNormalizationFactor(std::size_t n) const -> T override {
@@ -65,9 +70,11 @@ public:
     }
 
     auto GetApproximationInput(std::size_t i,
-                               [[maybe_unused]] std::size_t n,
+                               std::size_t offset,
+                               [[maybe_unused]] std::size_t gn,
                                T dkx) const -> T override {
-        return i * (dkx / 2);
+        auto gi = i + offset;
+        return gi * (dkx / 2);
     }
 
     auto ComputeNormalizationFactor(std::size_t n) const -> T override {
@@ -83,9 +90,11 @@ public:
     }
 
     auto GetApproximationInput(std::size_t i,
-                               [[maybe_unused]] std::size_t n,
+                               std::size_t offset,
+                               [[maybe_unused]] std::size_t gn,
                                T dkx) const -> T override {
-        return (i + 1) * (dkx / 2);
+        auto gi = i + offset;
+        return (gi + 1) * (dkx / 2);
     }
 
     auto ComputeNormalizationFactor(std::size_t n) const -> T override {
@@ -101,9 +110,11 @@ public:
     }
 
     auto GetApproximationInput(std::size_t i,
-                               [[maybe_unused]] std::size_t n,
+                               std::size_t offset,
+                               [[maybe_unused]] std::size_t gn,
                                T dkx) const -> T override {
-        return i * (dkx / 2);
+        auto gi = i + offset;
+        return gi * (dkx / 2);
     }
 
     auto ComputeNormalizationFactor(std::size_t n) const -> T override {
@@ -119,9 +130,11 @@ public:
     }
 
     auto GetApproximationInput(std::size_t i,
-                               [[maybe_unused]] std::size_t n,
+                               std::size_t offset,
+                               [[maybe_unused]] std::size_t gn,
                                T dkx) const -> T override {
-        return (i + 1 - static_cast<T>(0.5)) * (dkx / 2);
+        auto gi = i + offset;
+        return (gi + 1 - static_cast<T>(0.5)) * (dkx / 2);
     }
 
     auto ComputeNormalizationFactor(std::size_t n) const -> T override {
