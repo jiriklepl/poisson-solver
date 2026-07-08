@@ -20,6 +20,10 @@
 #include <span>
 #include <stdexcept>
 
+#ifdef USE_MPI
+#include <mpi.h>
+#endif  // USE_MPI
+
 namespace poisson_solver {
 template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
@@ -59,7 +63,7 @@ template <std::floating_point T, std::size_t Dim>
 class Solver : public ISolver<T, Dim> {
 public:
     /**
-     * @brief Constructs a poisson solver.
+     * @brief Constructs a local poisson solver.
      *
      * @param ns Sizes of the grid in each dimension (without ghost cells).
      * @param lens Real lengths of the grid in each dimension.
@@ -79,6 +83,42 @@ public:
            dim3 cuda_block_size = ISolver<T, Dim>::DefaultBlockSize())
         : solver_plan_(bcs),
           core_(ns, lens, approx, cuda_block_size, solver_plan_) {}
+
+#ifdef USE_MPI
+    /**
+     * @brief Constructs a distributed poisson solver.
+     *
+     * @param ns Local sizes of the grid in each dimension (without ghost
+     * cells).
+     * @param lens Real lengths of the grid in each dimension (global).
+     * @param bcs Boundary conditions for each axis in the order {{west, east},
+     * {south, north}, {bottom, top}}.
+     * For more information @see boundary_conditions.hpp.
+     * @param gns Global sizes of the grid in each dimension (without ghost
+     * cells).
+     * @param offs Offset of local data.
+     * @param comm The MPI communicator.
+     * @param approx Desired approximation function. @see approximations.hpp
+     * @param cuda_block_size Optional CUDA block size used in every kernel.
+     */
+    Solver(GridSizes<Dim> ns,
+           std::array<T, Dim> lens,
+           BCs<Dim> bcs,
+           GridSizes<Dim> gns,
+           GridOffsets<Dim> offs,
+           MPI_Comm comm,
+           const IApproximation<T> &approx = SpectralApproximation<T>{},
+           dim3 cuda_block_size = ISolver<T, Dim>::DefaultBlockSize())
+        : solver_plan_(bcs),
+          core_(ns,
+                lens,
+                gns,
+                offs,
+                comm,
+                approx,
+                cuda_block_size,
+                solver_plan_) {}
+#endif  // USE_MPI
 
     /**
      * @brief Solves the equation \f$ \delta \phi = b \f$.
