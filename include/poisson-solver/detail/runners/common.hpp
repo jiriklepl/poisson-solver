@@ -14,14 +14,8 @@ void DivideByDenoms(Workspace *workspace,
                     GridSizes<Dim> ns,
                     DenomConstPtrs<T, Dim> denoms,
                     dim3 cu_grid_size,
-                    dim3 cu_block_size);
-
-template <std::floating_point T, std::size_t Dim, ValidWorkspace<T> Workspace>
-void DivideByDenomsAndZero(Workspace *workspace,
-                           GridSizes<Dim> ns,
-                           DenomConstPtrs<T, Dim> denoms,
-                           dim3 cu_grid_size,
-                           dim3 cu_block_size);
+                    dim3 cu_block_size,
+                    bool zero_first = false);
 }  // namespace poisson_solver::detail::runners
 
 #endif  // COMMON_HPP

@@ -164,7 +164,7 @@ private:
     detail::SolverCore<T, Dim> core_;
 
     void SolveFullPeriodic() {
-        using detail::runners::DivideByDenomsAndZero;
+        using detail::runners::DivideByDenoms;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -177,11 +177,12 @@ private:
         FFTPolicy::Forward(core_.cu_cmplx_workspace.value().get(),
                            core_.fft_plan);
 
-        DivideByDenomsAndZero(core_.cu_cmplx_workspace.value().get(),
-                              core_.ns,
-                              core_.cu_denom_observers,
-                              core_.cu_grid_size,
-                              core_.cu_block_size);
+        DivideByDenoms(core_.cu_cmplx_workspace.value().get(),
+                       core_.ns,
+                       core_.cu_denom_observers,
+                       core_.cu_grid_size,
+                       core_.cu_block_size,
+                       core_.operates_on_grid_beginning);
 
         FFTPolicy::Backward(core_.cu_cmplx_workspace.value().get(),
                             core_.fft_plan);
@@ -214,16 +215,17 @@ private:
     }
 
     void SolveFullNeumann() {
-        using detail::runners::DivideByDenomsAndZero;
+        using detail::runners::DivideByDenoms;
         using detail::runners::common_real::Normalize;
 
         FFTPolicy::Forward(core_.cu_real_workspace.get(), core_.fft_plan);
 
-        DivideByDenomsAndZero(core_.cu_real_workspace.get(),
-                              core_.ns,
-                              core_.cu_denom_observers,
-                              core_.cu_grid_size,
-                              core_.cu_block_size);
+        DivideByDenoms(core_.cu_real_workspace.get(),
+                       core_.ns,
+                       core_.cu_denom_observers,
+                       core_.cu_grid_size,
+                       core_.cu_block_size,
+                       core_.operates_on_grid_beginning);
 
         FFTPolicy::Backward(core_.cu_real_workspace.get(), core_.fft_plan);
         Normalize(core_.cu_real_workspace.get(),
@@ -234,7 +236,7 @@ private:
     }
 
     void SolvePPNs() {
-        using detail::runners::DivideByDenomsAndZero;
+        using detail::runners::DivideByDenoms;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -247,11 +249,12 @@ private:
 
         FFTPolicy::Forward2D(core_.cu_cmplx_workspace.value().get(),
                              core_.fft_plan);
-        DivideByDenomsAndZero(core_.cu_cmplx_workspace.value().get(),
-                              core_.ns,
-                              core_.cu_denom_observers,
-                              core_.cu_grid_size,
-                              core_.cu_block_size);
+        DivideByDenoms(core_.cu_cmplx_workspace.value().get(),
+                       core_.ns,
+                       core_.cu_denom_observers,
+                       core_.cu_grid_size,
+                       core_.cu_block_size,
+                       core_.operates_on_grid_beginning);
         FFTPolicy::Backward2D(core_.cu_cmplx_workspace.value().get(),
                               core_.fft_plan);
 
@@ -299,7 +302,7 @@ private:
         // TODO: Same body as PPNs.
         // Only is change in `fft_plan_` construction
         // but this doesn't concern this function.
-        using detail::runners::DivideByDenomsAndZero;
+        using detail::runners::DivideByDenoms;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -312,11 +315,12 @@ private:
 
         FFTPolicy::Forward2D(core_.cu_cmplx_workspace.value().get(),
                              core_.fft_plan);
-        DivideByDenomsAndZero(core_.cu_cmplx_workspace.value().get(),
-                              core_.ns,
-                              core_.cu_denom_observers,
-                              core_.cu_grid_size,
-                              core_.cu_block_size);
+        DivideByDenoms(core_.cu_cmplx_workspace.value().get(),
+                       core_.ns,
+                       core_.cu_denom_observers,
+                       core_.cu_grid_size,
+                       core_.cu_block_size,
+                       core_.operates_on_grid_beginning);
         FFTPolicy::Backward2D(core_.cu_cmplx_workspace.value().get(),
                               core_.fft_plan);
 
@@ -330,7 +334,7 @@ private:
     }
 
     void SolvePNsNs() {
-        using detail::runners::DivideByDenomsAndZero;
+        using detail::runners::DivideByDenoms;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -343,11 +347,12 @@ private:
 
         FFTPolicy::Forward1D(core_.cu_cmplx_workspace.value().get(),
                              core_.fft_plan);
-        DivideByDenomsAndZero(core_.cu_cmplx_workspace.value().get(),
-                              core_.ns,
-                              core_.cu_denom_observers,
-                              core_.cu_grid_size,
-                              core_.cu_block_size);
+        DivideByDenoms(core_.cu_cmplx_workspace.value().get(),
+                       core_.ns,
+                       core_.cu_denom_observers,
+                       core_.cu_grid_size,
+                       core_.cu_block_size,
+                       core_.operates_on_grid_beginning);
         FFTPolicy::Backward1D(core_.cu_cmplx_workspace.value().get(),
                               core_.fft_plan);
 
@@ -364,7 +369,7 @@ private:
         // TODO: Same body as PPNs.
         // Only is change in `fft_plan_` construction
         // but this doesn't concern this function.
-        using detail::runners::DivideByDenomsAndZero;
+        using detail::runners::DivideByDenoms;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
@@ -377,11 +382,12 @@ private:
 
         FFTPolicy::Forward2D(core_.cu_cmplx_workspace.value().get(),
                              core_.fft_plan);
-        DivideByDenomsAndZero(core_.cu_cmplx_workspace.value().get(),
-                              core_.ns,
-                              core_.cu_denom_observers,
-                              core_.cu_grid_size,
-                              core_.cu_block_size);
+        DivideByDenoms(core_.cu_cmplx_workspace.value().get(),
+                       core_.ns,
+                       core_.cu_denom_observers,
+                       core_.cu_grid_size,
+                       core_.cu_block_size,
+                       core_.operates_on_grid_beginning);
         FFTPolicy::Backward2D(core_.cu_cmplx_workspace.value().get(),
                               core_.fft_plan);
 
