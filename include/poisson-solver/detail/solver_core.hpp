@@ -3,9 +3,11 @@
 
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
+#include "poisson-solver/detail/axis_strategies.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/solver_plan.hpp"
 
+#include <algorithm>
 #include <array>
 #include <concepts>
 #include <cstddef>
@@ -14,7 +16,12 @@
 #include <numbers>
 #include <numeric>
 #include <optional>
+#include <utility>
 #include <vector>
+
+#ifdef USE_MPI
+#include <mpi.h>
+#endif  // USE_MPI
 
 namespace poisson_solver::detail {
 /**
@@ -41,12 +48,15 @@ public:
     // the 1D and 2D methods of FFTPolicy.
     using CoreFFTPolicy = FFTPolicy<T, Dim>;
 
+    using FFTPlan = typename CoreFFTPolicy::Plan;
+
     // === Plans ===
-    typename CoreFFTPolicy::Plan fft_plan;
+    FFTPlan fft_plan;
 
     // === Grid ===
     GridSizes<Dim> ns;
     std::size_t cnt;
+    bool operates_on_grid_beginning{false};
 
     // === Physics and Math ===
     std::array<CudaUniquePtrT, FFTDim> cu_denoms;
@@ -69,38 +79,91 @@ public:
     dim3 cu_block_size;
     dim3 cu_grid_size;
 
+    /**
+     * @brief Constructs core for local solver.
+     */
     SolverCore(GridSizes<Dim> ns,
                std::array<T, FFTDim> lens,
                const IApproximation<T> &approx,
                dim3 cuda_block_size,
                const ISolverPlan<T, FFTDim> &sp)
-        : fft_plan(CoreFFTPolicy::Init(ns, sp.fft_layout)),
+        : SolverCore(CoreFFTPolicy::Init(ns, sp.fft_layout),
+                     ns,
+                     lens,
+                     ns,
+                     {0, 0, 0},
+                     approx,
+                     cuda_block_size,
+                     sp) {}
+
+#ifdef USE_MPI
+    /**
+     * @brief Constructs core for distributed solver.
+     */
+    SolverCore(GridSizes<Dim> ns,
+               std::array<T, FFTDim> lens,
+               GridSizes<Dim> gns,
+               GridOffsets<Dim> offs,
+               MPI_Comm comm,
+               const IApproximation<T> &approx,
+               dim3 cuda_block_size,
+               const ISolverPlan<T, FFTDim> &sp)
+        : SolverCore(CoreFFTPolicy::Init(ns, offs, comm, sp.fft_layout),
+                     ns,
+                     lens,
+                     gns,
+                     offs,
+                     approx,
+                     cuda_block_size,
+                     sp) {}
+#endif  // USE_MPI
+
+private:
+    /**
+     * @brief Master constructor.
+     * Initializes everything common for local and distributed solver.
+     *
+     * @note: \p fft_plan should be initialized by the calling ctor and
+     * passed here.
+     */
+    SolverCore(FFTPlan &&fft_plan,
+               GridSizes<Dim> ns,
+               std::array<T, FFTDim> lens,
+               GridSizes<Dim> gns,
+               GridOffsets<Dim> offs,
+               const IApproximation<T> &approx,
+               dim3 cuda_block_size,
+               const ISolverPlan<T, FFTDim> &sp)
+        : fft_plan(std::move(fft_plan)),
           ns(ns),
-          cnt(ComputeTotalGridSize(ns)),
-          norm_factor(ComputeNormFactor(ns, sp)),
+          cnt(ComputeLocalGridSize(ns)),
+          operates_on_grid_beginning(std::ranges::all_of(offs,
+                                                         [](const auto &off) {
+                                                             return off == 0;
+                                                         })),
+          norm_factor(ComputeNormFactor(gns, sp)),
           cu_block_size(cuda_block_size),
           cu_grid_size(ComputeCUDAGridSize(ns, cuda_block_size)) {
         AllocDeviceBuffers();
 
         // Denoms are constant for the solver lifetime.
         // They can be copied just once, here.
-        const auto denoms = GetEigenvalues(ns, lens, approx, sp);
+        const auto denoms = GetEigenvalues(gns, lens, approx, sp);
         CopyDenomsToDevice(denoms);
         cu_denom_observers = CreateDenomObservers();
     }
 
-private:
-    static auto ComputeTotalGridSize(GridSizes<Dim> ns) -> std::size_t {
+    static auto ComputeLocalGridSize(GridSizes<Dim> ns) -> std::size_t {
         return std::accumulate(
             ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>{});
     }
 
-    auto ComputeNormFactor(GridSizes<Dim> ns,
+    auto ComputeNormFactor(GridSizes<Dim> gns,
                            const ISolverPlan<T, FFTDim> &sp) const -> T {
         T factor = 1.0;
         for (std::size_t d = 0; d < FFTDim; ++d) {
             const auto &strategy = sp.axis_strategies[d];
-            factor *= strategy->ComputeNormalizationFactor(ns[d]);
+            factor *= strategy->ComputeNormalizationFactor(gns[d]);
         }
         return factor;
     }
@@ -150,19 +213,20 @@ private:
 
     auto GetOneAxisEigenvalues(std::size_t n,
                                T len,
-                               std::size_t axis,
+                               std::size_t gn,
+                               std::size_t offset,
                                const IApproximation<T> &approx,
-                               const ISolverPlan<T, FFTDim> &sp) const
+                               const IAxisStrategy<T> &axis_strategy) const
         -> HostOneAxisDenoms {
         HostOneAxisDenoms eigenvals(n);
-        const auto &strategy = sp.axis_strategies[axis];
 
-        const T grid_dx = strategy->GetGridDx(n, len);
+        const T grid_dx = axis_strategy->GetGridDx(gn, len);
         const T dkx = std::numbers::pi_v<T> * grid_dx / len;
         const T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
 
         for (std::size_t i = 0; i < n; ++i) {
-            eigenvals[i] = approx(strategy->GetApproximationInput(i, n, dkx)) *
+            eigenvals[i] = approx(axis_strategy->GetApproximationInput(
+                               i, offset, gn, dkx)) *
                            inv_grid_dx_squared;
         }
 
@@ -171,12 +235,15 @@ private:
 
     auto GetEigenvalues(GridSizes<Dim> ns,
                         std::array<T, FFTDim> lens,
+                        GridSizes<Dim> gns,
+                        GridOffsets<Dim> offs,
                         const IApproximation<T> &approx,
                         const ISolverPlan<T, FFTDim> &sp) const -> HostDenoms {
         // TODO: This could be done on GPU
         HostDenoms denoms{};
         for (std::size_t d = 0; d < FFTDim; ++d) {
-            denoms[d] = GetOneAxisEigenvalues(ns[d], lens[d], d, approx, sp);
+            denoms[d] = GetOneAxisEigenvalues(
+                ns[d], lens[d], gns[d], offs[d], approx, sp.axis_strategies[d]);
         }
         return denoms;
     }
