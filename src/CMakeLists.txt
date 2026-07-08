@@ -1,5 +1,6 @@
 set(LIB_SRC
     c_binding.cpp
+    detail/c_binding_for_fortran.cpp
     fortran_binding.f90
     detail/runners/common.cu
     detail/runners/common_real.cu

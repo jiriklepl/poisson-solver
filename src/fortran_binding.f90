@@ -23,15 +23,18 @@ module PoisSolver
     ! == Doubles ==
     interface
 
-        subroutine poisson_solver_new_c(solver_out, dims, ns, lens, bcs, approx) &
-                bind(C, name="PoissonSolverNew")
+        subroutine poisson_solver_new_c(solver_out, dims, ns, lens, bcs, approx, gns, offs, mpi_comm) &
+                bind(C, name="PoissonSolverNewForFortran")
             import :: c_int, c_double, PoissonSolver
-            type(PoissonSolver), intent(out) :: solver_out
-            integer(c_int),      value       :: dims
-            integer(c_int),      value       :: approx
-            integer(c_int),      intent(in)  :: ns(*)
-            real(c_double),      intent(in)  :: lens(*)
-            integer(c_int),      intent(in)  :: bcs(*)
+            type(PoissonSolver), intent(out)      :: solver_out
+            integer(c_int),      value            :: dims
+            integer(c_int),      intent(in)       :: ns(*)
+            real(c_double),      intent(in)       :: lens(*)
+            integer(c_int),      intent(in)       :: bcs(*)
+            integer(c_int),      value            :: approx
+            integer(c_int),         intent(in)       :: gns(*)
+            integer(c_int),         intent(in)       :: offs(*)
+            type(c_ptr),         value            :: mpi_comm
         end subroutine poisson_solver_new_c
 
         subroutine poisson_solver_execute_c(solver, phi, rhs, ngs_phi, ngs_rhs) &
@@ -55,15 +58,18 @@ module PoisSolver
     ! == Floats ==
     interface
 
-        subroutine poisson_solver_new_float_c(solver_out, dims, ns, lens, bcs, approx) &
+        subroutine poisson_solver_new_float_c(solver_out, dims, ns, lens, bcs, approx, gns, offs, mpi_comm) &
                 bind(C, name="PoissonSolverNewFloat")
             import :: c_int, c_float, PoissonSolver
-            type(PoissonSolver), intent(out) :: solver_out
-            integer(c_int),      value       :: dims
-            integer(c_int),      value       :: approx
-            integer(c_int),      intent(in)  :: ns(*)
-            real(c_float),       intent(in)  :: lens(*)
-            integer(c_int),      intent(in)  :: bcs(*)
+            type(PoissonSolver), intent(out)      :: solver_out
+            integer(c_int),      value            :: dims
+            integer(c_int),      intent(in)       :: ns(*)
+            real(c_float),       intent(in)       :: lens(*)
+            integer(c_int),      intent(in)       :: bcs(*)
+            integer(c_int),      value            :: approx
+            integer(c_int),         intent(in)       :: gns(*)
+            integer(c_int),         intent(in)       :: offs(*)
+            type(c_ptr),         value            :: mpi_comm
         end subroutine poisson_solver_new_float_c
 
         subroutine poisson_solver_execute_float_c(solver, phi, rhs, ngs_phi, ngs_rhs) &
@@ -170,25 +176,42 @@ contains
 
     ! Creates a new solver, writing the result into `solver`.
     !
-    ! dims        : number of spatial dimensions (1, 2, or 3)
-    ! ns(dims)    : grid point count per axis
-    ! lens(dims)  : domain length per axis
-    ! bcs(2*dims) : boundary conditions, laid out as
-    !               [west, east, south, north, bottom, top]
-    ! approx      : one of PoissonSolver_Spectral,
-    !                      PoissonSolver_FiniteDifference2, 
-    !                      PoissonSolver_FiniteDifference4
-    subroutine poisson_solver_new(solver, dims, ns, lens, bcs, approx)
-        type(PoissonSolver), intent(out) :: solver
-        integer,             intent(in)  :: dims
-        integer,             intent(in)  :: ns(dims)
-        real(c_double),      intent(in)  :: lens(dims)
-        integer,             intent(in)  :: bcs(2 * dims)
-        integer,             intent(in)  :: approx
+    ! dims         : number of spatial dimensions (1, 2, or 3)
+    ! ns(dims)     : grid point count per axis
+    ! lens(dims)   : domain length per axis
+    ! bcs(2*dims)  : boundary conditions, laid out as
+    !                [west, east, south, north, bottom, top]
+    ! approx       : one of PoissonSolver_Spectral,
+    !                       PoissonSolver_FiniteDifference2,
+    !                       PoissonSolver_FiniteDifference4
+    ! gns(dims)    : global grid point count per axis
+    ! offs(dims)   : offset of local data
+    ! mpi_comm     : the mpi communicator
+    subroutine poisson_solver_new(solver, dims, ns, lens, bcs, approx, gns, offs, mpi_comm)
+        type(PoissonSolver), intent(out)          :: solver
+        integer,             intent(in)           :: dims
+        integer,             intent(in)           :: ns(dims)
+        real(c_double),      intent(in)           :: lens(dims)
+        integer,             intent(in)           :: bcs(2 * dims)
+        integer,             intent(in)           :: approx
+        integer,             intent(in), optional :: gns(dims)
+        integer,             intent(in), optional :: offs(dims)
+        integer,             intent(in), optional :: mpi_comm
+
+        integer(c_int), target :: local_gns(3), local_offs(3)
+        type(c_ptr) :: c_comm
+
+        if(present(gns)) local_gns(1:dims) = int(gns, c_int)
+        if(present(offs)) local_offs(1:dims) = int(offs, c_int)
+
+        c_comm = c_null_ptr
+        if(present(mpi_comm)) then
+            c_comm = c_loc(mpi_comm)
+        end if
         
         call poisson_solver_new_c(solver, int(dims, c_int), &
             int(ns, c_int), lens, &
-            int(bcs, c_int), int(approx, c_int))
+            int(bcs, c_int), int(approx, c_int), local_gns, local_offs, c_comm)
     end subroutine poisson_solver_new
 
     ! Expects that for each dimension the number
@@ -243,25 +266,42 @@ contains
 
     ! Creates a new solver, writing the result into `solver`.
     !
-    ! dims        : number of spatial dimensions (1, 2, or 3)
-    ! ns(dims)    : grid point count per axis
-    ! lens(dims)  : domain length per axis
-    ! bcs(2*dims) : boundary conditions, laid out as
-    !               [west, east, south, north, bottom, top]
-    ! approx      : one of PoissonSolver_Spectral,
-    !                      PoissonSolver_FiniteDifference2, 
-    !                      PoissonSolver_FiniteDifference4
-    subroutine poisson_solver_new_float(solver, dims, ns, lens, bcs, approx)
+    ! dims         : number of spatial dimensions (1, 2, or 3)
+    ! ns(dims)     : grid point count per axis
+    ! lens(dims)   : domain length per axis
+    ! bcs(2*dims)  : boundary conditions, laid out as
+    !                [west, east, south, north, bottom, top]
+    ! approx       : one of PoissonSolver_Spectral,
+    !                       PoissonSolver_FiniteDifference2,
+    !                       PoissonSolver_FiniteDifference4
+    ! gns(dims)    : global grid point count per axis
+    ! offs(dims)   : offset of local data
+    ! mpi_comm     : the mpi communicator
+    subroutine poisson_solver_new_float(solver, dims, ns, lens, bcs, approx, gns, offs, mpi_comm)
         type(PoissonSolver), intent(out) :: solver
         integer,             intent(in)  :: dims
         integer,             intent(in)  :: ns(dims)
         real(c_float),      intent(in)  :: lens(dims)
         integer,             intent(in)  :: bcs(2 * dims)
         integer,             intent(in)  :: approx
+        integer,             intent(in), optional :: gns(dims)
+        integer,             intent(in), optional :: offs(dims)
+        integer,             intent(in), optional :: mpi_comm
+
+        integer(c_int), target :: local_gns(3), local_offs(3)
+        type(c_ptr) :: c_comm
+
+        if(present(gns)) local_gns(1:dims) = int(gns, c_int)
+        if(present(offs)) local_offs(1:dims) = int(offs, c_int)
+
+        c_comm = c_null_ptr
+        if(present(mpi_comm)) then
+            c_comm = c_loc(mpi_comm)
+        end if
         
         call poisson_solver_new_float_c(solver, int(dims, c_int), &
             int(ns, c_int), lens, &
-            int(bcs, c_int), int(approx, c_int))
+            int(bcs, c_int), int(approx, c_int), local_gns, local_offs, c_comm)
     end subroutine poisson_solver_new_float
 
     ! Expects that for each dimension the number

@@ -1,0 +1,53 @@
+#include "poisson-solver/c_binding.h"
+
+#ifdef USE_MPI
+#include <mpi.h>
+#endif  // USE_MPI
+
+/*
+ * To portably transform an optional MPI_Comm from Fortran to C
+ * that is supplied only when MPI is used we have to use this
+ * lowkey horribly looking approach.
+ *
+ * If MPI is defined, accept the MPI_Fint and transform it into a C handle
+ * to pass to the C API.
+ *
+ * If MPI isn't defined, we assume that the mpi_comm is a nullptr and
+ * just pass it on.
+ */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+void PoissonSolverNewForFortran(PoissonSolver *solver_out,
+                                int dims,
+                                const int *ns,
+                                const double *lens,
+                                const BoundaryCondition *bcs,
+                                Approximation approx,
+                                const int *gns,
+                                const int *offs,
+#ifdef USE_MPI
+                                const MPI_Fint *mpi_comm
+#else
+                                const void *mpi_comm
+#endif  // USE_MPI
+);
+
+void PoissonSolverNewFloatForFortran(PoissonSolver *solver_out,
+                                     int dims,
+                                     const int *ns,
+                                     const float *lens,
+                                     const BoundaryCondition *bcs,
+                                     Approximation approx,
+                                     const int *gns,
+                                     const int *offs,
+#ifdef USE_MPI
+                                     const MPI_Fint *mpi_comm
+#else
+                                     const void *mpi_comm
+#endif  // USE_MPI
+);
+#ifdef __cplusplus
+}
+#endif
