@@ -91,7 +91,7 @@ public:
                      ns,
                      lens,
                      ns,
-                     {0, 0, 0},
+                     GridOffsets<Dim>{},  // Zero-initialize all elements
                      approx,
                      cuda_block_size,
                      sp) {}
@@ -148,7 +148,7 @@ private:
 
         // Denoms are constant for the solver lifetime.
         // They can be copied just once, here.
-        const auto denoms = GetEigenvalues(gns, lens, approx, sp);
+        const auto denoms = GetEigenvalues(ns, lens, gns, offs, approx, sp);
         CopyDenomsToDevice(denoms);
         cu_denom_observers = CreateDenomObservers();
     }
@@ -220,12 +220,12 @@ private:
         -> HostOneAxisDenoms {
         HostOneAxisDenoms eigenvals(n);
 
-        const T grid_dx = axis_strategy->GetGridDx(gn, len);
+        const T grid_dx = axis_strategy.GetGridDx(gn, len);
         const T dkx = std::numbers::pi_v<T> * grid_dx / len;
         const T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
 
         for (std::size_t i = 0; i < n; ++i) {
-            eigenvals[i] = approx(axis_strategy->GetApproximationInput(
+            eigenvals[i] = approx(axis_strategy.GetApproximationInput(
                                i, offset, gn, dkx)) *
                            inv_grid_dx_squared;
         }
@@ -243,7 +243,7 @@ private:
         HostDenoms denoms{};
         for (std::size_t d = 0; d < FFTDim; ++d) {
             denoms[d] = GetOneAxisEigenvalues(
-                ns[d], lens[d], gns[d], offs[d], approx, sp.axis_strategies[d]);
+                ns[d], lens[d], gns[d], offs[d], approx, *sp.axis_strategies[d]);
         }
         return denoms;
     }

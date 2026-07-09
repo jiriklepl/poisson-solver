@@ -36,10 +36,16 @@ target_link_libraries(residuum-tests PRIVATE
 doctest_discover_tests(residuum-tests)
 
 # == Fortran Residuum Tests ==
-set(FORTRAN_TEST_SRCS
-    test_residuum.f90
-    test_residuum_nonuniform_z.f90
-)
+if (USE_MPI)
+    set(FORTRAN_TEST_SRCS
+        test_residuum_mpi.f90
+    )
+else()
+    set(FORTRAN_TEST_SRCS
+        test_residuum.f90
+        test_residuum_nonuniform_z.f90
+    )
+endif()
 
 set(ALL_FORTRAN_TEST_TARGETS "")
 

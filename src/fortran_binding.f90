@@ -25,7 +25,7 @@ module PoisSolver
 
         subroutine poisson_solver_new_c(solver_out, dims, ns, lens, bcs, approx, gns, offs, mpi_comm) &
                 bind(C, name="PoissonSolverNewForFortran")
-            import :: c_int, c_double, PoissonSolver
+            import :: c_int, c_double, c_ptr, PoissonSolver
             type(PoissonSolver), intent(out)      :: solver_out
             integer(c_int),      value            :: dims
             integer(c_int),      intent(in)       :: ns(*)
@@ -39,7 +39,7 @@ module PoisSolver
 
         subroutine poisson_solver_execute_c(solver, phi, rhs, ngs_phi, ngs_rhs) &
                 bind(C, name="PoissonSolverExecute")
-            import :: c_int, c_double, PoissonSolver
+            import :: c_int, c_double, c_ptr, PoissonSolver
             type(PoissonSolver), intent(inout) :: solver
             real(c_double),      intent(out)   :: phi(*)
             real(c_double),      intent(in)    :: rhs(*)
@@ -60,7 +60,7 @@ module PoisSolver
 
         subroutine poisson_solver_new_float_c(solver_out, dims, ns, lens, bcs, approx, gns, offs, mpi_comm) &
                 bind(C, name="PoissonSolverNewFloat")
-            import :: c_int, c_float, PoissonSolver
+            import :: c_int, c_float, c_ptr, PoissonSolver
             type(PoissonSolver), intent(out)      :: solver_out
             integer(c_int),      value            :: dims
             integer(c_int),      intent(in)       :: ns(*)
@@ -196,9 +196,9 @@ contains
         integer,             intent(in)           :: approx
         integer,             intent(in), optional :: gns(dims)
         integer,             intent(in), optional :: offs(dims)
-        integer,             intent(in), optional :: mpi_comm
+        integer,             intent(in), optional, target :: mpi_comm
 
-        integer(c_int), target :: local_gns(3), local_offs(3)
+        integer(c_int) :: local_gns(3), local_offs(3)
         type(c_ptr) :: c_comm
 
         if(present(gns)) local_gns(1:dims) = int(gns, c_int)
@@ -286,9 +286,9 @@ contains
         integer,             intent(in)  :: approx
         integer,             intent(in), optional :: gns(dims)
         integer,             intent(in), optional :: offs(dims)
-        integer,             intent(in), optional :: mpi_comm
+        integer,             intent(in), optional, target :: mpi_comm
 
-        integer(c_int), target :: local_gns(3), local_offs(3)
+        integer(c_int) :: local_gns(3), local_offs(3)
         type(c_ptr) :: c_comm
 
         if(present(gns)) local_gns(1:dims) = int(gns, c_int)

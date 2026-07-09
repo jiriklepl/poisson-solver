@@ -56,8 +56,15 @@ void ExecuteCBinding(std::span<T> phi,
     }
 
     if constexpr (std::is_same_v<T, double>) {
-        PoissonSolverNew(
-            &solver, Dim, c_ns.data(), c_lens.data(), c_bcs.data(), approx);
+        PoissonSolverNew(&solver,
+                         Dim,
+                         c_ns.data(),
+                         c_lens.data(),
+                         c_bcs.data(),
+                         approx,
+                         nullptr,
+                         nullptr,
+                         nullptr);
         PoissonSolverExecute(&solver,
                              phi.data(),
                              rhs.data(),
@@ -65,8 +72,15 @@ void ExecuteCBinding(std::span<T> phi,
                              c_ngs_rhs.data());
         PoissonSolverFinalize(&solver);
     } else {
-        PoissonSolverNewFloat(
-            &solver, Dim, c_ns.data(), c_lens.data(), c_bcs.data(), approx);
+        PoissonSolverNewFloat(&solver,
+                              Dim,
+                              c_ns.data(),
+                              c_lens.data(),
+                              c_bcs.data(),
+                              approx,
+                              nullptr,
+                              nullptr,
+                              nullptr);
         PoissonSolverExecuteFloat(&solver,
                                   phi.data(),
                                   rhs.data(),
