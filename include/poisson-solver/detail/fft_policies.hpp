@@ -207,7 +207,7 @@ public:
 
 // TODO: NOT TESTED!
 template <std::floating_point T, std::size_t Dim>
-struct HeFFTePolicy {
+struct MpiFftPolicy {
 public:
     using Plan = HeFFTePlan<T>;
 
@@ -376,7 +376,7 @@ private:
 };
 
 template <std::floating_point T, std::size_t Dim>
-using FFTPolicy = HeFFTePolicy<T, Dim>;
+using FFTPolicy = MpiFftPolicy<T, Dim>;
 
 #else
 // === Forward Declarations ===
