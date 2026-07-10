@@ -160,12 +160,12 @@ private:
 
     auto ComputeNormFactor(GridSizes<Dim> gns,
                            const ISolverPlan<T, FFTDim> &sp) const -> T {
-        T factor = 1.0;
+        std::size_t factor = 1;
         for (std::size_t d = 0; d < FFTDim; ++d) {
             const auto &strategy = sp.axis_strategies[d];
             factor *= strategy->ComputeNormalizationFactor(gns[d]);
         }
-        return factor;
+        return static_cast<T>(factor);
     }
 
     /**
