@@ -328,7 +328,7 @@ auto MakeNeumannRhsCorrector(GridSizes<Dim> ns) -> RHSAdjustFunction<T> {
 template <std::floating_point T>
 auto MakeNeumannStagRhsCorrector() -> RHSAdjustFunction<T> {
     return [](std::span<T> rhs) {
-        T sum = std::accumulate(rhs.begin(), rhs.end(), T{0.0});
+        T sum = std::accumulate(rhs.begin(), rhs.end(), 0.0);
         std::ranges::for_each(rhs, [sum](T &elem) {
             elem -= sum;
         });
