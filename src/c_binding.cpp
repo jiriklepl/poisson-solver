@@ -537,6 +537,10 @@ void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
 
     auto ps_approx = GetApprox<double>(approx);
 
+#ifdef USE_MPI
+    // TODO
+    ps::ISolver<double, 3> *solver_handle = nullptr;
+#else
     ps::ISolver<double, 3> *solver_handle =
         new ps::NonuniformZSolver<double>(grid_sizes,
                                           {lens[0], lens[1]},
@@ -544,6 +548,8 @@ void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
                                           std::span{z_u, grid_sizes[2] + 1},
                                           {bcp1, bcp2, bcp3},
                                           *ps_approx);
+#endif // USE_MPI
+
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .dim = 3,
@@ -592,6 +598,10 @@ void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
 
     auto ps_approx = GetApprox<float>(approx);
 
+#ifdef USE_MPI
+    // TODO
+    ps::ISolver<float, 3> *solver_handle = nullptr;
+#else
     ps::ISolver<float, 3> *solver_handle =
         new ps::NonuniformZSolver<float>(grid_sizes,
                                          {lens[0], lens[1]},
@@ -599,6 +609,8 @@ void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
                                          std::span{z_u, grid_sizes[2] + 1},
                                          {bcp1, bcp2, bcp3},
                                          *ps_approx);
+#endif // USE_MPI
+
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
                    .dim = 3,

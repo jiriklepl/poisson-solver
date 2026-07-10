@@ -34,6 +34,7 @@ if (USE_MPI)
     target_link_libraries(poisson-solver PUBLIC
         Heffte
         MPI::MPI_CXX
+        MPI::MPI_Fortran
     )
 
     # Defines `USE_MPI`, therefore code can do `#ifdef USE_MPI`

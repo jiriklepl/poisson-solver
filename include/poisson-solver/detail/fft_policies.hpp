@@ -119,7 +119,7 @@ public:
 
 protected:
     IHeFFTeHandle(std::size_t workspace_size)
-        : workspace_{MakeCudaUnique(workspace_size)} {}
+        : workspace_{MakeCudaUnique<Workspace>(workspace_size)} {}
 
     // If we didn't choose to provide a workspace, heFFTe
     // would allocate and deallocate it itself in every FFT call.
@@ -132,7 +132,7 @@ template <std::floating_point T,
 struct HeFFTeFullHandle : public IHeFFTeHandle<T, Workspace> {
 public:
     HeFFTeFullHandle(heffte::fft3d<TransformTag> &&plan)
-        : IHeFFTeHandle{plan.size_workspace()},
+        : IHeFFTeHandle<T, Workspace>{plan.size_workspace()},
           plan_{std::move(plan)} {}
 
     void Forward(Workspace *dev_buffer) const override {
@@ -163,9 +163,10 @@ public:
         // The size of 1D plan covers only one 1x1 pencil and
         // the size of 2D plan covers only one 2D slab.
         // Multiplying them covers the whole 3D domain.
-        : IHeFFTeHandle{plan_1d.size_workspace() * plan_2d.size_workspace()},
-          plan_1d{plan_1d},
-          plan_2d{plan_2d},
+        : IHeFFTeHandle<T, Workspace>{plan_1d.size_workspace() *
+                                      plan_2d.size_workspace()},
+          plan_1d_{plan_1d},
+          plan_2d_{plan_2d},
           num_pencils_{num_pencils},
           num_slabs_{num_slabs} {}
 
@@ -201,7 +202,7 @@ private:
 template <std::floating_point T>
 struct HeFFTePlan {
 public:
-    VariantHandle handle{};
+    VariantHandle<T> handle{};
 };
 
 // TODO: NOT TESTED!
@@ -221,7 +222,7 @@ public:
                        [ns, offs, comm](SplitLayout l) {
                            return GetSplitPlan(l, ns, offs, comm);
                        },
-                       [](std::monostate) {
+                       [](std::monostate) -> Plan {
                            throw std::runtime_error("Visited a monostate.");
                        }},
             layout);
@@ -234,31 +235,31 @@ public:
     }
 
     template <ValidWorkspace<T> Workspace>
-    static void Backward(Workspace *dev_buffer, Plan<Workspace> &plan) {
+    static void Backward(Workspace *dev_buffer, Plan &plan) {
         using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
         std::get<ExpectedVariant>(plan.handle)->Backward(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
-    static void Forward1D(Workspace *dev_buffer, Plan<Workspace> &plan) {
+    static void Forward1D(Workspace *dev_buffer, Plan &plan) {
         using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
         std::get<ExpectedVariant>(plan.handle)->Forward1D(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
-    static void Backward1D(Workspace *dev_buffer, Plan<Workspace> &plan) {
+    static void Backward1D(Workspace *dev_buffer, Plan &plan) {
         using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
         std::get<ExpectedVariant>(plan.handle)->Backward1D(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
-    static void Forward2D(Workspace *dev_buffer, Plan<Workspace> &plan) {
+    static void Forward2D(Workspace *dev_buffer, Plan &plan) {
         using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
         std::get<ExpectedVariant>(plan.handle)->Forward2D(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
-    static void Backward2D(Workspace *dev_buffer, Plan<Workspace> &plan) {
+    static void Backward2D(Workspace *dev_buffer, Plan &plan) {
         using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
         std::get<ExpectedVariant>(plan.handle)->Backward2D(dev_buffer);
     }
@@ -273,8 +274,12 @@ private:
         auto end_y = (Dim >= 2) ? (begin_y + ns[1] - 1) : 0;
         auto end_z = (Dim >= 3) ? (begin_z + ns[2] - 1) : 0;
 
-        return heffte::box3d<std::size_t>{{begin_x, begin_y, begin_z},
-                                          {end_x, end_y, end_z}};
+        return heffte::box3d<>{{static_cast<int>(begin_x),
+                                static_cast<int>(begin_y),
+                                static_cast<int>(begin_z)},
+                               {static_cast<int>(end_x),
+                                static_cast<int>(end_y),
+                                static_cast<int>(end_z)}};
     }
 
     static auto GetFullPlan(FullLayout l,
@@ -290,7 +295,7 @@ private:
                 using TransformTag = heffte::backend::cufft;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return {std::make_unique<
+                return Plan{std::make_unique<
                     HeFFTeFullHandle<T, CuComplexTrait<T>, TransformTag>>(
                     std::move(plan))};
             }
@@ -298,15 +303,17 @@ private:
                 using TransformTag = heffte::backend::cufft_cos1;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
-                    std::move(plan))};
+                return Plan{
+                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                        std::move(plan))};
             }
             case DCT2: {
                 using TransformTag = heffte::backend::cufft_cos;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
-                    std::move(plan))};
+                return Plan{
+                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                        std::move(plan))};
             }
             case DCT3:
                 // There is never a situation where full solver has DCT3 set as
@@ -318,22 +325,25 @@ private:
                 using TransformTag = heffte::backend::cufft_cos4;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
-                    std::move(plan))};
+                return Plan{
+                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                        std::move(plan))};
             }
             case DST1: {
                 using TransformTag = heffte::backend::cufft_sin1;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
-                    std::move(plan))};
+                return Plan{
+                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                        std::move(plan))};
             }
             case DST2: {
                 using TransformTag = heffte::backend::cufft_sin;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
-                    std::move(plan))};
+                return Plan{
+                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                        std::move(plan))};
             }
             case DST3:
                 // There is never a situation where full solver has DST3 set as
@@ -345,8 +355,9 @@ private:
                 using TransformTag = heffte::backend::cufft_sin4;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return {std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
-                    std::move(plan))};
+                return Plan{
+                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                        std::move(plan))};
             }
             default:
                 throw std::runtime_error("Invalid FFT forward type.");

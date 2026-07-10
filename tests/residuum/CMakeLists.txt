@@ -14,26 +14,35 @@ set(DOCTEST_INCLUDE_DIR ${doctest_SOURCE_DIR})
 include("${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake")
 
 # == C/C++ Residuum Tests ==
-set(CXX_TEST_SRC
-    test_main.cpp
-    test_residuum.cpp
-    test_residuum_nonuniform_z.cpp
-)
+if (USE_MPI)
+    #TODO - Add sources for CXX MPI tests
+    set(CXX_TEST_SRC "")
+else()
+    set(CXX_TEST_SRC
+        test_main.cpp
+        test_residuum.cpp
+        test_residuum_nonuniform_z.cpp
+    )
+endif()
 
-# By default, only the lib is built
-add_executable(residuum-tests EXCLUDE_FROM_ALL ${CXX_TEST_SRC})
+# TODO - Remove "if" statement when the CXX_TEST_SRC is
+# guaranteed to be always populated (i.e., when MPI tests are rdy)
+if (CXX_TEST_SRC)
+    # By default, only the lib is built
+    add_executable(residuum-tests EXCLUDE_FROM_ALL ${CXX_TEST_SRC})
 
-target_include_directories(residuum-tests PRIVATE
-    ../include/
-)
-target_link_libraries(residuum-tests PRIVATE
-    common_flags
-    poisson-solver
-    doctest::doctest
-)
+    target_include_directories(residuum-tests PRIVATE
+        ../include/
+    )
+    target_link_libraries(residuum-tests PRIVATE
+        common_flags
+        poisson-solver
+        doctest::doctest
+    )
 
-# Register residuum tests
-doctest_discover_tests(residuum-tests)
+    # Register residuum tests
+    doctest_discover_tests(residuum-tests)
+endif()
 
 # == Fortran Residuum Tests ==
 if (USE_MPI)
@@ -83,4 +92,10 @@ endforeach()
 
 # == Group Tests Together ==
 add_custom_target(tests)
-add_dependencies(tests residuum-tests ${ALL_FORTRAN_TEST_TARGETS})
+
+# TODO - When CXX MPI tests are rdy, keep only the else branch
+if (USE_MPI)
+    add_dependencies(tests ${ALL_FORTRAN_TEST_TARGETS})
+else()
+    add_dependencies(tests residuum-tests ${ALL_FORTRAN_TEST_TARGETS})
+endif()
