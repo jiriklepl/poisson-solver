@@ -14,12 +14,13 @@ template <std::size_t Dim>
 using ProcsPerDim = std::array<int, Dim>;
 
 // === Structs ===
-// TODO - Struct to return from LocalGridSize
-template <std::size_t Dim>
+/**
+ * struct LocalGridInfo - Stores information about local grid.
+ * This includes its size and its offset from the origin.
+ */
 struct LocalGridInfo {
-    GridSizes<Dim> ns{};
-    GridOffsets<Dim> offs{};
-
+    GridSizes<3> ns{};
+    GridOffsets<3> offs{};
 };
 
 // === Functions ===
@@ -35,9 +36,14 @@ struct LocalGridInfo {
  */
 auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps) -> MPI_Comm;
 
-// TODO - The communicator has to be created via InitMPIGrid
-auto GetLocalGridInfo(GridSizes<3> ngs, MPI_Comm cart_comm) -> LocalGridInfo<3> {
-}
+/**
+ * @brief Retrieves information about the local grid.
+ *
+ * @param ngs Global sizes of the grid in each dimension.
+ * @param cart_comm Communicator created via a call to InitMPIGrid.
+ * @return Information about the local grid.
+ */
+auto GetLocalGridInfo(GridSizes<3> ngs, MPI_Comm cart_comm) -> LocalGridInfo;
 
 }  // namespace poisson_solver::mpi_utils
 

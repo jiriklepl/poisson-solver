@@ -35,6 +35,31 @@ auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps) -> MPI_Comm {
 
     return cart_comm;
 }
+
+auto GetLocalGridInfo(GridSizes<3> ngs, MPI_Comm cart_comm) -> LocalGridInfo {
+    ProcsPerDim<3> nps_3d{};
+    std::array<int, 3> periods{};
+    std::array<int, 3> coords{};
+
+    MPI_CHECK(MPI_Cart_get(
+        cart_comm, 3, nps_3d.data(), periods.data(), coords.data()));
+
+    LocalGridInfo lgi{};
+
+    for (std::size_t d = 0; d < 3; ++d) {
+        lgi.ns[d] = ngs[d] / nps_3d[d];
+        std::size_t remainder = ngs[d] % nps_3d[d];
+
+        if (coords[d] < remainder) {
+            lgi.ns[d] += remainder;
+            lgi.offs[d] = coords[d] * lgi.ns[d];
+        } else {
+            lgi.offs[d] = coords[d] * lgi.ns[d] + remainder;
+        }
+
+        return lgi;
+    }
+}
 }  // namespace poisson_solver::mpi_utils
 
 #endif  // USE_MPI
