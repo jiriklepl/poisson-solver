@@ -1,5 +1,6 @@
 #include "poisson-solver/detail/c_binding_for_fortran.h"
 
+
 extern "C" {
 void PoissonSolverNewForFortran(PoissonSolver *solver_out,
                                 int dims,
@@ -57,3 +58,24 @@ void PoissonSolverNewFloatForFortran(PoissonSolver *solver_out,
         solver_out, dims, ns, lens, bcs, approx, gns, offs, c_comm_ptr);
 }
 }
+
+#ifdef USE_MPI
+extern "C" {
+void PoissonSolverInitMPIGridForFortran(const MPI_Fint *comm_old,
+                                        const int *nps,
+                                        MPI_Fint *comm_out) {
+    MPI_Comm c_comm_old = MPI_Comm_f2c(*comm_old);
+    MPI_Comm c_comm_out;
+    PoissonSolverInitMPIGrid(c_comm_old, nps, &c_comm_out);
+    *comm_out = MPI_Comm_c2f(c_comm_out);
+}
+
+void PoissonSolverGetLocalGridInfoForFortran(const int *ngs,
+                                             const MPI_Fint *cart_comm,
+                                             int *ns,
+                                             int *offs) {
+    MPI_Comm c_cart_comm = MPI_Comm_f2c(*cart_comm);
+    PoissonSolverGetLocalGridInfo(ngs, c_cart_comm, ns, offs);
+}
+}
+#endif  // USE_MPI

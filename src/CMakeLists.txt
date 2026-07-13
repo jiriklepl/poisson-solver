@@ -6,6 +6,7 @@ set(LIB_SRC
     detail/runners/common_real.cu
     detail/runners/common_cmplx.cu
     detail/runners/nonuniform_z.cu
+    mpi_utils.cpp
 )
 
 # Debug files shall have a `_debug` suffix

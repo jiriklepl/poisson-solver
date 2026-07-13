@@ -7,6 +7,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -98,6 +102,18 @@ void PoissonSolverNonuniformZExecuteFloat(PoissonSolver *solver,
                                           const int *ngs_rhs);
 
 void PoissonSolverNonuniformZFinalizeFloat(PoissonSolver *solver);
+
+#ifdef USE_MPI
+void PoissonSolverInitMPIGrid(MPI_Comm comm_old,
+                              const int *nps,
+                              MPI_Comm *comm_out);
+
+void PoissonSolverGetLocalGridInfo(const int *ngs,
+                                   MPI_Comm cart_comm,
+                                   int *ns,
+                                   int *offs);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

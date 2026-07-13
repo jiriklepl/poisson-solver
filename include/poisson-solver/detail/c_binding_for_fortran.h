@@ -48,6 +48,17 @@ void PoissonSolverNewFloatForFortran(PoissonSolver *solver_out,
                                      const void *mpi_comm
 #endif  // USE_MPI
 );
+#ifdef USE_MPI
+void PoissonSolverInitMPIGridForFortran(const MPI_Fint *comm_old,
+                                        const int *nps,
+                                        MPI_Fint *comm_out);
+
+void PoissonSolverGetLocalGridInfoForFortran(const int *ngs,
+                                             const MPI_Fint *cart_comm,
+                                             int *ns,
+                                             int *offs);
+#endif  // USE_MPI
+
 #ifdef __cplusplus
 }
 #endif

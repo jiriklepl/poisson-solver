@@ -170,6 +170,26 @@ module PoisSolver
         module procedure poisson_solver_execute_3d_float
     end interface
 
+    ! === MPI Utils ===
+    interface
+        subroutine poisson_solver_init_mpi_grid_c(comm_old, nps, comm_out) &
+                bind(C, name="PoissonSolverInitMPIGridForFortran")
+            import :: c_int
+            integer(c_int), intent(in)  :: comm_old
+            integer(c_int), intent(in)  :: nps(2)
+            integer(c_int), intent(out) :: comm_out
+        end subroutine poisson_solver_init_mpi_grid_c
+
+        subroutine poisson_solver_get_local_grid_info_c(ngs, cart_comm, ns, offs) &
+                bind(C, name="PoissonSolverGetLocalGridInfoForFortran")
+            import :: c_int
+            integer(c_int), intent(in)  :: ngs(3)
+            integer(c_int), intent(in)  :: cart_comm
+            integer(c_int), intent(out) :: ns(3)
+            integer(c_int), intent(out) :: offs(3)
+        end subroutine poisson_solver_get_local_grid_info_c
+    end interface
+
 contains
     ! === Uniform Solvers ===
     ! == Doubles ==
@@ -418,5 +438,26 @@ contains
 
         call poisson_solver_nonuniform_z_finalize_float_c(solver)
     end subroutine poisson_solver_nonuniform_z_finalize_float
+
+    ! === MPI Utils ===
+    subroutine poisson_solver_init_mpi_grid(comm_old, nps, comm_out)
+        integer, intent(in)  :: comm_old
+        integer, intent(in)  :: nps(2)
+        integer, intent(out) :: comm_out
+
+        call poisson_solver_init_mpi_grid_c(comm_old, int(nps, c_int), comm_out)
+    end subroutine poisson_solver_init_mpi_grid
+
+    subroutine poisson_solver_get_local_grid_info(ngs, cart_comm, ns, offs)
+        integer(c_intptr_t), intent(in)  :: ngs(3)
+        integer, intent(in)  :: cart_comm
+        integer(c_intptr_t), intent(out) :: ns(3)
+        integer(c_intptr_t), intent(out) :: offs(3)
+        integer(c_int) :: c_ns(3), c_offs(3)
+
+        call poisson_solver_get_local_grid_info_c(int(ngs, c_int), cart_comm, c_ns, c_offs)
+        ns = int(c_ns, c_intptr_t)
+        offs = int(c_offs, c_intptr_t)
+    end subroutine poisson_solver_get_local_grid_info
 
 end module PoisSolver

@@ -3,6 +3,7 @@
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/boundary_conditions.hpp"
+#include "poisson-solver/mpi_utils.hpp"
 #include "poisson-solver/solver.hpp"
 
 #include <algorithm>
@@ -548,7 +549,7 @@ void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
                                           std::span{z_u, grid_sizes[2] + 1},
                                           {bcp1, bcp2, bcp3},
                                           *ps_approx);
-#endif // USE_MPI
+#endif  // USE_MPI
 
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -609,7 +610,7 @@ void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
                                          std::span{z_u, grid_sizes[2] + 1},
                                          {bcp1, bcp2, bcp3},
                                          *ps_approx);
-#endif // USE_MPI
+#endif  // USE_MPI
 
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -641,3 +642,30 @@ void PoissonSolverNonuniformZFinalizeFloat(PoissonSolver *solver) {
     solver->grid_size = 0;
 }
 }
+
+#ifdef USE_MPI
+void PoissonSolverInitMPIGrid(MPI_Comm comm_old,
+                              const int *nps,
+                              MPI_Comm *comm_out) {
+    using poisson_solver::mpi_utils::InitMPIGrid;
+
+    std::array<int, 2> nps_arr{nps[0], nps[1]};
+    *comm_out = InitMPIGrid(comm_old, nps_arr);
+}
+
+void PoissonSolverGetLocalGridInfo(const int *ngs,
+                                   MPI_Comm cart_comm,
+                                   int *ns,
+                                   int *offs) {
+    using poisson_solver::mpi_utils::GetLocalGridInfo;
+
+    poisson_solver::GridSizes<3> ngs_arr{static_cast<std::size_t>(ngs[0]),
+                                         static_cast<std::size_t>(ngs[1]),
+                                         static_cast<std::size_t>(ngs[2])};
+    auto info = GetLocalGridInfo(ngs_arr, cart_comm);
+    for (int i = 0; i < 3; ++i) {
+        ns[i] = static_cast<int>(info.ns[i]);
+        offs[i] = static_cast<int>(info.offs[i]);
+    }
+}
+#endif  // USE_MPI
