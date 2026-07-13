@@ -18,7 +18,7 @@ void CheckCartCommCanBeCreated(MPI_Comm comm, ProcsPerDim<2> nps) {
             nps.begin(), nps.end(), std::size_t{1}, std::multiplies<>()) !=
         static_cast<std::size_t>(size)) {
         throw std::invalid_argument(
-            "Communicator size differs from the product of all processed "
+            "Communicator size differs from the product of all processes "
             "into which the communicator should be decomposed");
     }
 }
