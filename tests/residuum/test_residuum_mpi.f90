@@ -1242,9 +1242,15 @@ contains
                  dx**(-2),dx**(-2),dy**(-2),dy**(-2),dz**(-2),dz**(-2),&
                  R)
 
-    if (master) write (*,*) "R2:",R
-
-    if (master) write(*,*) "--------"
+    if (master) then
+      write (*,*) "R2:",R
+      if (R < int(ng(1), int64) * int(ng(2), int64) * int(ng(3), int64) * 100 * epsilon(1._rp)) then
+        write(*,*) "OK"
+      else
+        write(*,*) "FAIL"
+      end if
+      write(*,*) "--------"
+    end if
   end subroutine
 
   
@@ -1287,9 +1293,15 @@ contains
                  dx**(-2),dx**(-2),dy**(-2),dy**(-2),&
                  R)
 
-    if (master) write (*,*) "R2:",R
-
-    if (master) write(*,*) "--------"
+    if (master) then
+      write (*,*) "R2:",R
+      if (R < int(ng(1), int64) * int(ng(2), int64) * 100 * epsilon(1._rp)) then
+        write(*,*) "OK"
+      else
+        write(*,*) "FAIL"
+      end if
+      write(*,*) "--------"
+    end if
   end subroutine
 
   
@@ -1303,11 +1315,11 @@ contains
  
     RHS(1,:,1) = RHS(1,:,1) - S / ng(2)
 
-!     call exchange_boundaries_1D(glob_comm, Phi(:,:,1), nx, BCs)
+    call exchange_boundaries_1D(glob_comm, Phi(1,:,1), ny, BCs)
 
-!     call Res1D(nx,ny,Phi(:,1,1),RHS(:,1,1),&
-!                  dx**(-2),dx**(-2),&
-!                  R)
+    call Res1D(ny,Phi(1,:,1),RHS(1,:,1),&
+                 dy**(-2),dy**(-2),&
+                 R)
 
     if (master) write (*,*) "R1:",R
 
@@ -1325,15 +1337,21 @@ contains
 
     call poisson_solver_finalize(Solver1D)
 
-!     call exchange_boundaries_1D(glob_comm, Phi(:,1,1), nx, ny, BCs)
+    call exchange_boundaries_1D(glob_comm, Phi(1,:,1), ny, BCs)
 
-!     call Res1D(nx,ny,Phi(:,1,1),RHS(:,1,1),&
-!                  dx**(-2),dx**(-2),&
-!                  R)
+    call Res1D(ny,Phi(1,:,1),RHS(1,:,1),&
+                 dy**(-2),dy**(-2),&
+                 R)
 
-    if (master) write (*,*) "R2:",R
-
-    if (master) write(*,*) "--------"
+    if (master) then
+      write (*,*) "R2:",R
+      if (R < int(ng(2), int64) * 100 * epsilon(1._rp)) then
+        write(*,*) "OK"
+      else
+        write(*,*) "FAIL"
+      end if
+      write(*,*) "--------"
+    end if
   end subroutine
 
   
