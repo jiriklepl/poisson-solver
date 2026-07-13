@@ -27,7 +27,8 @@ auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps) -> MPI_Comm {
     CheckCartCommCanBeCreated(comm_old, nps);
 
     MPI_Comm cart_comm{};
-    ProcsPerDim<3> nps_3d{1, nps[0], nps[1]};
+    // MPIs fastest changing dimensions is last, ours is first
+    ProcsPerDim<3> nps_3d{nps[1], nps[0], 1};
     std::array<int, 3> periods{false, false, false};
 
     MPI_CHECK(MPI_Cart_create(
@@ -46,19 +47,20 @@ auto GetLocalGridInfo(GridSizes<3> ngs, MPI_Comm cart_comm) -> LocalGridInfo {
 
     LocalGridInfo lgi{};
 
+    // MPIs fastest changing dimension is last, ours is first
     for (std::size_t d = 0; d < 3; ++d) {
-        lgi.ns[d] = ngs[d] / nps_3d[d];
-        std::size_t remainder = ngs[d] % nps_3d[d];
+        lgi.ns[d] = ngs[d] / nps_3d[2 - d];
+        std::size_t remainder = ngs[d] % nps_3d[2 - d];
 
-        if (coords[d] < remainder) {
-            lgi.ns[d] += remainder;
-            lgi.offs[d] = coords[d] * lgi.ns[d];
+        if (static_cast<std::size_t>(coords[2 - d]) < remainder) {
+            lgi.ns[d] += 1;
+            lgi.offs[d] = coords[2 - d] * lgi.ns[d];
         } else {
-            lgi.offs[d] = coords[d] * lgi.ns[d] + remainder;
+            lgi.offs[d] = coords[2 - d] * lgi.ns[d] + remainder;
         }
-
-        return lgi;
     }
+
+    return lgi;
 }
 }  // namespace poisson_solver::mpi_utils
 
