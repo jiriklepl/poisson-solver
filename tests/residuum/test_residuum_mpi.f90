@@ -689,6 +689,104 @@ contains
       
     end subroutine exchange_boundaries_2D
 
+    subroutine exchange_boundaries_1D(comm, Phi, ny, BCs)
+      integer, intent(in) :: comm
+      real(RP), intent(inout),contiguous :: Phi(0:)
+      integer, intent(in) :: ny
+      integer, intent(in) :: BCs(2)
+      logical :: oddy, eveny
+      integer ierr,tag,status(MPI_STATUS_SIZE)
+      
+      oddy = mod(jim,2) == 1
+      eveny = .not. oddy
+
+      call MPI_Barrier(comm, ierr)
+
+      if (oddy) then
+        call send_s
+      else
+        call recv_n
+      end if
+      if (eveny) then
+        call send_s
+      else
+        call recv_n
+      end if
+
+      if (oddy) then
+        call send_n
+      else
+        call recv_s
+      end if
+      if (eveny) then
+        call send_n
+      else
+        call recv_s
+      end if
+
+      !global domain boundaries
+      if (BCs(1)==PoisSolver_Periodic) then
+        if (nyims>1) then
+          if (jim==1) then
+            call send(Phi(1:1), s_rank)
+          else if (jim==nyims) then
+            call recv(Phi(ny+1:ny+1), n_rank)
+          end if
+          if (jim==nyims) then
+            call send(Phi(ny:ny), n_rank)
+          else if (jim==1) then
+            call recv(Phi(0:0), s_rank)
+          end if
+        else
+          Phi(0)=Phi(ny)
+          Phi(ny+1)=Phi(1)
+        end if
+      else
+        if (BCs(1)==PoisSolver_NeumannStag) then
+          if (jim==1) Phi(0) = Phi(1)
+        elseif (BCs(1)==PoisSolver_DirichletStag) then
+          if (jim==1) Phi(0) = -Phi(1)
+        end if
+        if (BCs(2)==PoisSolver_NeumannStag) then
+          if (jim==nyims) Phi(ny+1) = Phi(ny)
+        elseif (BCs(2)==PoisSolver_DirichletStag) then
+          if (jim==nyims) Phi(ny+1) = -Phi(ny)
+        end if
+      end if
+
+      call MPI_Barrier(comm, ierr)
+    
+    contains
+      subroutine send(a,to)
+        real(RP), intent(in) :: a(:)
+        integer, intent(in) :: to
+
+        call MPI_Send(a, size(a) , MPI_RP, to, 1, comm, ierr)
+        if (ierr/=0) stop "error sending MPI message."
+      end subroutine
+      
+      subroutine recv(a,from)
+        real(RP), intent(out) :: a(:)
+        integer, intent(in) :: from
+
+        call MPI_Recv(a, size(a) , MPI_RP, from, 1, comm, status, ierr)
+        if (ierr/=0) stop "error sending MPI message."
+      end subroutine
+      
+      subroutine send_s
+        if (jim>1) call send(Phi(1:1), s_rank)
+      end subroutine
+      subroutine recv_s
+        if (jim>1) call recv(Phi(0:0), s_rank)
+      end subroutine
+      subroutine send_n
+        if (jim<nyims) call send(Phi(ny:ny), n_rank)
+      end subroutine
+      subroutine recv_n
+        if (jim<nyims) call recv(Phi(ny+1:ny+1), n_rank)
+      end subroutine
+    end subroutine exchange_boundaries_1D
+
   
   
 
@@ -782,10 +880,34 @@ contains
 
    end subroutine Res2D
 
+    subroutine Res1D(ny,Phi,RHS,&
+                     As,An,&
+                     R)
+      implicit none
+      intrinsic mod, abs, max
+      integer,parameter:: KND=RP
+      integer,intent(in)   :: ny
+      real(KND),dimension(0:ny+1),intent(inout)::Phi
+      real(KND),dimension(1:ny),intent(in)::RHS
+      real(KND),intent(in) :: As,An
+      real(KND),intent(out) :: R
+      integer j, ie
+      real(KND) :: p,Ap
 
+      R=0
+      Ap = As + An
+      
+      do j=1,ny
+         p=0
+         p=p+Phi(j-1)*As
+         p=p+Phi(j+1)*An
+         p=p-RHS(j)
+         p=abs(-p +Ap*Phi(j))
+         R=max(R,abs(p))
+      end do
 
-
-
+      call MPI_AllReduce(MPI_IN_PLACE, R, 1, MPI_RP, MPI_MAX, glob_comm, ie)
+   end subroutine Res1D
 end module subs
 
 
