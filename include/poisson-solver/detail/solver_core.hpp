@@ -239,7 +239,6 @@ private:
                         GridOffsets<Dim> offs,
                         const IApproximation<T> &approx,
                         const ISolverPlan<T, FFTDim> &sp) const -> HostDenoms {
-        // TODO: This could be done on GPU
         HostDenoms denoms{};
         for (std::size_t d = 0; d < FFTDim; ++d) {
             denoms[d] = GetOneAxisEigenvalues(

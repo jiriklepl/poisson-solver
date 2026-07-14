@@ -205,7 +205,6 @@ public:
     VariantHandle<T> handle{};
 };
 
-// TODO: NOT TESTED!
 template <std::floating_point T, std::size_t Dim>
 struct MpiFftPolicy {
 public:
