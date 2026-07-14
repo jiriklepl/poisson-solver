@@ -42,27 +42,28 @@ if (USE_MPI)
     set(Heffte_ENABLE_GPU_AWARE_MPI ON CACHE BOOL "Enable heFFTe GPU aware MPI" FORCE)
 
     FetchContent_MakeAvailable(heffte)
-else()
-    FetchContent_Populate(
-        vkfft
-        GIT_REPOSITORY https://github.com/DTolm/VkFFT
-        GIT_TAG v1.3.4
-        SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/vkfft-src
-        BINARY_DIR ${CMAKE_BINARY_DIR}/_deps/vkfft-build
-    )
-
-    add_library(VkFFT INTERFACE)
-
-    # Set CUDA (1) as backend
-    target_compile_definitions(VkFFT INTERFACE VKFFT_BACKEND=1)
-
-    # Tell VkFFT where CUDA Toolkit is
-    target_compile_definitions(VkFFT INTERFACE CUDA_TOOLKIT_ROOT_DIR="${CUDAToolkit_TARGET_DIR}")
-
-    # Have to use `SYSTEM` to prevent `VkFFT` warnings cluttering compilation output
-    target_include_directories(VkFFT SYSTEM INTERFACE ${CMAKE_BINARY_DIR}/_deps/vkfft-src/vkFFT)
-    target_link_libraries(VkFFT INTERFACE CUDA::cuda_driver CUDA::nvrtc)
 endif()
+
+# VkFFT is required even for MPI builds
+FetchContent_Populate(
+    vkfft
+    GIT_REPOSITORY https://github.com/DTolm/VkFFT
+    GIT_TAG v1.3.4
+    SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/vkfft-src
+    BINARY_DIR ${CMAKE_BINARY_DIR}/_deps/vkfft-build
+)
+
+add_library(VkFFT INTERFACE)
+
+# Set CUDA (1) as backend
+target_compile_definitions(VkFFT INTERFACE VKFFT_BACKEND=1)
+
+# Tell VkFFT where CUDA Toolkit is
+target_compile_definitions(VkFFT INTERFACE CUDA_TOOLKIT_ROOT_DIR="${CUDAToolkit_TARGET_DIR}")
+
+# Have to use `SYSTEM` to prevent `VkFFT` warnings cluttering compilation output
+target_include_directories(VkFFT SYSTEM INTERFACE ${CMAKE_BINARY_DIR}/_deps/vkfft-src/vkFFT)
+target_link_libraries(VkFFT INTERFACE CUDA::cuda_driver CUDA::nvrtc)
 
 # Define compiler flags.
 add_library(common_flags INTERFACE)
