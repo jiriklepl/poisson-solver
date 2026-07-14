@@ -170,6 +170,7 @@ module PoisSolver
         module procedure poisson_solver_execute_3d_float
     end interface
 
+#ifdef USE_MPI
     ! === MPI Utils ===
     interface
         subroutine poisson_solver_init_mpi_grid_c(comm_old, nps, comm_out) &
@@ -189,6 +190,7 @@ module PoisSolver
             integer(c_int), intent(out) :: offs(3)
         end subroutine poisson_solver_get_local_grid_info_c
     end interface
+#endif // USE_MPI
 
 contains
     ! === Uniform Solvers ===
@@ -439,6 +441,7 @@ contains
         call poisson_solver_nonuniform_z_finalize_float_c(solver)
     end subroutine poisson_solver_nonuniform_z_finalize_float
 
+#ifdef USE_MPI
     ! === MPI Utils ===
     subroutine poisson_solver_init_mpi_grid(comm_old, nps, comm_out)
         integer, intent(in)  :: comm_old
@@ -459,5 +462,6 @@ contains
         ns = int(c_ns, c_intptr_t)
         offs = int(c_offs, c_intptr_t)
     end subroutine poisson_solver_get_local_grid_info
+#endif // USE_MPI
 
 end module PoisSolver

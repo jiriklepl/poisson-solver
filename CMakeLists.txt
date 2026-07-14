@@ -71,6 +71,7 @@ target_compile_options(common_flags INTERFACE
     -Wno-unused-variable>
     $<$<COMPILE_LANGUAGE:CXX>:-pedantic>
     $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
+    $<$<COMPILE_LANGUAGE:Fortran>:-cpp>
 )
 
 add_subdirectory(src)
