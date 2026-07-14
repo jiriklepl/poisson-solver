@@ -37,7 +37,7 @@ auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps) -> MPI_Comm {
     return cart_comm;
 }
 
-auto GetLocalGridInfo(GridSizes<3> ngs, MPI_Comm cart_comm) -> LocalGridInfo {
+auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo {
     ProcsPerDim<3> nps_3d{};
     std::array<int, 3> periods{};
     std::array<int, 3> coords{};
@@ -49,8 +49,8 @@ auto GetLocalGridInfo(GridSizes<3> ngs, MPI_Comm cart_comm) -> LocalGridInfo {
 
     // MPIs fastest changing dimension is last, ours is first
     for (std::size_t d = 0; d < 3; ++d) {
-        lgi.ns[d] = ngs[d] / nps_3d[2 - d];
-        std::size_t remainder = ngs[d] % nps_3d[2 - d];
+        lgi.ns[d] = gns[d] / nps_3d[2 - d];
+        std::size_t remainder = gns[d] % nps_3d[2 - d];
 
         if (static_cast<std::size_t>(coords[2 - d]) < remainder) {
             lgi.ns[d] += 1;

@@ -108,7 +108,7 @@ void PoissonSolverInitMPIGrid(MPI_Comm comm_old,
                               const int *nps,
                               MPI_Comm *comm_out);
 
-void PoissonSolverGetLocalGridInfo(const int *ngs,
+void PoissonSolverGetLocalGridInfo(const int *gns,
                                    MPI_Comm cart_comm,
                                    int *ns,
                                    int *offs);

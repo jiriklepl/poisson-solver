@@ -653,16 +653,16 @@ void PoissonSolverInitMPIGrid(MPI_Comm comm_old,
     *comm_out = InitMPIGrid(comm_old, nps_arr);
 }
 
-void PoissonSolverGetLocalGridInfo(const int *ngs,
+void PoissonSolverGetLocalGridInfo(const int *gns,
                                    MPI_Comm cart_comm,
                                    int *ns,
                                    int *offs) {
     using poisson_solver::mpi_utils::GetLocalGridInfo;
 
-    poisson_solver::GridSizes<3> ngs_arr{static_cast<std::size_t>(ngs[0]),
-                                         static_cast<std::size_t>(ngs[1]),
-                                         static_cast<std::size_t>(ngs[2])};
-    auto info = GetLocalGridInfo(ngs_arr, cart_comm);
+    poisson_solver::GridSizes<3> gns_arr{static_cast<std::size_t>(gns[0]),
+                                         static_cast<std::size_t>(gns[1]),
+                                         static_cast<std::size_t>(gns[2])};
+    auto info = GetLocalGridInfo(gns_arr, cart_comm);
     for (int i = 0; i < 3; ++i) {
         ns[i] = static_cast<int>(info.ns[i]);
         offs[i] = static_cast<int>(info.offs[i]);

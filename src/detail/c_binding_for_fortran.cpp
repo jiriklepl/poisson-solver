@@ -70,12 +70,12 @@ void PoissonSolverInitMPIGridForFortran(const MPI_Fint *comm_old,
     *comm_out = MPI_Comm_c2f(c_comm_out);
 }
 
-void PoissonSolverGetLocalGridInfoForFortran(const int *ngs,
+void PoissonSolverGetLocalGridInfoForFortran(const int *gns,
                                              const MPI_Fint *cart_comm,
                                              int *ns,
                                              int *offs) {
     MPI_Comm c_cart_comm = MPI_Comm_f2c(*cart_comm);
-    PoissonSolverGetLocalGridInfo(ngs, c_cart_comm, ns, offs);
+    PoissonSolverGetLocalGridInfo(gns, c_cart_comm, ns, offs);
 }
 }
 #endif  // USE_MPI

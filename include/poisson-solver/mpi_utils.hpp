@@ -39,11 +39,11 @@ auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps) -> MPI_Comm;
 /**
  * @brief Retrieves information about the local grid.
  *
- * @param ngs Global sizes of the grid in each dimension.
+ * @param gns Global sizes of the grid in each dimension.
  * @param cart_comm Communicator created via a call to InitMPIGrid.
  * @return Information about the local grid.
  */
-auto GetLocalGridInfo(GridSizes<3> ngs, MPI_Comm cart_comm) -> LocalGridInfo;
+auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo;
 
 }  // namespace poisson_solver::mpi_utils
 

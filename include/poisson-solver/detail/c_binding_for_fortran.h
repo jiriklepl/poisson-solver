@@ -53,7 +53,7 @@ void PoissonSolverInitMPIGridForFortran(const MPI_Fint *comm_old,
                                         const int *nps,
                                         MPI_Fint *comm_out);
 
-void PoissonSolverGetLocalGridInfoForFortran(const int *ngs,
+void PoissonSolverGetLocalGridInfoForFortran(const int *gns,
                                              const MPI_Fint *cart_comm,
                                              int *ns,
                                              int *offs);
