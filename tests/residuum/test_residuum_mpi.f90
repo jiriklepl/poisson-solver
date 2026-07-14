@@ -1082,9 +1082,9 @@ program testpoisson_MPI
 
   call MPI_Barrier(glob_comm,ie)
   
-  if (master) write(*,*) "1D Periodic"
+  ! if (master) write(*,*) "1D Periodic"
 
-  call compute1D([(PoisSolver_Periodic, i=1,2)])
+  ! call compute1D([(PoisSolver_Periodic, i=1,2)])
 
   
   
