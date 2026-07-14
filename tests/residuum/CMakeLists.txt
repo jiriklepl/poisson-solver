@@ -40,6 +40,8 @@ if (CXX_TEST_SRC)
         doctest::doctest
     )
 
+    # TODO - MPI test launching via srun is unhandled here
+
     # Register residuum tests
     doctest_discover_tests(residuum-tests)
 endif()
@@ -77,10 +79,18 @@ foreach(f_test_src IN LISTS FORTRAN_TEST_SRCS)
     )
 
     # Register test with ctest
-    add_test(
-        NAME ${test_target}
-        COMMAND ${test_target}
-    )
+    if (USE_MPI)
+        add_test(
+            NAME ${test_target}
+            COMMAND srun --mpi=pmix -N 2 --ntasks-per-node 2 -p gpu-short-teach -w "volta[02-05]" --gpus-per-task 1 ch-run -b ../../../../:/opt/build ../../../../../imgdir -- $<TARGET_FILE:${test_target}>
+        )
+        set_tests_properties(${test_target} PROPERTIES PROCESSORS 4)
+    else()
+        add_test(
+            NAME ${test_target}
+            COMMAND ${test_target}
+        )
+    endif()
 
     # Tests fail when `FAIL` appears on output
     set_tests_properties(${test_target}
