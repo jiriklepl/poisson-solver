@@ -182,7 +182,7 @@ private:
                        core_.cu_denom_observers,
                        core_.cu_grid_size,
                        core_.cu_block_size,
-                       core_.operates_on_grid_beginning);
+                       core_.operates_on_grid_origin);
 
         FFTPolicy::Backward(core_.cu_cmplx_workspace.value().get(),
                             core_.fft_plan);
@@ -225,7 +225,7 @@ private:
                        core_.cu_denom_observers,
                        core_.cu_grid_size,
                        core_.cu_block_size,
-                       core_.operates_on_grid_beginning);
+                       core_.operates_on_grid_origin);
 
         FFTPolicy::Backward(core_.cu_real_workspace.get(), core_.fft_plan);
         Normalize(core_.cu_real_workspace.get(),
@@ -254,7 +254,7 @@ private:
                        core_.cu_denom_observers,
                        core_.cu_grid_size,
                        core_.cu_block_size,
-                       core_.operates_on_grid_beginning);
+                       core_.operates_on_grid_origin);
         FFTPolicy::Backward2D(core_.cu_cmplx_workspace.value().get(),
                               core_.fft_plan);
 
@@ -320,7 +320,7 @@ private:
                        core_.cu_denom_observers,
                        core_.cu_grid_size,
                        core_.cu_block_size,
-                       core_.operates_on_grid_beginning);
+                       core_.operates_on_grid_origin);
         FFTPolicy::Backward2D(core_.cu_cmplx_workspace.value().get(),
                               core_.fft_plan);
 
@@ -352,7 +352,7 @@ private:
                        core_.cu_denom_observers,
                        core_.cu_grid_size,
                        core_.cu_block_size,
-                       core_.operates_on_grid_beginning);
+                       core_.operates_on_grid_origin);
         FFTPolicy::Backward1D(core_.cu_cmplx_workspace.value().get(),
                               core_.fft_plan);
 
@@ -387,7 +387,7 @@ private:
                        core_.cu_denom_observers,
                        core_.cu_grid_size,
                        core_.cu_block_size,
-                       core_.operates_on_grid_beginning);
+                       core_.operates_on_grid_origin);
         FFTPolicy::Backward2D(core_.cu_cmplx_workspace.value().get(),
                               core_.fft_plan);
 
