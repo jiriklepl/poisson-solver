@@ -13,6 +13,43 @@ set(DOCTEST_INCLUDE_DIR ${doctest_SOURCE_DIR})
 # Include doctest_discover_tests(<target>) function
 include("${doctest_SOURCE_DIR}/scripts/cmake/doctest.cmake")
 
+# Prepare variables for launching via srun
+set(SLURM_LAUNCH_BASE
+    srun
+    -p gpu-short-teach
+    -w "volta[02-05]"
+)
+set(SLURM_FLAG_GPU
+    --gpus-per-task 1
+)
+set(SLURM_FLAG_LOCAL
+    -N 1
+    --ntasks-per-node 1
+)
+set(SLURM_FLAG_DISTRIBUTED
+    --mpi=pmix
+    -N 2
+    --ntasks-per-node 2
+)
+set(CH_CLD_LAUNCH
+    ch-run
+    # The mapped directory
+    -b ../../../../:/opt/build
+    ../../../../../imgdir --
+)
+set(LOCAL_TEST_LAUNCH
+    ${SLURM_LAUNCH_BASE}
+    ${SLURM_FLAG_GPU}
+    ${SLURM_FLAG_LOCAL}
+    ${CH_CLD_LAUNCH}
+)
+set(DISTRIBUTED_TEST_LAUNCH
+    ${SLURM_LAUNCH_BASE}
+    ${SLURM_FLAG_GPU}
+    ${SLURM_FLAG_DISTRIBUTED}
+    ${CH_CLD_LAUNCH}
+)
+
 # == C/C++ Residuum Tests ==
 if (USE_MPI)
     #TODO - Add sources for CXX MPI tests
@@ -40,10 +77,17 @@ if (CXX_TEST_SRC)
         doctest::doctest
     )
 
-    # TODO - MPI test launching via srun is unhandled here
+    # We cannot use `doctest_discover_tests` as that will
+    # allocate a worker node with a GPU every time the tests
+    # are built.
+    add_test(
+        NAME residuum-tests-all
+        COMMAND
+        ${LOCAL_TEST_LAUNCH}
+        $<TARGET_FILE:residuum-tests>
+    )
 
-    # Register residuum tests
-    doctest_discover_tests(residuum-tests)
+    # TODO - MPI test launching via srun is unhandled here
 endif()
 
 # == Fortran Residuum Tests ==
@@ -82,23 +126,17 @@ foreach(f_test_src IN LISTS FORTRAN_TEST_SRCS)
     if (USE_MPI)
         add_test(
             NAME ${test_target}
-            COMMAND srun
-            --mpi=pmix
-            -N 2
-            --ntasks-per-node 2
-            -p gpu-short-teach
-            -w "volta[02-05]"
-            --gpus-per-task 1
-            ch-run
-            -b ../../../../:/opt/build
-            ../../../../../imgdir --
+            COMMAND
+            ${DISTRIBUTED_TEST_LAUNCH}
             $<TARGET_FILE:${test_target}>
         )
         set_tests_properties(${test_target} PROPERTIES PROCESSORS 4)
     else()
         add_test(
             NAME ${test_target}
-            COMMAND ${test_target}
+            COMMAND
+            ${LOCAL_TEST_LAUNCH}
+            $<TARGET_FILE:${test_target}>
         )
     endif()
 
