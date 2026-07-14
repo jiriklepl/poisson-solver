@@ -82,7 +82,17 @@ foreach(f_test_src IN LISTS FORTRAN_TEST_SRCS)
     if (USE_MPI)
         add_test(
             NAME ${test_target}
-            COMMAND srun --mpi=pmix -N 2 --ntasks-per-node 2 -p gpu-short-teach -w "volta[02-05]" --gpus-per-task 1 ch-run -b ../../../../:/opt/build ../../../../../imgdir -- $<TARGET_FILE:${test_target}>
+            COMMAND srun
+            --mpi=pmix
+            -N 2
+            --ntasks-per-node 2
+            -p gpu-short-teach
+            -w "volta[02-05]"
+            --gpus-per-task 1
+            ch-run
+            -b ../../../../:/opt/build
+            ../../../../../imgdir --
+            $<TARGET_FILE:${test_target}>
         )
         set_tests_properties(${test_target} PROPERTIES PROCESSORS 4)
     else()
