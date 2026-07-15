@@ -20,6 +20,9 @@
 #include <vector>
 
 #ifdef USE_MPI
+#include "poisson-solver/detail/cuch.hpp"
+#include "poisson-solver/detail/mpi_check.hpp"
+
 #include <mpi.h>
 #endif  // USE_MPI
 
@@ -108,7 +111,9 @@ public:
                const IApproximation<T> &approx,
                dim3 cuda_block_size,
                const ISolverPlan<T, FFTDim> &sp)
-        : SolverCore(CoreFFTPolicy::Init(ns, offs, comm, sp.fft_layout),
+        // The GPU has to be assigned before subsequent CUDA calls
+        : SolverCore(CoreFFTPolicy::Init(
+                         ns, offs, AssignGPUAndReturnComm(comm), sp.fft_layout),
                      ns,
                      lens,
                      gns,
@@ -138,9 +143,9 @@ private:
           ns(ns),
           cnt(ComputeLocalGridSize(ns)),
           operates_on_grid_origin(std::ranges::all_of(offs,
-                                                         [](const auto &off) {
-                                                             return off == 0;
-                                                         })),
+                                                      [](const auto &off) {
+                                                          return off == 0;
+                                                      })),
           norm_factor(ComputeNormFactor(gns, sp)),
           cu_block_size(cuda_block_size),
           cu_grid_size(ComputeCUDAGridSize(ns, cuda_block_size)) {
@@ -241,8 +246,12 @@ private:
                         const ISolverPlan<T, FFTDim> &sp) const -> HostDenoms {
         HostDenoms denoms{};
         for (std::size_t d = 0; d < FFTDim; ++d) {
-            denoms[d] = GetOneAxisEigenvalues(
-                ns[d], lens[d], gns[d], offs[d], approx, *sp.axis_strategies[d]);
+            denoms[d] = GetOneAxisEigenvalues(ns[d],
+                                              lens[d],
+                                              gns[d],
+                                              offs[d],
+                                              approx,
+                                              *sp.axis_strategies[d]);
         }
         return denoms;
     }
@@ -269,6 +278,30 @@ private:
         }
         return observers;
     }
+#ifdef USE_MPI
+    /**
+     * @brief Assigns the correct GPU in case there are multiple on a single
+     * node.
+     *
+     * @param comm World communicator.
+     * @return Returns \p comm back.
+     */
+    static auto AssignGPUAndReturnComm(MPI_Comm comm) -> MPI_Comm {
+        MPI_Comm local_comm;
+        MPI_CHECK(MPI_Comm_split_type(
+            comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &local_comm));
+
+        int local_rank;
+        MPI_CHECK(MPI_Comm_rank(local_comm, &local_rank));
+
+        int num_gpus{};
+        CUCH(cudaGetDeviceCount(&num_gpus));
+
+        CUCH(cudaSetDevice(local_rank % num_gpus));
+
+        MPI_CHECK(MPI_Comm_free(&local_comm));
+    }
+#endif  // USE_MPI
 };
 }  // namespace poisson_solver::detail
 
