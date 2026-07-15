@@ -71,24 +71,24 @@ using VariantLayout = std::variant<std::monostate, FullLayout, SplitLayout>;
 #ifdef USE_MPI
 // == Forward Declarations ===
 template <std::floating_point T, ValidWorkspace<T> Workspace>
-struct IHeFFTeHandle;
+struct IMpiFftHandle;
 
 // === Aliases ===
 // Variant conforming to the ValidWorkspace<T> concept
 template <std::floating_point T>
-using VariantHandle =
+using MpiFftVariantHandle =
     std::variant<std::monostate,
-                 std::unique_ptr<IHeFFTeHandle<T, T>>,
-                 std::unique_ptr<IHeFFTeHandle<T, CuComplexTrait<T>>>>;
+                 std::unique_ptr<IMpiFftHandle<T, T>>,
+                 std::unique_ptr<IMpiFftHandle<T, CuComplexTrait<T>>>>;
 
 // === Structs ===
 // We have to use the type erasure idiom with heFFTe to
 // transform the compile-time tags into run-time virtual calls.
 
 template <std::floating_point T, ValidWorkspace<T> Workspace>
-class IHeFFTeHandle {
+class IMpiFftHandle {
 public:
-    virtual ~IHeFFTeHandle() = default;
+    virtual ~IMpiFftHandle() = default;
 
     // Provide default asserts to catch invalid calls
     // (e.g., calling Forward1D on a Full plan)
@@ -117,7 +117,7 @@ public:
     }
 
 protected:
-    IHeFFTeHandle(std::size_t workspace_size)
+    IMpiFftHandle(std::size_t workspace_size)
         : workspace_{MakeCudaUnique<Workspace>(workspace_size)} {}
 
     // If we didn't choose to provide a workspace, heFFTe
@@ -128,10 +128,10 @@ protected:
 template <std::floating_point T,
           ValidWorkspace<T> Workspace,
           typename TransformTag>
-struct HeFFTeFullHandle : public IHeFFTeHandle<T, Workspace> {
+struct MpiFftFullHandle : public IMpiFftHandle<T, Workspace> {
 public:
-    HeFFTeFullHandle(heffte::fft3d<TransformTag> &&plan)
-        : IHeFFTeHandle<T, Workspace>{plan.size_workspace()},
+    MpiFftFullHandle(heffte::fft3d<TransformTag> &&plan)
+        : IMpiFftHandle<T, Workspace>{plan.size_workspace()},
           plan_{std::move(plan)} {}
 
     void Forward(Workspace *dev_buffer) const override {
@@ -152,17 +152,17 @@ template <std::floating_point T,
           ValidWorkspace<T> Workspace,
           typename TransformTag1D,
           typename TransformTag2D>
-struct HeFFTeSplitHandle : public IHeFFTeHandle<T, Workspace> {
+struct MpiFftSplitHandle : public IMpiFftHandle<T, Workspace> {
 public:
     // TODO - Can I take it via rval?
-    HeFFTeSplitHandle(const heffte::fft3d<TransformTag1D> &plan_1d,
+    MpiFftSplitHandle(const heffte::fft3d<TransformTag1D> &plan_1d,
                       const heffte::fft3d<TransformTag2D> &plan_2d,
                       std::size_t num_pencils,
                       std::size_t num_slabs)
         // The size of 1D plan covers only one 1x1 pencil and
         // the size of 2D plan covers only one 2D slab.
         // Multiplying them covers the whole 3D domain.
-        : IHeFFTeHandle<T, Workspace>{plan_1d.size_workspace() *
+        : IMpiFftHandle<T, Workspace>{plan_1d.size_workspace() *
                                       plan_2d.size_workspace()},
           plan_1d_{plan_1d},
           plan_2d_{plan_2d},
@@ -201,7 +201,7 @@ private:
 template <std::floating_point T>
 struct HeFFTePlan {
 public:
-    VariantHandle<T> handle{};
+    MpiFftVariantHandle<T> handle{};
 };
 
 template <std::floating_point T, std::size_t Dim>
@@ -228,37 +228,37 @@ public:
 
     template <ValidWorkspace<T> Workspace>
     static void Forward(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
         std::get<ExpectedVariant>(plan.handle)->Forward(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Backward(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
         std::get<ExpectedVariant>(plan.handle)->Backward(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Forward1D(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
         std::get<ExpectedVariant>(plan.handle)->Forward1D(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Backward1D(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
         std::get<ExpectedVariant>(plan.handle)->Backward1D(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Forward2D(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
         std::get<ExpectedVariant>(plan.handle)->Forward2D(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Backward2D(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IHeFFTeHandle<T, Workspace>>;
+        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
         std::get<ExpectedVariant>(plan.handle)->Backward2D(dev_buffer);
     }
 
@@ -294,7 +294,7 @@ private:
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
                 return Plan{std::make_unique<
-                    HeFFTeFullHandle<T, CuComplexTrait<T>, TransformTag>>(
+                    MpiFftFullHandle<T, CuComplexTrait<T>, TransformTag>>(
                     std::move(plan))};
             }
             case DCT1: {
@@ -302,7 +302,7 @@ private:
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
                 return Plan{
-                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
                         std::move(plan))};
             }
             case DCT2: {
@@ -310,7 +310,7 @@ private:
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
                 return Plan{
-                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
                         std::move(plan))};
             }
             case DCT3:
@@ -324,7 +324,7 @@ private:
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
                 return Plan{
-                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
                         std::move(plan))};
             }
             case DST1: {
@@ -332,7 +332,7 @@ private:
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
                 return Plan{
-                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
                         std::move(plan))};
             }
             case DST2: {
@@ -340,7 +340,7 @@ private:
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
                 return Plan{
-                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
                         std::move(plan))};
             }
             case DST3:
@@ -354,7 +354,7 @@ private:
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
                 return Plan{
-                    std::make_unique<HeFFTeFullHandle<T, T, TransformTag>>(
+                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
                         std::move(plan))};
             }
             default:
@@ -378,15 +378,16 @@ using FFTPolicy = MpiFftPolicy<T, Dim>;
 
 #else
 // === Forward Declarations ===
-struct FullHandle;
+struct VkFFTFullHandle;
 
-struct SplitHandle;
+struct VkFFTSplitHandle;
 
 template <std::floating_point T, std::size_t Dim>
 struct VkFFTPolicy;
 
 // === Aliases ===
-using VariantHandle = std::variant<std::monostate, FullHandle, SplitHandle>;
+using VkFFTVariantHandle =
+    std::variant<std::monostate, VkFFTFullHandle, VkFFTSplitHandle>;
 
 template <std::floating_point T, std::size_t Dim>
 using FFTPolicy = VkFFTPolicy<T, Dim>;
@@ -408,18 +409,18 @@ struct VkFFTHandle {
     std::unique_ptr<VkFFTApplication, VkFFTApplicationDeleter> app{};
 };
 
-struct FullHandle {
+struct VkFFTFullHandle {
     VkFFTHandle handle{};
 };
 
-struct SplitHandle {
+struct VkFFTSplitHandle {
     VkFFTHandle handle_1d{};
     VkFFTHandle handle_2d{};
 };
 
 struct VkFFTPlan {
     std::unique_ptr<CUdevice> cu_device{};
-    VariantHandle handle{};
+    VkFFTVariantHandle handle{};
 };
 
 // Holds values of `performDCT` and `performDST`
@@ -475,8 +476,8 @@ public:
 
     template <ValidWorkspace<T> Workspace>
     static void Forward(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<FullHandle>(plan.handle));
-        auto &handle = std::get<FullHandle>(plan.handle).handle;
+        assert(std::holds_alternative<VkFFTFullHandle>(plan.handle));
+        auto &handle = std::get<VkFFTFullHandle>(plan.handle).handle;
 
         VkFFTLaunchParams launch_params{};
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
@@ -487,8 +488,8 @@ public:
 
     template <ValidWorkspace<T> Workspace>
     static void Backward(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<FullHandle>(plan.handle));
-        auto &handle = std::get<FullHandle>(plan.handle).handle;
+        assert(std::holds_alternative<VkFFTFullHandle>(plan.handle));
+        auto &handle = std::get<VkFFTFullHandle>(plan.handle).handle;
 
         VkFFTLaunchParams launch_params{};
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
@@ -499,8 +500,8 @@ public:
 
     template <ValidWorkspace<T> Workspace>
     static void Forward1D(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<SplitHandle>(plan.handle));
-        auto &handle = std::get<SplitHandle>(plan.handle).handle_1d;
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_1d;
 
         VkFFTLaunchParams launch_params{};
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
@@ -511,8 +512,8 @@ public:
 
     template <ValidWorkspace<T> Workspace>
     static void Backward1D(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<SplitHandle>(plan.handle));
-        auto &handle = std::get<SplitHandle>(plan.handle).handle_1d;
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_1d;
 
         VkFFTLaunchParams launch_params{};
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
@@ -523,8 +524,8 @@ public:
 
     template <ValidWorkspace<T> Workspace>
     static void Forward2D(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<SplitHandle>(plan.handle));
-        auto &handle = std::get<SplitHandle>(plan.handle).handle_2d;
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_2d;
 
         VkFFTLaunchParams launch_params{};
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
@@ -535,8 +536,8 @@ public:
 
     template <ValidWorkspace<T> Workspace>
     static void Backward2D(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<SplitHandle>(plan.handle));
-        auto &handle = std::get<SplitHandle>(plan.handle).handle_2d;
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_2d;
 
         VkFFTLaunchParams launch_params{};
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
@@ -563,8 +564,8 @@ private:
     // Returns initialized full handle.
     static auto GetFullHandle(FullLayout layout,
                               GridSizes<Dim> ns,
-                              CUdevice *device_ptr) -> FullHandle {
-        FullHandle h{};
+                              CUdevice *device_ptr) -> VkFFTFullHandle {
+        VkFFTFullHandle h{};
         auto &config = h.handle.config;
 
         config.device = device_ptr;
@@ -594,8 +595,8 @@ private:
     // Returns initialized split handle.
     static auto GetSplitHandle(SplitLayout layout,
                                GridSizes<Dim> ns,
-                               CUdevice *device_ptr) -> SplitHandle {
-        SplitHandle h{};
+                               CUdevice *device_ptr) -> VkFFTSplitHandle {
+        VkFFTSplitHandle h{};
         auto &config_1d = h.handle_1d.config;
         auto &config_2d = h.handle_2d.config;
 
