@@ -134,8 +134,6 @@ template <std::floating_point T, std::size_t Dim>
 struct VkFFTPolicy {
 public:
     using Plan = VkFFTPlan;
-    static constexpr int ForwardDirection = -1;
-    static constexpr int BackwardDirection = 1;
 
     static auto Init(GridSizes<Dim> ns, VariantLayout layout) -> Plan {
         Plan plan{};
@@ -168,7 +166,7 @@ public:
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
 
         VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), ForwardDirection, &launch_params));
+            VkFFTAppend(handle.app.get(), forward_direction_, &launch_params));
     }
 
     template <ValidWorkspace<T> Workspace>
@@ -180,7 +178,7 @@ public:
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
 
         VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), BackwardDirection, &launch_params));
+            VkFFTAppend(handle.app.get(), backward_direction_, &launch_params));
     }
 
     template <ValidWorkspace<T> Workspace>
@@ -192,7 +190,7 @@ public:
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
 
         VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), ForwardDirection, &launch_params));
+            VkFFTAppend(handle.app.get(), forward_direction_, &launch_params));
     }
 
     template <ValidWorkspace<T> Workspace>
@@ -204,7 +202,7 @@ public:
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
 
         VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), BackwardDirection, &launch_params));
+            VkFFTAppend(handle.app.get(), backward_direction_, &launch_params));
     }
 
     template <ValidWorkspace<T> Workspace>
@@ -232,6 +230,9 @@ public:
     }
 
 private:
+    static constexpr int forward_direction_ = -1;
+    static constexpr int backward_direction_ = 1;
+
     static auto GetCudaDevice() -> std::unique_ptr<CUdevice> {
         // Ensure CUDA runtime is initialized.
         // This is essentailly a nop but if runtime isn't init, then it does it.
