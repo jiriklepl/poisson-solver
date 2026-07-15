@@ -39,11 +39,53 @@ enum class FFTTransformType {
     DST4
 };
 
+// === Forward Declarations ===
+struct VkFFTFullHandle;
+
+struct VkFFTSplitHandle;
+
 // === Structs ===
 // Helper struct for `std::variant` visiting.
 template <typename... Ts>
 struct Overloaded : Ts... {
     using Ts::operator()...;
+};
+
+struct VkFFTApplicationDeleter {
+    void operator()(VkFFTApplication *app) const {
+        // It's possible that `app` wasn't even initialized, calling
+        // `deleteVkFFT` on that could be dangerous.
+        if (app != nullptr) {
+            deleteVkFFT(app);
+            delete app;
+        }
+    }
+};
+
+struct VkFFTHandle {
+    VkFFTConfiguration config{};
+    std::unique_ptr<VkFFTApplication, VkFFTApplicationDeleter> app{};
+};
+
+struct VkFFTFullHandle {
+    VkFFTHandle handle{};
+};
+
+struct VkFFTSplitHandle {
+    VkFFTHandle handle_1d{};
+    VkFFTHandle handle_2d{};
+};
+
+struct VkFFTPlan {
+    std::unique_ptr<CUdevice> cu_device{};
+    VkFFTVariantHandle handle{};
+};
+
+// Holds values of `performDCT` and `performDST`
+// used in VkFFT configuration.
+struct VkFFTTypeToPerform {
+    std::size_t dct{};
+    std::size_t dst{};
 };
 
 // === Layout Structs ===
@@ -67,6 +109,278 @@ struct SplitLayout {
 
 // === Aliases ===
 using VariantLayout = std::variant<std::monostate, FullLayout, SplitLayout>;
+
+using VkFFTVariantHandle =
+    std::variant<std::monostate, VkFFTFullHandle, VkFFTSplitHandle>;
+
+// === Functions and Macros ===
+inline void VkFFTCheck(VkFFTResult res,
+                       int line,
+                       const char *src_file,
+                       const char *err_msg = nullptr) {
+    if (res != VKFFT_SUCCESS) {
+        std::stringstream err_stream{};
+        err_stream << "VkFFT Error (" << res << ")\n"
+                   << "at " << src_file << "[" << line << "]:" << err_msg;
+        throw std::runtime_error(err_stream.str());
+    }
+}
+
+#define VKFFT_CHECK(res) \
+    ::poisson_solver::detail::_VkFFTCheck(res, __LINE__, __FILE__, #res)
+
+// === Classes ===
+template <std::floating_point T, std::size_t Dim>
+struct VkFFTPolicy {
+public:
+    using Plan = VkFFTPlan;
+    static constexpr int ForwardDirection = -1;
+    static constexpr int BackwardDirection = 1;
+
+    static auto Init(GridSizes<Dim> ns, VariantLayout layout) -> Plan {
+        Plan plan{};
+
+        // Shared among all layouts.
+        plan.cu_device = GetCudaDevice();
+
+        std::visit(Overloaded{[&plan, ns](FullLayout l) {
+                                  plan.handle = GetFullHandle(
+                                      l, ns, plan.cu_device.get());
+                              },
+                              [&plan, ns](SplitLayout l) {
+                                  plan.handle = GetSplitHandle(
+                                      l, ns, plan.cu_device.get());
+                              },
+                              [](std::monostate) {
+                                  assert(false && "Visited a monostate.");
+                              }},
+                   layout);
+
+        return plan;
+    }
+
+    template <ValidWorkspace<T> Workspace>
+    static void Forward(Workspace *dev_buffer, Plan &plan) {
+        assert(std::holds_alternative<VkFFTFullHandle>(plan.handle));
+        auto &handle = std::get<VkFFTFullHandle>(plan.handle).handle;
+
+        VkFFTLaunchParams launch_params{};
+        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), ForwardDirection, &launch_params));
+    }
+
+    template <ValidWorkspace<T> Workspace>
+    static void Backward(Workspace *dev_buffer, Plan &plan) {
+        assert(std::holds_alternative<VkFFTFullHandle>(plan.handle));
+        auto &handle = std::get<VkFFTFullHandle>(plan.handle).handle;
+
+        VkFFTLaunchParams launch_params{};
+        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), BackwardDirection, &launch_params));
+    }
+
+    template <ValidWorkspace<T> Workspace>
+    static void Forward1D(Workspace *dev_buffer, Plan &plan) {
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_1d;
+
+        VkFFTLaunchParams launch_params{};
+        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), ForwardDirection, &launch_params));
+    }
+
+    template <ValidWorkspace<T> Workspace>
+    static void Backward1D(Workspace *dev_buffer, Plan &plan) {
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_1d;
+
+        VkFFTLaunchParams launch_params{};
+        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), BackwardDirection, &launch_params));
+    }
+
+    template <ValidWorkspace<T> Workspace>
+    static void Forward2D(Workspace *dev_buffer, Plan &plan) {
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_2d;
+
+        VkFFTLaunchParams launch_params{};
+        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), ForwardDirection, &launch_params));
+    }
+
+    template <ValidWorkspace<T> Workspace>
+    static void Backward2D(Workspace *dev_buffer, Plan &plan) {
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_2d;
+
+        VkFFTLaunchParams launch_params{};
+        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), BackwardDirection, &launch_params));
+    }
+
+private:
+    static auto GetCudaDevice() -> std::unique_ptr<CUdevice> {
+        // Ensure CUDA runtime is initialized.
+        // This is essentailly a nop but if runtime isn't init, then it does it.
+        cudaFree(nullptr);
+
+        int ordinal{};
+        CUCH(cudaGetDevice(&ordinal));
+
+        auto device = std::make_unique<CUdevice>();
+        cuDeviceGet(device.get(), ordinal);
+
+        return device;
+    }
+
+    // Returns initialized full handle.
+    static auto GetFullHandle(FullLayout layout,
+                              GridSizes<Dim> ns,
+                              CUdevice *device_ptr) -> VkFFTFullHandle {
+        VkFFTFullHandle h{};
+        auto &config = h.handle.config;
+
+        config.device = device_ptr;
+
+        // 0 for float, 1 for doubles.
+        config.doublePrecision = !std::is_same_v<T, float>;
+
+        config.FFTdim = Dim;
+        for (std::size_t d = 0; d < Dim; ++d) {
+            config.size[d] = ns[d];
+        }
+        auto fft_type = GetVkFFTTransformType(layout.forward_type);
+        config.performDCT = fft_type.dct;
+        config.performDST = fft_type.dst;
+
+        auto &app = h.handle.app;
+
+        // Need to use `reset` because `make_unique`
+        // doesn't work with custom deleters.
+        app.reset(new VkFFTApplication{});
+
+        VKFFT_CHECK(initializeVkFFT(app.get(), config));
+
+        return h;
+    };
+
+    // Returns initialized split handle.
+    static auto GetSplitHandle(SplitLayout layout,
+                               GridSizes<Dim> ns,
+                               CUdevice *device_ptr) -> VkFFTSplitHandle {
+        VkFFTSplitHandle h{};
+        auto &config_1d = h.handle_1d.config;
+        auto &config_2d = h.handle_2d.config;
+
+        config_1d.device = device_ptr;
+        config_2d.device = device_ptr;
+
+        // 0 for float, 1 for doubles.
+        bool double_prec_used = !std::is_same_v<T, float>;
+        config_1d.doublePrecision = static_cast<pfUINT>(double_prec_used);
+        config_2d.doublePrecision = static_cast<pfUINT>(double_prec_used);
+
+        // Both configs will know about the
+        // grid being 3D but will omit the
+        // appropriate dimensions.
+        config_1d.FFTdim = Dim;
+        config_2d.FFTdim = Dim;
+        for (std::size_t d = 0; d < Dim; ++d) {
+            config_1d.size[d] = ns[d];
+            config_2d.size[d] = ns[d];
+        }
+
+        switch (layout.isolated_dim_idx) {
+            case 0: {
+                config_1d.omitDimension[1] = 1;
+                config_1d.omitDimension[2] = 1;
+                config_2d.omitDimension[0] = 1;
+                break;
+            }
+            case 1: {
+                config_1d.omitDimension[0] = 1;
+                config_1d.omitDimension[2] = 1;
+                config_2d.omitDimension[1] = 1;
+                break;
+            }
+            case 2: {
+                config_1d.omitDimension[0] = 1;
+                config_1d.omitDimension[1] = 1;
+                config_2d.omitDimension[2] = 1;
+                break;
+            }
+            default: {
+                assert(false && "Invalid index of an isolated axis.");
+            }
+        }
+
+        auto fft_type_1d = GetVkFFTTransformType(layout.forward_type_1d);
+        auto fft_type_2d = GetVkFFTTransformType(layout.forward_type_2d);
+
+        config_1d.performDCT = fft_type_1d.dct;
+        config_1d.performDST = fft_type_1d.dst;
+
+        config_2d.performDCT = fft_type_2d.dct;
+        config_2d.performDST = fft_type_2d.dst;
+
+        auto &app_1d = h.handle_1d.app;
+        auto &app_2d = h.handle_2d.app;
+
+        // Need to use `reset` because `make_unique`
+        // doesn't work with custom deleters.
+        app_1d.reset(new VkFFTApplication{});
+        app_2d.reset(new VkFFTApplication{});
+
+        VKFFT_CHECK(initializeVkFFT(app_1d.get(), config_1d));
+        VKFFT_CHECK(initializeVkFFT(app_2d.get(), config_2d));
+
+        return h;
+    }
+
+    // Maps values of the `FFTTransformType` enum
+    // to the `int` values used by VkFFT.
+    static auto GetVkFFTTransformType(FFTTransformType t)
+        -> VkFFTTypeToPerform {
+        using enum FFTTransformType;
+
+        switch (t) {
+            case Complex:
+                return {.dct = 0, .dst = 0};
+            case DCT1:
+                return {.dct = 1, .dst = 0};
+            case DCT2:
+                return {.dct = 2, .dst = 0};
+            case DCT3:
+                return {.dct = 3, .dst = 0};
+            case DCT4:
+                return {.dct = 4, .dst = 0};
+            case DST1:
+                return {.dct = 0, .dst = 1};
+            case DST2:
+                return {.dct = 0, .dst = 2};
+            case DST3:
+                return {.dct = 0, .dst = 3};
+            case DST4:
+                return {.dct = 0, .dst = 4};
+            default:
+                assert(false && "Unhandled VkFFT transform type mapping.");
+                return {0, 0};
+        }
+    }
+};
 
 #ifdef USE_MPI
 // == Forward Declarations ===
@@ -377,325 +691,9 @@ template <std::floating_point T, std::size_t Dim>
 using FFTPolicy = MpiFftPolicy<T, Dim>;
 
 #else
-// === Forward Declarations ===
-struct VkFFTFullHandle;
-
-struct VkFFTSplitHandle;
-
-template <std::floating_point T, std::size_t Dim>
-struct VkFFTPolicy;
-
-// === Aliases ===
-using VkFFTVariantHandle =
-    std::variant<std::monostate, VkFFTFullHandle, VkFFTSplitHandle>;
 
 template <std::floating_point T, std::size_t Dim>
 using FFTPolicy = VkFFTPolicy<T, Dim>;
-
-// === Structs ===
-struct VkFFTApplicationDeleter {
-    void operator()(VkFFTApplication *app) const {
-        // It's possible that `app` wasn't even initialized, calling
-        // `deleteVkFFT` on that could be dangerous.
-        if (app != nullptr) {
-            deleteVkFFT(app);
-            delete app;
-        }
-    }
-};
-
-struct VkFFTHandle {
-    VkFFTConfiguration config{};
-    std::unique_ptr<VkFFTApplication, VkFFTApplicationDeleter> app{};
-};
-
-struct VkFFTFullHandle {
-    VkFFTHandle handle{};
-};
-
-struct VkFFTSplitHandle {
-    VkFFTHandle handle_1d{};
-    VkFFTHandle handle_2d{};
-};
-
-struct VkFFTPlan {
-    std::unique_ptr<CUdevice> cu_device{};
-    VkFFTVariantHandle handle{};
-};
-
-// Holds values of `performDCT` and `performDST`
-// used in VkFFT configuration.
-struct VkFFTTypeToPerform {
-    std::size_t dct{};
-    std::size_t dst{};
-};
-
-inline void _VkFFTCheck(VkFFTResult res,
-                        int line,
-                        const char *src_file,
-                        const char *err_msg = nullptr) {
-    if (res != VKFFT_SUCCESS) {
-        std::stringstream err_stream{};
-        err_stream << "VkFFT Error (" << res << ")\n"
-                   << "at " << src_file << "[" << line << "]:" << err_msg;
-        throw std::runtime_error(err_stream.str());
-    }
-}
-
-#define VKFFT_CHECK(res) \
-    ::poisson_solver::detail::_VkFFTCheck(res, __LINE__, __FILE__, #res)
-
-template <std::floating_point T, std::size_t Dim>
-struct VkFFTPolicy {
-public:
-    using Plan = VkFFTPlan;
-    static constexpr int ForwardDirection = -1;
-    static constexpr int BackwardDirection = 1;
-
-    static auto Init(GridSizes<Dim> ns, VariantLayout layout) -> Plan {
-        Plan plan{};
-
-        // Shared among all layouts.
-        plan.cu_device = GetCudaDevice();
-
-        std::visit(Overloaded{[&plan, ns](FullLayout l) {
-                                  plan.handle = GetFullHandle(
-                                      l, ns, plan.cu_device.get());
-                              },
-                              [&plan, ns](SplitLayout l) {
-                                  plan.handle = GetSplitHandle(
-                                      l, ns, plan.cu_device.get());
-                              },
-                              [](std::monostate) {
-                                  assert(false && "Visited a monostate.");
-                              }},
-                   layout);
-
-        return plan;
-    }
-
-    template <ValidWorkspace<T> Workspace>
-    static void Forward(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<VkFFTFullHandle>(plan.handle));
-        auto &handle = std::get<VkFFTFullHandle>(plan.handle).handle;
-
-        VkFFTLaunchParams launch_params{};
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
-
-        VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), ForwardDirection, &launch_params));
-    }
-
-    template <ValidWorkspace<T> Workspace>
-    static void Backward(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<VkFFTFullHandle>(plan.handle));
-        auto &handle = std::get<VkFFTFullHandle>(plan.handle).handle;
-
-        VkFFTLaunchParams launch_params{};
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
-
-        VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), BackwardDirection, &launch_params));
-    }
-
-    template <ValidWorkspace<T> Workspace>
-    static void Forward1D(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
-        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_1d;
-
-        VkFFTLaunchParams launch_params{};
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
-
-        VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), ForwardDirection, &launch_params));
-    }
-
-    template <ValidWorkspace<T> Workspace>
-    static void Backward1D(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
-        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_1d;
-
-        VkFFTLaunchParams launch_params{};
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
-
-        VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), BackwardDirection, &launch_params));
-    }
-
-    template <ValidWorkspace<T> Workspace>
-    static void Forward2D(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
-        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_2d;
-
-        VkFFTLaunchParams launch_params{};
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
-
-        VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), ForwardDirection, &launch_params));
-    }
-
-    template <ValidWorkspace<T> Workspace>
-    static void Backward2D(Workspace *dev_buffer, Plan &plan) {
-        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
-        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_2d;
-
-        VkFFTLaunchParams launch_params{};
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
-
-        VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), BackwardDirection, &launch_params));
-    }
-
-private:
-    static auto GetCudaDevice() -> std::unique_ptr<CUdevice> {
-        // Ensure CUDA runtime is initialized.
-        // This is essentailly a nop but if runtime isn't init, then it does it.
-        cudaFree(nullptr);
-
-        int ordinal{};
-        CUCH(cudaGetDevice(&ordinal));
-
-        auto device = std::make_unique<CUdevice>();
-        cuDeviceGet(device.get(), ordinal);
-
-        return device;
-    }
-
-    // Returns initialized full handle.
-    static auto GetFullHandle(FullLayout layout,
-                              GridSizes<Dim> ns,
-                              CUdevice *device_ptr) -> VkFFTFullHandle {
-        VkFFTFullHandle h{};
-        auto &config = h.handle.config;
-
-        config.device = device_ptr;
-
-        // 0 for float, 1 for doubles.
-        config.doublePrecision = !std::is_same_v<T, float>;
-
-        config.FFTdim = Dim;
-        for (std::size_t d = 0; d < Dim; ++d) {
-            config.size[d] = ns[d];
-        }
-        auto fft_type = GetVkFFTTransformType(layout.forward_type);
-        config.performDCT = fft_type.dct;
-        config.performDST = fft_type.dst;
-
-        auto &app = h.handle.app;
-
-        // Need to use `reset` because `make_unique`
-        // doesn't work with custom deleters.
-        app.reset(new VkFFTApplication{});
-
-        VKFFT_CHECK(initializeVkFFT(app.get(), config));
-
-        return h;
-    };
-
-    // Returns initialized split handle.
-    static auto GetSplitHandle(SplitLayout layout,
-                               GridSizes<Dim> ns,
-                               CUdevice *device_ptr) -> VkFFTSplitHandle {
-        VkFFTSplitHandle h{};
-        auto &config_1d = h.handle_1d.config;
-        auto &config_2d = h.handle_2d.config;
-
-        config_1d.device = device_ptr;
-        config_2d.device = device_ptr;
-
-        // 0 for float, 1 for doubles.
-        bool double_prec_used = !std::is_same_v<T, float>;
-        config_1d.doublePrecision = static_cast<pfUINT>(double_prec_used);
-        config_2d.doublePrecision = static_cast<pfUINT>(double_prec_used);
-
-        // Both configs will know about the
-        // grid being 3D but will omit the
-        // appropriate dimensions.
-        config_1d.FFTdim = Dim;
-        config_2d.FFTdim = Dim;
-        for (std::size_t d = 0; d < Dim; ++d) {
-            config_1d.size[d] = ns[d];
-            config_2d.size[d] = ns[d];
-        }
-
-        switch (layout.isolated_dim_idx) {
-            case 0: {
-                config_1d.omitDimension[1] = 1;
-                config_1d.omitDimension[2] = 1;
-                config_2d.omitDimension[0] = 1;
-                break;
-            }
-            case 1: {
-                config_1d.omitDimension[0] = 1;
-                config_1d.omitDimension[2] = 1;
-                config_2d.omitDimension[1] = 1;
-                break;
-            }
-            case 2: {
-                config_1d.omitDimension[0] = 1;
-                config_1d.omitDimension[1] = 1;
-                config_2d.omitDimension[2] = 1;
-                break;
-            }
-            default: {
-                assert(false && "Invalid index of an isolated axis.");
-            }
-        }
-
-        auto fft_type_1d = GetVkFFTTransformType(layout.forward_type_1d);
-        auto fft_type_2d = GetVkFFTTransformType(layout.forward_type_2d);
-
-        config_1d.performDCT = fft_type_1d.dct;
-        config_1d.performDST = fft_type_1d.dst;
-
-        config_2d.performDCT = fft_type_2d.dct;
-        config_2d.performDST = fft_type_2d.dst;
-
-        auto &app_1d = h.handle_1d.app;
-        auto &app_2d = h.handle_2d.app;
-
-        // Need to use `reset` because `make_unique`
-        // doesn't work with custom deleters.
-        app_1d.reset(new VkFFTApplication{});
-        app_2d.reset(new VkFFTApplication{});
-
-        VKFFT_CHECK(initializeVkFFT(app_1d.get(), config_1d));
-        VKFFT_CHECK(initializeVkFFT(app_2d.get(), config_2d));
-
-        return h;
-    }
-
-    // Maps values of the `FFTTransformType` enum
-    // to the `int` values used by VkFFT.
-    static auto GetVkFFTTransformType(FFTTransformType t)
-        -> VkFFTTypeToPerform {
-        using enum FFTTransformType;
-
-        switch (t) {
-            case Complex:
-                return {.dct = 0, .dst = 0};
-            case DCT1:
-                return {.dct = 1, .dst = 0};
-            case DCT2:
-                return {.dct = 2, .dst = 0};
-            case DCT3:
-                return {.dct = 3, .dst = 0};
-            case DCT4:
-                return {.dct = 4, .dst = 0};
-            case DST1:
-                return {.dct = 0, .dst = 1};
-            case DST2:
-                return {.dct = 0, .dst = 2};
-            case DST3:
-                return {.dct = 0, .dst = 3};
-            case DST4:
-                return {.dct = 0, .dst = 4};
-            default:
-                assert(false && "Unhandled VkFFT transform type mapping.");
-                return {0, 0};
-        }
-    }
-};
 
 #endif  // USE_MPI
 }  // namespace poisson_solver::detail
