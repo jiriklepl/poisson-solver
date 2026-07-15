@@ -2,26 +2,25 @@
 #define FFT_POLICIES_HPP
 
 #include "poisson-solver/aliases.hpp"
+#include "poisson-solver/detail/cuch.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 
 #include <cassert>
 #include <concepts>
 #include <cstddef>
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <memory>
+#include <sstream>
+#include <stdexcept>
 #include <variant>
+#include <vkFFT.h>
 
 #ifdef USE_MPI
+#include <cudecomp.h>
 #include <heffte.h>
 #include <mpi.h>
 #include <utility>
-#else
-#include "poisson-solver/detail/cuch.hpp"
-
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <sstream>
-#include <stdexcept>
-#include <vkFFT.h>
 #endif  // USE_MPI
 
 namespace poisson_solver::detail {
