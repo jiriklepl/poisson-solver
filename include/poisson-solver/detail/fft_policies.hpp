@@ -13,6 +13,7 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <type_traits>
 #include <variant>
 #include <vkFFT.h>
 
@@ -40,9 +41,17 @@ enum class FFTTransformType {
 };
 
 // === Forward Declarations ===
-struct VkFFTFullHandle;
+struct FullLayout;
+struct SplitLayout;
 
+struct VkFFTFullHandle;
 struct VkFFTSplitHandle;
+
+// === Aliases ===
+using VariantLayout = std::variant<std::monostate, FullLayout, SplitLayout>;
+
+using VkFFTVariantHandle =
+    std::variant<std::monostate, VkFFTFullHandle, VkFFTSplitHandle>;
 
 // === Structs ===
 // Helper struct for `std::variant` visiting.
@@ -107,12 +116,6 @@ struct SplitLayout {
     std::size_t isolated_dim_idx{};
 };
 
-// === Aliases ===
-using VariantLayout = std::variant<std::monostate, FullLayout, SplitLayout>;
-
-using VkFFTVariantHandle =
-    std::variant<std::monostate, VkFFTFullHandle, VkFFTSplitHandle>;
-
 // === Functions and Macros ===
 inline void VkFFTCheck(VkFFTResult res,
                        int line,
@@ -127,7 +130,7 @@ inline void VkFFTCheck(VkFFTResult res,
 }
 
 #define VKFFT_CHECK(res) \
-    ::poisson_solver::detail::_VkFFTCheck(res, __LINE__, __FILE__, #res)
+    ::poisson_solver::detail::VkFFTCheck(res, __LINE__, __FILE__, #res)
 
 // === Classes ===
 template <std::floating_point T, std::size_t Dim>
@@ -385,76 +388,78 @@ private:
 
 #ifdef USE_MPI
 // == Forward Declarations ===
-template <std::floating_point T, ValidWorkspace<T> Workspace>
-struct IMpiFftHandle;
-
-// === Aliases ===
-// Variant conforming to the ValidWorkspace<T> concept
 template <std::floating_point T>
-using MpiFftVariantHandle =
-    std::variant<std::monostate,
-                 std::unique_ptr<IMpiFftHandle<T, T>>,
-                 std::unique_ptr<IMpiFftHandle<T, CuComplexTrait<T>>>>;
+struct IMpiFftHandle;
 
 // === Structs ===
 // We have to use the type erasure idiom with heFFTe to
 // transform the compile-time tags into run-time virtual calls.
 
-template <std::floating_point T, ValidWorkspace<T> Workspace>
+template <std::floating_point T>
 class IMpiFftHandle {
 public:
     virtual ~IMpiFftHandle() = default;
 
     // Provide default asserts to catch invalid calls
     // (e.g., calling Forward1D on a Full plan)
-    virtual void Forward(Workspace *dev_buffer) const {
+    virtual void Forward(void *dev_buffer) const {
         assert(false && "Not a full plan");
     }
 
-    virtual void Backward(Workspace *dev_buffer) const {
+    virtual void Backward(void *dev_buffer) const {
         assert(false && "Not a full plan");
     }
 
-    virtual void Forward1D(Workspace *dev_buffer) const {
+    virtual void Forward1D(void *dev_buffer) const {
         assert(false && "Not a split plan");
     }
 
-    virtual void Backward1D(Workspace *dev_buffer) const {
+    virtual void Backward1D(void *dev_buffer) const {
         assert(false && "Not a split plan");
     }
 
-    virtual void Forward2D(Workspace *dev_buffer) const {
+    virtual void Forward2D(void *dev_buffer) const {
         assert(false && "Not a split plan");
     }
 
-    virtual void Backward2D(Workspace *dev_buffer) const {
+    virtual void Backward2D(void *dev_buffer) const {
         assert(false && "Not a split plan");
     }
 
 protected:
-    IMpiFftHandle(std::size_t workspace_size)
-        : workspace_{MakeCudaUnique<Workspace>(workspace_size)} {}
+    IMpiFftHandle(std::size_t workspace_size_bytes)
+        : workspace_{MakeCudaUnique<std::byte>(workspace_size_byte)} {}
 
-    // If we didn't choose to provide a workspace, heFFTe
+    // For FullHandle: If we didn't choose to provide a workspace, heFFTe
     // would allocate and deallocate it itself in every FFT call.
-    CudaUniquePtr<Workspace> workspace_{};
+    //
+    // For SplitHandle: TODO - Document why cuDecomp needs it
+    CudaUniquePtr<std::byte> workspace_{};
 };
 
-template <std::floating_point T,
-          ValidWorkspace<T> Workspace,
-          typename TransformTag>
-struct MpiFftFullHandle : public IMpiFftHandle<T, Workspace> {
+template <std::floating_point T, typename TransformTag>
+struct MpiFftFullHandle : public IMpiFftHandle<T> {
 public:
+    // If using C2C transform, workspace is complex, otherwise it's real
+    using Workspace =
+        std::conditional_t<std::is_same_v<heffte::backend::cufft, TransformTag>,
+                           CuComplexTrait<T>,
+                           T>;
+
     MpiFftFullHandle(heffte::fft3d<TransformTag> &&plan)
-        : IMpiFftHandle<T, Workspace>{plan.size_workspace()},
+        : IMpiFftHandle<T>{plan.size_workspace() * sizeof(Workspace)},
           plan_{std::move(plan)} {}
 
-    void Forward(Workspace *dev_buffer) const override {
-        plan_.forward(dev_buffer, dev_buffer, this->workspace_.get());
+    void Forward(void *dev_buffer) const override {
+        plan_.forward(reinterpret_cast<Workspace *>(dev_buffer),
+                      reinterpret_cast<Workspace *>(dev_buffer),
+                      this->workspace_.get());
     }
 
-    void Backward(Workspace *dev_buffer) const override {
-        plan_.backward(dev_buffer, dev_buffer, this->workspace_.get());
+    void Backward(void *dev_buffer) const override {
+        plan_.backward(reinterpret_cast<Workspace *>(dev_buffer),
+                       reinterpret_cast<Workspace *>(dev_buffer),
+                       this->workspace_.get());
     }
 
 private:
@@ -463,60 +468,40 @@ private:
 
 // TODO - My concept of how heFFTe works with split solvers is incorrect
 // This whole class needs reworking
-template <std::floating_point T,
-          ValidWorkspace<T> Workspace,
-          typename TransformTag1D,
-          typename TransformTag2D>
-struct MpiFftSplitHandle : public IMpiFftHandle<T, Workspace> {
+template <std::floating_point T>
+struct MpiFftSplitHandle : public IMpiFftHandle<T> {
 public:
-    // TODO - Can I take it via rval?
-    MpiFftSplitHandle(const heffte::fft3d<TransformTag1D> &plan_1d,
-                      const heffte::fft3d<TransformTag2D> &plan_2d,
-                      std::size_t num_pencils,
-                      std::size_t num_slabs)
-        // The size of 1D plan covers only one 1x1 pencil and
-        // the size of 2D plan covers only one 2D slab.
-        // Multiplying them covers the whole 3D domain.
-        : IMpiFftHandle<T, Workspace>{plan_1d.size_workspace() *
-                                      plan_2d.size_workspace()},
-          plan_1d_{plan_1d},
-          plan_2d_{plan_2d},
-          num_pencils_{num_pencils},
-          num_slabs_{num_slabs} {}
+    using LocalFFTPolicy = VkFFTPolicy<T, 3>;
+    using LocalFFTPlan = typename LocalFFTPolicy::Plan;
 
-    void Forward1D(Workspace *dev_buffer) const override {
-        plan_1d_.forward(
-            num_pencils_, dev_buffer, dev_buffer, this->workspace_.get());
+    MpiFftSplitHandle(LocalFFTPlan &&fft_plan)
+        : IMpiFftHandle<T>{/* TODO - How big wspace required for cuDecomp */},
+          fft_plan_(std::move(fft_plan)) {}
+
+    void Forward1D(void *dev_buffer) const override {
+        // TODO
     }
 
-    void Backward1D(Workspace *dev_buffer) const override {
-        plan_1d_.backward(
-            num_pencils_, dev_buffer, dev_buffer, this->workspace_.get());
+    void Backward1D(void *dev_buffer) const override {
+        // TODO
     }
 
-    void Forward2D(Workspace *dev_buffer) const override {
-        plan_2d_.forward(
-            num_slabs_, dev_buffer, dev_buffer, this->workspace_.get());
+    void Forward2D(void *dev_buffer) const override {
+        // TODO
     }
 
-    void Backward2D(Workspace *dev_buffer) const override {
-        plan_2d_.backward(
-            num_slabs_, dev_buffer, dev_buffer, this->workspace_.get());
+    void Backward2D(void *dev_buffer) const override {
+        // TODO
     }
 
 private:
-    heffte::fft3d<TransformTag1D> plan_1d_;
-    heffte::fft3d<TransformTag2D> plan_2d_;
-
-    // The batch sizes of 1D and 2D batched FFTs (respectivelly).
-    std::size_t num_pencils_{};
-    std::size_t num_slabs_{};
+    LocalFFTPlan fft_plan_;
 };
 
 template <std::floating_point T>
 struct HeFFTePlan {
 public:
-    MpiFftVariantHandle<T> handle{};
+    std::unique_ptr<IMpiFftHandle<T>> handle{};
 };
 
 template <std::floating_point T, std::size_t Dim>
@@ -543,38 +528,32 @@ public:
 
     template <ValidWorkspace<T> Workspace>
     static void Forward(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
-        std::get<ExpectedVariant>(plan.handle)->Forward(dev_buffer);
+        plan.handle->Forward(reinterpret_cast<void *>(dev_buffer));
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Backward(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
-        std::get<ExpectedVariant>(plan.handle)->Backward(dev_buffer);
+        plan.handle->Backward(reinterpret_cast<void *>(dev_buffer));
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Forward1D(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
-        std::get<ExpectedVariant>(plan.handle)->Forward1D(dev_buffer);
+        plan.handle->Forward1D(reinterpret_cast<void *>(dev_buffer));
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Backward1D(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
-        std::get<ExpectedVariant>(plan.handle)->Backward1D(dev_buffer);
+        plan.handle->Backward1D(reinterpret_cast<void *>(dev_buffer));
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Forward2D(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
-        std::get<ExpectedVariant>(plan.handle)->Forward2D(dev_buffer);
+        plan.handle->Forward2D(reinterpret_cast<void *>(dev_buffer));
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Backward2D(Workspace *dev_buffer, Plan &plan) {
-        using ExpectedVariant = std::unique_ptr<IMpiFftHandle<T, Workspace>>;
-        std::get<ExpectedVariant>(plan.handle)->Backward2D(dev_buffer);
+        plan.handle->Backward2D(reinterpret_cast<void *>(dev_buffer));
     }
 
 private:
@@ -608,25 +587,22 @@ private:
                 using TransformTag = heffte::backend::cufft;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return Plan{std::make_unique<
-                    MpiFftFullHandle<T, CuComplexTrait<T>, TransformTag>>(
+                return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
                     std::move(plan))};
             }
             case DCT1: {
                 using TransformTag = heffte::backend::cufft_cos1;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return Plan{
-                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
-                        std::move(plan))};
+                return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
+                    std::move(plan))};
             }
             case DCT2: {
                 using TransformTag = heffte::backend::cufft_cos;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return Plan{
-                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
-                        std::move(plan))};
+                return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
+                    std::move(plan))};
             }
             case DCT3:
                 // There is never a situation where full solver has DCT3 set as
@@ -638,25 +614,22 @@ private:
                 using TransformTag = heffte::backend::cufft_cos4;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return Plan{
-                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
-                        std::move(plan))};
+                return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
+                    std::move(plan))};
             }
             case DST1: {
                 using TransformTag = heffte::backend::cufft_sin1;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return Plan{
-                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
-                        std::move(plan))};
+                return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
+                    std::move(plan))};
             }
             case DST2: {
                 using TransformTag = heffte::backend::cufft_sin;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return Plan{
-                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
-                        std::move(plan))};
+                return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
+                    std::move(plan))};
             }
             case DST3:
                 // There is never a situation where full solver has DST3 set as
@@ -668,9 +641,8 @@ private:
                 using TransformTag = heffte::backend::cufft_sin4;
                 auto plan =
                     heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
-                return Plan{
-                    std::make_unique<MpiFftFullHandle<T, T, TransformTag>>(
-                        std::move(plan))};
+                return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
+                    std::move(plan))};
             }
             default:
                 throw std::runtime_error("Invalid FFT forward type.");
@@ -681,9 +653,9 @@ private:
                              GridSizes<Dim> ns,
                              GridOffsets<Dim> offs,
                              MPI_Comm comm) -> Plan {
-        // TODO Implement - probably use MPI manually and then run
-        // VkFFT once transposed
-        // Or use cuFFTMp?
+        return Plan{std::make_unique<MpiFftSplitHandle<T>>(
+            MpiFftSplitHandle::LocalFFTPolicy::Init(ns, layout))};
+        // TODO - Add more args to ctor if required by cuDecomp usage
         throw std::runtime_error("Not implemented");
     }
 };
