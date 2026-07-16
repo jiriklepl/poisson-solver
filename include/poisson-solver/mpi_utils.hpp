@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstddef>
+#include <heffte.h>
 #include <mpi.h>
 
 namespace poisson_solver::mpi_utils {
@@ -21,6 +22,12 @@ using ProcsPerDim = std::array<int, Dim>;
 struct LocalGridInfo {
     GridSizes<3> ns{};
     GridOffsets<3> offs{};
+
+    /**
+     * @brief Factory method to convert heffte::box3d<> to LocalGridInfo.
+     */
+    static auto ConvertToLocalGridInfo(const heffte::box3d<> &box)
+        -> LocalGridInfo;
 };
 
 // === Functions ===
@@ -34,7 +41,7 @@ struct LocalGridInfo {
  * For 1D decomposition, leave the non-decomposed axis as 1.
  * @return Cartesian grid with the specified decomposition.
  */
-auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps) -> MPI_Comm;
+auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps_yz) -> MPI_Comm;
 
 /**
  * @brief Retrieves information about the local grid.

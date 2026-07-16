@@ -5,12 +5,25 @@
 
 #include <cstddef>
 #include <functional>
+#include <heffte.h>
 #include <mpi.h>
 #include <numeric>
 #include <stdexcept>
 #include <string>
 
 namespace poisson_solver::mpi_utils {
+LocalGridInfo::ConvertToLocalGridInfo(const heffte::box3d<> &box)
+    ->LocalGridInfo {
+    LocalGridInfo lgi{};
+
+    for (std::size_t d{0}; d < 3; ++d) {
+        lgi.ns[d] = box.size[d];
+        lgi.offs[d] = box.low[d];
+    }
+
+    return lgi;
+}
+
 void CheckCartCommCanBeCreated(MPI_Comm comm, ProcsPerDim<2> nps) {
     auto size{0};
     MPI_CHECK(MPI_Comm_size(comm, &size));
@@ -23,44 +36,50 @@ void CheckCartCommCanBeCreated(MPI_Comm comm, ProcsPerDim<2> nps) {
     }
 }
 
-auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps) -> MPI_Comm {
-    CheckCartCommCanBeCreated(comm_old, nps);
+auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps_yz) -> MPI_Comm {
+    CheckCartCommCanBeCreated(comm_old, nps_yz);
 
     MPI_Comm cart_comm{};
     // MPIs fastest changing dimensions is last, ours is first
-    ProcsPerDim<3> nps_3d{nps[1], nps[0], 1};
+    ProcsPerDim<3> nps_xyz{nps_yz[1], nps_yz[0], 1};
     std::array<int, 3> periods{false, false, false};
 
     MPI_CHECK(MPI_Cart_create(
-        comm_old, 3, nps_3d.data(), periods.data(), false, &cart_comm));
+        comm_old, 3, nps_xyz.data(), periods.data(), false, &cart_comm));
 
     return cart_comm;
 }
 
+auto GetMyBox(MPI_Comm comm,
+              const std::vector<heffte::box3d<>> &boxes) -> heffte::box3d<> {
+    int rank;
+    MPI_CHECK(MPI_Comm_rank(comm, &rank));
+
+    return boxes[rank];
+}
+
 auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo {
-    ProcsPerDim<3> nps_3d{};
+    ProcsPerDim<3> nps_zyx{};
     std::array<int, 3> periods{};
     std::array<int, 3> coords{};
 
+    // Extract process grid
     MPI_CHECK(MPI_Cart_get(
-        cart_comm, 3, nps_3d.data(), periods.data(), coords.data()));
+        cart_comm, 3, nps_zyx.data(), periods.data(), coords.data()));
 
-    LocalGridInfo lgi{};
+    // MPI returns {Z, Y, X}, convert it to {X, Y, Z}
+    ProcsPerDim<3> nps_xyz = {nps_zyx[2], nps_zyx[1], nps_zyx[0]};
 
-    // MPIs fastest changing dimension is last, ours is first
-    for (std::size_t d = 0; d < 3; ++d) {
-        lgi.ns[d] = gns[d] / nps_3d[2 - d];
-        std::size_t remainder = gns[d] % nps_3d[2 - d];
+    heffte::box3d<> world = {{0, 0, 0},
+                             {static_cast<int>(gns[0]) - 1,
+                              static_cast<int>(gns[1]) - 1,
+                              static_cast<int>(gns[2]) - 1}};
 
-        if (static_cast<std::size_t>(coords[2 - d]) < remainder) {
-            lgi.ns[d] += 1;
-            lgi.offs[d] = coords[2 - d] * lgi.ns[d];
-        } else {
-            lgi.offs[d] = coords[2 - d] * lgi.ns[d] + remainder;
-        }
-    }
+    auto boxes = heffte::split_world(world, nps_xyz);
 
-    return lgi;
+    auto my_box = GetMyBox(comm, boxes);
+
+    return ConvertToLocalGridInfo(my_box);
 }
 }  // namespace poisson_solver::mpi_utils
 
