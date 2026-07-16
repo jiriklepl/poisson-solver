@@ -113,7 +113,7 @@ public:
                const ISolverPlan<T, FFTDim> &sp)
         // The GPU has to be assigned before subsequent CUDA calls
         : SolverCore(CoreFFTPolicy::Init(
-                         ns, offs, AssignGPUAndReturnComm(comm), sp.fft_layout),
+                         ns, offs, AssignGPUAndReturnComm(std::move(comm)), sp.fft_layout),
                      ns,
                      lens,
                      gns,
@@ -186,7 +186,8 @@ private:
         } else if constexpr (FFTDim == 2) {
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x,
                     (static_cast<unsigned>(ns[1]) + block.y - 1) / block.y};
-        } else if constexpr (FFTDim == 3) {
+        } else {
+            // FFTDim == 3
             return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x,
                     (static_cast<unsigned>(ns[1]) + block.y - 1) / block.y,
                     (static_cast<unsigned>(ns[2]) + block.z - 1) / block.z};
@@ -286,7 +287,7 @@ private:
      * @param comm World communicator.
      * @return Returns \p comm back.
      */
-    static auto AssignGPUAndReturnComm(MPI_Comm comm) -> MPI_Comm {
+    static auto AssignGPUAndReturnComm(MPI_Comm &&comm) -> MPI_Comm {
         MPI_Comm local_comm;
         MPI_CHECK(MPI_Comm_split_type(
             comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &local_comm));
@@ -300,6 +301,8 @@ private:
         CUCH(cudaSetDevice(local_rank % num_gpus));
 
         MPI_CHECK(MPI_Comm_free(&local_comm));
+
+        return std::move(comm);
     }
 #endif  // USE_MPI
 };

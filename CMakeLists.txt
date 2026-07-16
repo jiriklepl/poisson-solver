@@ -42,14 +42,6 @@ if (USE_MPI)
     set(Heffte_ENABLE_GPU_AWARE_MPI ON CACHE BOOL "Enable heFFTe GPU aware MPI" FORCE)
 
     FetchContent_MakeAvailable(heffte)
-    FetchContent_Declare(
-        cudecomp
-        GIT_REPOSITORY https://github.com/NVIDIA/cuDecomp.git
-        GIT_TAG v0.6.2
-    )
-    set(CUDECOMP_BUILD_FORTRAN OFF CACHE BOOL "Build Fortran bindings" FORCE)
-    FetchContent_MakeAvailable(cudecomp)
-
 endif()
 
 # VkFFT is required even for MPI builds

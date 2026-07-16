@@ -49,7 +49,8 @@ protected:
             return {256};
         } else if constexpr (Dim == 2) {
             return {16, 16};
-        } else if constexpr (Dim == 3) {
+        } else {
+            // Dim == 3
             return {8, 8, 4};
         }
     }

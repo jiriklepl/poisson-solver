@@ -18,7 +18,6 @@
 #include <vkFFT.h>
 
 #ifdef USE_MPI
-#include <cudecomp.h>
 #include <heffte.h>
 #include <mpi.h>
 #include <utility>
@@ -217,7 +216,7 @@ public:
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
 
         VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), ForwardDirection, &launch_params));
+            VkFFTAppend(handle.app.get(), forward_direction_, &launch_params));
     }
 
     template <ValidWorkspace<T> Workspace>
@@ -229,7 +228,7 @@ public:
         launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
 
         VKFFT_CHECK(
-            VkFFTAppend(handle.app.get(), BackwardDirection, &launch_params));
+            VkFFTAppend(handle.app.get(), backward_direction_, &launch_params));
     }
 
 private:
@@ -428,12 +427,14 @@ public:
 
 protected:
     IMpiFftHandle(std::size_t workspace_size_bytes)
-        : workspace_{MakeCudaUnique<std::byte>(workspace_size_byte)} {}
+        : workspace_{MakeCudaUnique<std::byte>(workspace_size_bytes)} {}
 
     // For FullHandle: If we didn't choose to provide a workspace, heFFTe
     // would allocate and deallocate it itself in every FFT call.
     //
-    // For SplitHandle: TODO - Document why cuDecomp needs it
+    // For SplitHandle: TODO - Why does heffte reshape API need it
+    // Is std::byte because for split handle will be used both for
+    // complex and real numbers.
     CudaUniquePtr<std::byte> workspace_{};
 };
 
@@ -453,13 +454,13 @@ public:
     void Forward(void *dev_buffer) const override {
         plan_.forward(reinterpret_cast<Workspace *>(dev_buffer),
                       reinterpret_cast<Workspace *>(dev_buffer),
-                      this->workspace_.get());
+                      reinterpret_cast<Workspace *>(this->workspace_.get()));
     }
 
     void Backward(void *dev_buffer) const override {
         plan_.backward(reinterpret_cast<Workspace *>(dev_buffer),
                        reinterpret_cast<Workspace *>(dev_buffer),
-                       this->workspace_.get());
+                       reinterpret_cast<Workspace *>(this->workspace_.get()));
     }
 
 private:
@@ -475,7 +476,7 @@ public:
     using LocalFFTPlan = typename LocalFFTPolicy::Plan;
 
     MpiFftSplitHandle(LocalFFTPlan &&fft_plan)
-        : IMpiFftHandle<T>{/* TODO - How big wspace required for cuDecomp */},
+        : IMpiFftHandle<T>{0/* TODO - How big wspace required for heffte reshape API */},
           fft_plan_(std::move(fft_plan)) {}
 
     void Forward1D(void *dev_buffer) const override {
@@ -517,8 +518,15 @@ public:
             Overloaded{[ns, offs, comm](FullLayout l) {
                            return GetFullPlan(l, ns, offs, comm);
                        },
-                       [ns, offs, comm](SplitLayout l) {
-                           return GetSplitPlan(l, ns, offs, comm);
+                       [ns, offs, comm](SplitLayout l) -> Plan {
+                           // This shouldn't be reachable with Dim != 3
+                           // but if not disposed of for Dim != 3, the
+                           // code won't compile.
+                           if constexpr(Dim == 3) {
+                               return GetSplitPlan(l, ns, offs, comm);
+                           } else {
+                               throw std::runtime_error("Getting a split plan when Dim != 3");
+                           }
                        },
                        [](std::monostate) -> Plan {
                            throw std::runtime_error("Visited a monostate.");
@@ -566,12 +574,10 @@ private:
         auto end_y = (Dim >= 2) ? (begin_y + ns[1] - 1) : 0;
         auto end_z = (Dim >= 3) ? (begin_z + ns[2] - 1) : 0;
 
-        return heffte::box3d<>{{static_cast<int>(begin_x),
-                                static_cast<int>(begin_y),
-                                static_cast<int>(begin_z)},
-                               {static_cast<int>(end_x),
-                                static_cast<int>(end_y),
-                                static_cast<int>(end_z)}};
+        std::array<int, 3> low = {static_cast<int>(begin_x), static_cast<int>(begin_y), static_cast<int>(begin_z)};
+        std::array<int, 3> high = {static_cast<int>(end_x), static_cast<int>(end_y), static_cast<int>(end_z)};
+
+        return heffte::box3d<>{low, high};
     }
 
     static auto GetFullPlan(FullLayout l,
@@ -650,12 +656,12 @@ private:
     }
 
     static auto GetSplitPlan(SplitLayout l,
-                             GridSizes<Dim> ns,
-                             GridOffsets<Dim> offs,
+                             GridSizes<3> ns,
+                             GridOffsets<3> offs,
                              MPI_Comm comm) -> Plan {
-        return Plan{std::make_unique<MpiFftSplitHandle<T>>(
-            MpiFftSplitHandle::LocalFFTPolicy::Init(ns, layout))};
-        // TODO - Add more args to ctor if required by cuDecomp usage
+        /* TODO return */ Plan{std::make_unique<MpiFftSplitHandle<T>>(
+            MpiFftSplitHandle<T>::LocalFFTPolicy::Init(ns, l))};
+        // TODO - Add more args to ctor if required by heffte reshape API usage
         throw std::runtime_error("Not implemented");
     }
 };
