@@ -12,8 +12,8 @@
 #include <string>
 
 namespace poisson_solver::mpi_utils {
-LocalGridInfo::ConvertToLocalGridInfo(const heffte::box3d<> &box)
-    ->LocalGridInfo {
+auto LocalGridInfo::ConvertToLocalGridInfo(const heffte::box3d<> &box)
+    -> LocalGridInfo {
     LocalGridInfo lgi{};
 
     for (std::size_t d{0}; d < 3; ++d) {
@@ -22,6 +22,19 @@ LocalGridInfo::ConvertToLocalGridInfo(const heffte::box3d<> &box)
     }
 
     return lgi;
+}
+
+auto GetProcGrid(MPI_Comm cart_comm) -> ProcsPerDim<3> {
+    ProcsPerDim<3> nps_zyx{};
+    std::array<int, 3> periods{};
+    std::array<int, 3> coords{};
+
+    // Extract process grid
+    MPI_CHECK(MPI_Cart_get(
+        cart_comm, 3, nps_zyx.data(), periods.data(), coords.data()));
+
+    // MPI returns {Z, Y, X}, convert it to {X, Y, Z}
+    return ProcsPerDim<3>{nps_zyx[2], nps_zyx[1], nps_zyx[0]};
 }
 
 void CheckCartCommCanBeCreated(MPI_Comm comm, ProcsPerDim<2> nps) {
@@ -59,27 +72,18 @@ auto GetMyBox(MPI_Comm comm,
 }
 
 auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo {
-    ProcsPerDim<3> nps_zyx{};
-    std::array<int, 3> periods{};
-    std::array<int, 3> coords{};
-
-    // Extract process grid
-    MPI_CHECK(MPI_Cart_get(
-        cart_comm, 3, nps_zyx.data(), periods.data(), coords.data()));
-
-    // MPI returns {Z, Y, X}, convert it to {X, Y, Z}
-    ProcsPerDim<3> nps_xyz = {nps_zyx[2], nps_zyx[1], nps_zyx[0]};
+    auto nps = GetProcGrid(cart_comm);
 
     heffte::box3d<> world = {{0, 0, 0},
                              {static_cast<int>(gns[0]) - 1,
                               static_cast<int>(gns[1]) - 1,
                               static_cast<int>(gns[2]) - 1}};
 
-    auto boxes = heffte::split_world(world, nps_xyz);
+    auto boxes = heffte::split_world(world, nps);
 
-    auto my_box = GetMyBox(comm, boxes);
+    auto my_box = GetMyBox(cart_comm, boxes);
 
-    return ConvertToLocalGridInfo(my_box);
+    return LocalGridInfo::ConvertToLocalGridInfo(my_box);
 }
 }  // namespace poisson_solver::mpi_utils
 

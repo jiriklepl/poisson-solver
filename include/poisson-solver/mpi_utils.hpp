@@ -32,6 +32,14 @@ struct LocalGridInfo {
 
 // === Functions ===
 /**
+ * @brief Retrieves process grid of the communicator.
+ *
+ * @param cart_comm Communicator created via a call to InitMPIGrid.
+ * @return Number of processes in each dimension.
+ */
+auto GetProcGrid(MPI_Comm cart_comm) -> ProcsPerDim<3>;
+
+/**
  * @brief Initializes MPI cartesian grid
  * with at most two axes of decomposition (the X axis is local).
  *
@@ -51,7 +59,6 @@ auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps_yz) -> MPI_Comm;
  * @return Information about the local grid.
  */
 auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo;
-
 }  // namespace poisson_solver::mpi_utils
 
 #endif  // USE_MPI
