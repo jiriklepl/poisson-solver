@@ -481,7 +481,16 @@ protected:
     CudaUniquePtr<std::byte> workspace_{};
 
     IMpiFftHandle(std::size_t workspace_size_bytes)
-        : workspace_{MakeCudaUnique<std::byte>(workspace_size_bytes)} {}
+        : workspace_{CreateWorkspace(workspace_size_bytes)} {}
+
+    /**
+     * @brief Creates the workspace.
+     * Shall be used e.g. in case a workspace has to be resized.
+     */
+    auto CreateWorkspace(std::size_t workspace_size_bytes)
+        -> CudaUniquePtr<std::byte> {
+        return MakeCudaUnique<std::byte>(workspace_size_bytes);
+    }
 
     /**
      * @warning HeFFTe doesn't implement cos3 and sin3. This function
@@ -670,10 +679,10 @@ public:
                                     pencils[rank].count(),
                                     slabs[rank].count()});
 
-        this->workspace_ = MakeCudaUnique<std::byte>(
-            (max_ws_size + max_dest_count_) *
-            GreaterWorkspaceElementSize(sl.forward_type_1d,
-                                        sl.forward_type_2d));
+        this->workspace_ =
+            this->CreateWorkspace((max_ws_size + max_dest_count_) *
+                                  GreaterWorkspaceElementSize(
+                                      sl.forward_type_1d, sl.forward_type_2d));
     }
 
     // TODO - The ForwardND and BackwardND methods look really similar
