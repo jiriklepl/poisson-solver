@@ -1096,16 +1096,16 @@ program testpoisson_MPI
 
   call MPI_Barrier(glob_comm,ie)
   
-  !if (master) write(*,*) "3D PNsNs"
+  if (master) write(*,*) "3D PNsNs"
 
-  !call compute3d([(PoisSolver_Periodic, i=1,2),(PoisSolver_NeumannStag, i=3,6)])
+  call compute3d([(PoisSolver_Periodic, i=1,2),(PoisSolver_NeumannStag, i=3,6)])
 
 
   call MPI_Barrier(glob_comm,ie)
   
-  !if (master) write(*,*) "3D PPNs"
+  if (master) write(*,*) "3D PPNs"
 
-  !call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_NeumannStag, i=5,6)])
+  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_NeumannStag, i=5,6)])
 
 
   call MPI_Barrier(glob_comm,ie)
@@ -1165,38 +1165,38 @@ program testpoisson_MPI
  
   call MPI_Barrier(glob_comm,ie)
   
-  !if (master) write(*,*) "3D PPD"
+  if (master) write(*,*) "3D PPD"
 
-  !dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3)+1)
-  !call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_Dirichlet, i=5,6)])
+  dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3)+1)
+  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_Dirichlet, i=5,6)])
   dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3))
  
  
   call MPI_Barrier(glob_comm,ie)
   
-  !if (master) write(*,*) "3D PPDN"
+  if (master) write(*,*) "3D PPDN"
 
-  !call compute3d([(PoisSolver_Periodic, i=1,4),PoisSolver_Dirichlet,PoisSolver_Neumann])
+  call compute3d([(PoisSolver_Periodic, i=1,4),PoisSolver_Dirichlet,PoisSolver_Neumann])
 
 
   call MPI_Barrier(glob_comm,ie)
   
-  !if (master) write(*,*) "3D PPN"
+  if (master) write(*,*) "3D PPN"
 
-  !S = 0
-  !do k = 1,nz
-  !  do j = 1,ny
-  !    do i = 1,nx
-  !      p = RHS(i,j,k)
-  !      if ((k==1.and.kim==1).or.(k==nz.and.kim==nzims)) p = p / 2
-  !      S = S + p
-  !    end do
-  !  end do
-  !end do
-  !call MPI_AllReduce(MPI_IN_PLACE, S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
-  !RHS = RHS - S/product(ng-[0,0,1])
-  !dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3)-1)
-  !call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_Neumann, i=5,6)])
+  S = 0
+  do k = 1,nz
+    do j = 1,ny
+      do i = 1,nx
+        p = RHS(i,j,k)
+        if ((k==1.and.kim==1).or.(k==nz.and.kim==nzims)) p = p / 2
+        S = S + p
+      end do
+    end do
+  end do
+  call MPI_AllReduce(MPI_IN_PLACE, S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
+  RHS = RHS - S/product(ng-[0,0,1])
+  dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3)-1)
+  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_Neumann, i=5,6)])
   dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3))
  
  
