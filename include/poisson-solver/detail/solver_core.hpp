@@ -4,6 +4,7 @@
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/detail/axis_strategies.hpp"
+#include "poisson-solver/detail/fft_policies.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/solver_plan.hpp"
 
@@ -17,6 +18,7 @@
 #include <numeric>
 #include <optional>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #ifdef USE_MPI
@@ -112,15 +114,18 @@ public:
                dim3 cuda_block_size,
                const ISolverPlan<T, FFTDim> &sp)
         // The GPU has to be assigned before subsequent CUDA calls
-        : SolverCore(CoreFFTPolicy::Init(
-                         ns, offs, AssignGPUAndReturnComm(std::move(comm)), sp.fft_layout),
-                     ns,
-                     lens,
-                     gns,
-                     offs,
-                     approx,
-                     cuda_block_size,
-                     sp) {}
+        : SolverCore(
+              CoreFFTPolicy::Init(ns,
+                                  offs,
+                                  AssignGPUAndReturnComm(std::move(comm)),
+                                  sp.fft_layout),
+              ns,
+              lens,
+              gns,
+              offs,
+              approx,
+              cuda_block_size,
+              sp) {}
 #endif  // USE_MPI
 
 private:
@@ -168,7 +173,8 @@ private:
         std::size_t factor = 1;
         for (std::size_t d = 0; d < FFTDim; ++d) {
             const auto &strategy = sp.axis_strategies[d];
-            factor *= strategy->ComputeNormalizationFactor(gns[d]);
+            factor *= strategy->ComputeNormalizationFactor(
+                gns[d], std::holds_alternative<FullLayout>(sp.fft_layout));
         }
         return static_cast<T>(factor);
     }

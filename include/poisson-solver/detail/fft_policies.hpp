@@ -607,17 +607,21 @@ public:
         mpi_utils::ProcsPerDim<2> nps_yz = {nps_xyz[1], nps_xyz[2]};
         auto num_procs = nps_yz[0] * nps_yz[1];
 
+        // TODO - Currently pretty much unused because we preserve
+        // the original order. This probably runs slower in case
+        // the FFT is in non-contiguous dimension but idk.
+        // Later get rid of this or make it work with reversing the order.
         auto pencil_order = GetOrder(sl.isolated_dim_idx);
         auto slab_order = GetOrder(pencil_order[1]);
 
         auto pencils = heffte::make_pencils(
-            world, nps_yz, pencil_order[0], all_boxes.in, pencil_order);
+            world, nps_yz, pencil_order[0], all_boxes.in, {0, 1, 2});
         auto slabs = heffte::make_slabs(world,
                                         num_procs,
                                         slab_order[0],
                                         slab_order[1],
                                         all_boxes.in,
-                                        slab_order,
+                                        {0, 1, 2},
                                         heffte::rank_remap{});
 
         // TODO - Delete this whole block if WithFFTTypeAs works
@@ -657,19 +661,21 @@ public:
 
         int rank;
         MPI_CHECK(MPI_Comm_rank(cart_comm, &rank));
-        auto my_pencil_size = pencils[rank].size;
-        auto my_slab_size = slabs[rank].size;
+        auto my_pencil = pencils[rank];
+        auto my_slab = slabs[rank];
+        // TODO - The osize should be the same as size, depending on the
+        // final use (or non-use) of ordering, remove the TODO
+        // (or make a comment)
+        GridSizes<3> my_pencil_size{
+            static_cast<std::size_t>(my_pencil.osize(0)),
+            static_cast<std::size_t>(my_pencil.osize(1)),
+            static_cast<std::size_t>(my_pencil.osize(2))};
+        GridSizes<3> my_slab_size{static_cast<std::size_t>(my_slab.osize(0)),
+                                  static_cast<std::size_t>(my_slab.osize(1)),
+                                  static_cast<std::size_t>(my_slab.osize(2))};
 
-        fft_plan_1d_ = LocalFFTPolicy::Init(
-            GridSizes{static_cast<std::size_t>(my_pencil_size[0]),
-                      static_cast<std::size_t>(my_pencil_size[1]),
-                      static_cast<std::size_t>(my_pencil_size[2])},
-            sl);
-        fft_plan_2d_ = LocalFFTPolicy::Init(
-            GridSizes{static_cast<std::size_t>(my_slab_size[0]),
-                      static_cast<std::size_t>(my_slab_size[1]),
-                      static_cast<std::size_t>(my_slab_size[2])},
-            sl);
+        fft_plan_1d_ = LocalFFTPolicy::Init(my_pencil_size, sl);
+        fft_plan_2d_ = LocalFFTPolicy::Init(my_slab_size, sl);
 
         std::size_t max_ws_size = MaxWorkspaceSize(reshape_to_pencils_,
                                                    reshape_back_from_pencils_,

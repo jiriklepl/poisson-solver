@@ -10,19 +10,22 @@
 
 namespace poisson_solver::detail::axis_strategy_internals {
 /**
- * HeFFTe is used as an MPI FFT library and its unscaled results
- * do not match those of VkFFT (the local FFT library).
+ * HeFFTe is used as an MPI FFT library for full solvers
+ * and its unscaled results do not match those
+ * of VkFFT (the local FFT library).
  * It is therefore necessary to adjust the norm_factor in those cases.
  *
  * @param norm_factor
  * @param times Multiplied by this.
+ * @param solver_full If all BCs are identical.
  * @return Adjusted norm factor.
  */
-inline auto AdjustNormFactorIfHeFFTeUsed(std::size_t norm_factor,
-                                         [[maybe_unused]] std::size_t times)
-    -> std::size_t {
+inline auto AdjustNormFactorIfHeFFTeUsed(
+    std::size_t norm_factor,
+    [[maybe_unused]] std::size_t times,
+    [[maybe_unused]] bool solver_full) -> std::size_t {
 #ifdef USE_MPI
-    return norm_factor * times;
+    return solver_full ? norm_factor * times : norm_factor;
 #else
     return norm_factor;
 #endif  // USE_MPI
@@ -38,8 +41,9 @@ public:
                                        std::size_t offset,
                                        std::size_t gn,
                                        T dkx) const -> T = 0;
-    virtual auto ComputeNormalizationFactor(std::size_t n) const
-        -> std::size_t = 0;
+    virtual auto ComputeNormalizationFactor(
+        std::size_t n,
+        [[maybe_unused]] bool solver_full) const -> std::size_t = 0;
 
     virtual ~IAxisStrategy() = default;
 };
@@ -59,8 +63,9 @@ public:
         return gi <= (gn / 2) ? gi * dkx : (gn - gi) * dkx;
     }
 
-    auto ComputeNormalizationFactor(std::size_t n) const
-        -> std::size_t override {
+    auto ComputeNormalizationFactor(std::size_t n,
+                                    [[maybe_unused]] bool solver_full)
+        const -> std::size_t override {
         return n;
     }
 };
@@ -80,8 +85,9 @@ public:
         return (gi + 1) * (dkx / 2);
     }
 
-    auto ComputeNormalizationFactor(std::size_t n) const
-        -> std::size_t override {
+    auto ComputeNormalizationFactor(std::size_t n,
+                                    [[maybe_unused]] bool solver_full)
+        const -> std::size_t override {
         return 2 * (n + 1);
     }
 };
@@ -101,10 +107,11 @@ public:
         return gi * (dkx / 2);
     }
 
-    auto ComputeNormalizationFactor(std::size_t n) const
-        -> std::size_t override {
+    auto ComputeNormalizationFactor(
+        std::size_t n, bool solver_full) const -> std::size_t override {
         using axis_strategy_internals::AdjustNormFactorIfHeFFTeUsed;
-        return AdjustNormFactorIfHeFFTeUsed(2 * (n - 1), 2);
+        return AdjustNormFactorIfHeFFTeUsed(
+            2 * (n - 1), 2, solver_full);
     }
 };
 
@@ -123,10 +130,10 @@ public:
         return (gi + 1) * (dkx / 2);
     }
 
-    auto ComputeNormalizationFactor(std::size_t n) const
-        -> std::size_t override {
+    auto ComputeNormalizationFactor(
+        std::size_t n, bool solver_full) const -> std::size_t override {
         using axis_strategy_internals::AdjustNormFactorIfHeFFTeUsed;
-        return AdjustNormFactorIfHeFFTeUsed(2 * n, 2);
+        return AdjustNormFactorIfHeFFTeUsed(2 * n, 2, solver_full);
     }
 };
 
@@ -145,10 +152,11 @@ public:
         return gi * (dkx / 2);
     }
 
-    auto ComputeNormalizationFactor(std::size_t n) const
-        -> std::size_t override {
+    auto ComputeNormalizationFactor(std::size_t n,
+                                    [[maybe_unused]] bool solver_full)
+        const -> std::size_t override {
         using axis_strategy_internals::AdjustNormFactorIfHeFFTeUsed;
-        return AdjustNormFactorIfHeFFTeUsed(2 * n, 2);
+        return AdjustNormFactorIfHeFFTeUsed(2 * n, 2, solver_full);
     }
 };
 
@@ -167,8 +175,9 @@ public:
         return (gi + 1 - static_cast<T>(0.5)) * (dkx / 2);
     }
 
-    auto ComputeNormalizationFactor(std::size_t n) const
-        -> std::size_t override {
+    auto ComputeNormalizationFactor(std::size_t n,
+                                    [[maybe_unused]] bool solver_full)
+        const -> std::size_t override {
         return 2 * n;
     }
 };
