@@ -554,6 +554,140 @@ protected:
     }
 };
 
+template <std::floating_point T>
+class MpiFft1DHandle : public IMpiFftHandle<T> {
+public:
+    using LocalFFTPolicy = VkFFTPolicy<T, 1>;
+    using LocalFFTPlan = typename LocalFFTPolicy::Plan;
+
+    MpiFft1DHandle(GridSizes<1> ns,
+                   GridOffsets<1> offs,
+                   MPI_Comm comm,
+                   FullLayout fl)
+        : IMpiFftHandle<T>{0},
+          comm_{comm},
+          fl_{fl} {
+        using enum FFTTransformType;
+
+        int num_procs;
+        MPI_CHECK(MPI_Comm_rank(comm_, &rank_));
+        MPI_CHECK(MPI_Comm_size(comm_, &num_procs));
+
+        std::size_t elem_size{};
+        this->WithFFTTypeAs(this->AsWorkspace,
+                            fl.forward_type,
+                            [&](auto workspace_elem_instance) {
+                                using Workspace =
+                                    decltype(workspace_elem_instance);
+
+                                elem_size = sizeof(Workspace);
+                            });
+
+        counts_.resize(num_procs);
+        displs_.resize(num_procs);
+
+        int send_count = static_cast<int>(ns[0] * elem_size);
+
+        MPI_CHECK(MPI_Allgather(
+            &send_count, 1, MPI_INT, counts_.data(), 1, MPI_INT, comm_));
+
+        displs_[0] = 0;
+        for (int i = 1; i < num_procs; ++i) {
+            displs_[i] = displs_[i - 1] + counts_[i - 1];
+        }
+
+        std::size_t global_bytes = displs_.back() + counts_.back();
+        std::size_t global_elems = global_bytes / elem_size;
+
+        if (rank_ == 0) {
+            this->workspace_ = this->CreateWorkspace(global_bytes);
+            plan_ = std::make_unique<LocalFFTPlan>(
+                LocalFFTPolicy::Init(GridSizes<1>{global_elems}, fl));
+        }
+    }
+
+    void Forward(void *dev_buffer) override {
+        MPI_CHECK(MPI_Gatherv(dev_buffer,
+                              counts_[rank_],
+                              MPI_BYTE,
+                              rank_ == 0 ? this->workspace_.get() : nullptr,
+                              counts_.data(),
+                              displs_.data(),
+                              MPI_BYTE,
+                              0,
+                              comm_));
+
+        if (rank_ == 0) {
+            this->WithFFTTypeAs(
+                this->AsWorkspace,
+                fl_.forward_type,
+                [&](auto workspace_elem_instance) {
+                    using Workspace = decltype(workspace_elem_instance);
+
+                    LocalFFTPolicy::Forward(
+                        reinterpret_cast<Workspace *>(this->workspace_.get()),
+                        *plan_);
+                });
+        }
+
+        MPI_CHECK(MPI_Scatterv(rank_ == 0 ? this->workspace_.get() : nullptr,
+                               counts_.data(),
+                               displs_.data(),
+                               MPI_BYTE,
+                               dev_buffer,
+                               counts_[rank_],
+                               MPI_BYTE,
+                               0,
+                               comm_));
+    }
+
+    void Backward(void *dev_buffer) override {
+        MPI_CHECK(MPI_Gatherv(dev_buffer,
+                              counts_[rank_],
+                              MPI_BYTE,
+                              rank_ == 0 ? this->workspace_.get() : nullptr,
+                              counts_.data(),
+                              displs_.data(),
+                              MPI_BYTE,
+                              0,
+                              comm_));
+
+        if (rank_ == 0) {
+            this->WithFFTTypeAs(
+                this->AsWorkspace,
+                fl_.forward_type,
+                [&](auto workspace_elem_instance) {
+                    using Workspace = decltype(workspace_elem_instance);
+
+                    LocalFFTPolicy::Backward(
+                        reinterpret_cast<Workspace *>(this->workspace_.get()),
+                        *plan_);
+                });
+        }
+
+        MPI_CHECK(MPI_Scatterv(rank_ == 0 ? this->workspace_.get() : nullptr,
+                               counts_.data(),
+                               displs_.data(),
+                               MPI_BYTE,
+                               dev_buffer,
+                               counts_[rank_],
+                               MPI_BYTE,
+                               0,
+                               comm_));
+    }
+
+private:
+    MPI_Comm comm_;
+    int rank_;
+
+    std::unique_ptr<LocalFFTPlan> plan_{};
+
+    std::vector<int> counts_;
+    std::vector<int> displs_;
+
+    FullLayout fl_{};
+};
+
 template <std::floating_point T, typename TransformTag>
 struct MpiFftFullHandle : public IMpiFftHandle<T> {
 public:
@@ -871,8 +1005,9 @@ private:
      * @brief Returns the greater size of a workspace element
      * of the given FFT types.
      */
-    auto GreaterWorkspaceElementSize(
-        FFTTransformType fft_type1, FFTTransformType fft_type2) -> std::size_t {
+    auto GreaterWorkspaceElementSize(FFTTransformType fft_type1,
+                                     FFTTransformType fft_type2)
+        -> std::size_t {
         std::size_t wspace_elem_size1 = this->WithFFTTypeAs(
             this->AsWorkspace, fft_type1, [](auto workspace_elem_instance) {
                 return sizeof(decltype(workspace_elem_instance));
@@ -982,11 +1117,22 @@ private:
         return heffte::box3d<>{low, high};
     }
 
+    static auto Get1DPlan(FullLayout l,
+                          GridSizes<1> ns,
+                          GridOffsets<1> offs,
+                          MPI_Comm comm) -> Plan {
+        return Plan{std::make_unique<MpiFft1DHandle<T>>(ns, offs, comm, l)};
+    }
+
     static auto GetFullPlan(FullLayout l,
                             GridSizes<Dim> ns,
                             GridOffsets<Dim> offs,
                             MPI_Comm comm) -> Plan {
         using enum FFTTransformType;
+
+        if constexpr (Dim == 1) {
+            return Get1DPlan(l, ns, offs, comm);
+        }
 
         auto grid_box = GetGridBox(ns, offs);
 
