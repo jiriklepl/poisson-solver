@@ -595,7 +595,7 @@ public:
         auto world = heffte::find_world(all_boxes.in);
 
         auto nps_xyz = mpi_utils::GetProcGrid(cart_comm);
-        mpi_utils::ProcsPerDim<2> nps_yz = {nps_xyz[0], nps_xyz[1]};
+        mpi_utils::ProcsPerDim<2> nps_yz = {nps_xyz[1], nps_xyz[2]};
         auto num_procs = nps_yz[0] * nps_yz[1];
 
         auto pencil_order = GetOrder(sl.isolated_dim_idx);
@@ -689,18 +689,28 @@ public:
                 auto source =
                     reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                         dev_buffer);
+
+                // If no reshape takes place, use the source buffer
                 auto intermediate =
                     // TODO - Not sure this cast isn't UB
-                    reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                        this->workspace_.get());
+                    reshape_to_pencils_
+                        ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
+                              this->workspace_.get())
+                        : source;
                 auto wspace = intermediate + max_dest_count_;
 
-                reshape_to_pencils_->apply(1, source, intermediate, wspace);
+                if (reshape_to_pencils_) {
+                    reshape_to_pencils_->apply(1, source, intermediate, wspace);
+                }
+
                 // TODO - Not sure this cast isn't UB
                 LocalFFTPolicy::Forward1D(
                     reinterpret_cast<Workspace *>(intermediate), fft_plan_1d_);
-                reshape_back_from_pencils_->apply(
-                    1, intermediate, source, wspace);
+
+                if (reshape_back_from_pencils_) {
+                    reshape_back_from_pencils_->apply(
+                        1, intermediate, source, wspace);
+                }
             });
     }
 
@@ -714,18 +724,28 @@ public:
                 auto source =
                     reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                         dev_buffer);
+
+                // If no reshape takes place, use the source buffer
                 auto intermediate =
                     // TODO - Not sure this cast isn't UB
-                    reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                        this->workspace_.get());
+                    reshape_to_pencils_
+                        ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
+                              this->workspace_.get())
+                        : source;
                 auto wspace = intermediate + max_dest_count_;
 
-                reshape_to_pencils_->apply(1, source, intermediate, wspace);
+                if (reshape_to_pencils_) {
+                    reshape_to_pencils_->apply(1, source, intermediate, wspace);
+                }
+
                 // TODO - Not sure this cast isn't UB
                 LocalFFTPolicy::Backward1D(
                     reinterpret_cast<Workspace *>(intermediate), fft_plan_1d_);
-                reshape_back_from_pencils_->apply(
-                    1, intermediate, source, wspace);
+
+                if (reshape_back_from_pencils_) {
+                    reshape_back_from_pencils_->apply(
+                        1, intermediate, source, wspace);
+                }
             });
     }
 
@@ -739,18 +759,28 @@ public:
                 auto source =
                     reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                         dev_buffer);
+
+                // If no reshape takes place, use the source buffer
                 auto intermediate =
                     // TODO - Not sure this cast isn't UB
-                    reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                        this->workspace_.get());
+                    reshape_to_slabs_
+                        ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
+                              this->workspace_.get())
+                        : source;
                 auto wspace = intermediate + max_dest_count_;
 
-                reshape_to_slabs_->apply(1, source, intermediate, wspace);
+                if (reshape_to_slabs_) {
+                    reshape_to_slabs_->apply(1, source, intermediate, wspace);
+                }
+
                 // TODO - Not sure this cast isn't UB
                 LocalFFTPolicy::Forward2D(
                     reinterpret_cast<Workspace *>(intermediate), fft_plan_2d_);
-                reshape_back_from_slabs_->apply(
-                    1, intermediate, source, wspace);
+
+                if (reshape_back_from_slabs_) {
+                    reshape_back_from_slabs_->apply(
+                        1, intermediate, source, wspace);
+                }
             });
     }
 
@@ -764,18 +794,28 @@ public:
                 auto source =
                     reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                         dev_buffer);
+
+                // If no reshape takes place, we use the source buffer
                 auto intermediate =
                     // TODO - Not sure this cast isn't UB
-                    reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                        this->workspace_.get());
+                    reshape_to_slabs_
+                        ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
+                              this->workspace_.get())
+                        : source;
                 auto wspace = intermediate + max_dest_count_;
 
-                reshape_to_slabs_->apply(1, source, intermediate, wspace);
+                if (reshape_to_slabs_) {
+                    reshape_to_slabs_->apply(1, source, intermediate, wspace);
+                }
+
                 // TODO - Not sure this cast isn't UB
                 LocalFFTPolicy::Backward2D(
                     reinterpret_cast<Workspace *>(intermediate), fft_plan_2d_);
-                reshape_back_from_slabs_->apply(
-                    1, intermediate, source, wspace);
+
+                if (reshape_back_from_slabs_) {
+                    reshape_back_from_slabs_->apply(
+                        1, intermediate, source, wspace);
+                }
             });
     }
 
@@ -830,8 +870,8 @@ private:
         return std::max(wspace_elem_size1, wspace_elem_size2);
     }
 
-    auto MaxWorkspaceSize(const auto &...tail) -> std::size_t {
-        return std::max({tail->size_workspace()...});
+    auto MaxWorkspaceSize(const auto &...args) -> std::size_t {
+        return std::max({(args ? args->size_workspace() : std::size_t{0})...});
     }
 };
 
