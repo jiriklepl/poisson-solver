@@ -103,10 +103,8 @@ struct VkFFTTypeToPerform {
 
 // === Layout Structs ===
 // Different layouts of FFTs are used based on BCs.
-// TODO: Only VkFFT works currenlty
-// and that handles the backward type
-// based on the forward type
-// so no need to save that.
+// Only the forward types are stored thanks
+// to libraries handling the backward types automatically.
 
 struct FullLayout {
     FFTTransformType forward_type{};
@@ -170,8 +168,8 @@ public:
         auto &handle = std::get<VkFFTFullHandle>(plan.handle).handle;
 
         VkFFTLaunchParams launch_params{};
-        // TODO - Not sure this cast isn't UB
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+        void *void_ptr_dev_buff = dev_buffer;
+        launch_params.buffer = &void_ptr_dev_buff;
 
         VKFFT_CHECK(
             VkFFTAppend(handle.app.get(), forward_direction_, &launch_params));
@@ -183,8 +181,8 @@ public:
         auto &handle = std::get<VkFFTFullHandle>(plan.handle).handle;
 
         VkFFTLaunchParams launch_params{};
-        // TODO - Not sure this cast isn't UB
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+        void *void_ptr_dev_buff = dev_buffer;
+        launch_params.buffer = &void_ptr_dev_buff;
 
         VKFFT_CHECK(
             VkFFTAppend(handle.app.get(), backward_direction_, &launch_params));
@@ -196,8 +194,8 @@ public:
         auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_1d;
 
         VkFFTLaunchParams launch_params{};
-        // TODO - Not sure this cast isn't UB
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+        void *void_ptr_dev_buff = dev_buffer;
+        launch_params.buffer = &void_ptr_dev_buff;
 
         VKFFT_CHECK(
             VkFFTAppend(handle.app.get(), forward_direction_, &launch_params));
@@ -209,8 +207,8 @@ public:
         auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_1d;
 
         VkFFTLaunchParams launch_params{};
-        // TODO - Not sure this cast isn't UB
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+        void *void_ptr_dev_buff = dev_buffer;
+        launch_params.buffer = &void_ptr_dev_buff;
 
         VKFFT_CHECK(
             VkFFTAppend(handle.app.get(), backward_direction_, &launch_params));
@@ -222,8 +220,8 @@ public:
         auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_2d;
 
         VkFFTLaunchParams launch_params{};
-        // TODO - Not sure this cast isn't UB
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+        void *void_ptr_dev_buff = dev_buffer;
+        launch_params.buffer = &void_ptr_dev_buff;
 
         VKFFT_CHECK(
             VkFFTAppend(handle.app.get(), forward_direction_, &launch_params));
@@ -235,8 +233,8 @@ public:
         auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_2d;
 
         VkFFTLaunchParams launch_params{};
-        // TODO - Not sure this cast isn't UB
-        launch_params.buffer = reinterpret_cast<void **>(&dev_buffer);
+        void *void_ptr_dev_buff = dev_buffer;
+        launch_params.buffer = &void_ptr_dev_buff;
 
         VKFFT_CHECK(
             VkFFTAppend(handle.app.get(), backward_direction_, &launch_params));
@@ -697,9 +695,6 @@ public:
                            CuComplexTrait<T>,
                            T>;
 
-    // TODO - In GetFullPlan remove the switch and instead accept
-    // a FullLayout and construct the plan here with the use of
-    // this->WithFFTTypeAsHeFFTeBackendTag
     MpiFftFullHandle(heffte::fft3d<TransformTag> &&plan)
         : IMpiFftHandle<T>{plan.size_workspace() * sizeof(Workspace)},
           plan_{std::move(plan)} {}
@@ -707,19 +702,17 @@ public:
     void Forward(void *dev_buffer) override {
         plan_.forward(reinterpret_cast<Workspace *>(dev_buffer),
                       reinterpret_cast<Workspace *>(dev_buffer),
-                      // TODO - Not sure this cast isn't UB
                       reinterpret_cast<Workspace *>(this->workspace_.get()));
     }
 
     void Backward(void *dev_buffer) override {
         plan_.backward(reinterpret_cast<Workspace *>(dev_buffer),
                        reinterpret_cast<Workspace *>(dev_buffer),
-                       // TODO - Not sure this cast isn't UB
                        reinterpret_cast<Workspace *>(this->workspace_.get()));
     }
 
 private:
-    heffte::fft3d<TransformTag> plan_;
+    heffte::fft3d<TransformTag> plan_{};
 };
 
 template <std::floating_point T>
@@ -729,7 +722,7 @@ public:
     using LocalFFTPlan = typename LocalFFTPolicy::Plan;
 
     MpiFftSplitHandle(SplitLayout sl,
-                      heffte::box3d<> my_box,
+                      heffte::box3d<> &&my_box,
                       MPI_Comm cart_comm)
         // Wspace size computed in the ctor body
         : IMpiFftHandle<T>{0},
@@ -757,13 +750,6 @@ public:
                                         all_boxes.in,
                                         {0, 1, 2},
                                         heffte::rank_remap{});
-
-        // TODO - Delete this whole block if WithFFTTypeAs works
-        // For our purposes it doesn't matter that the specific backend doesn't
-        // match (e.g. we could be using cufft_cos1), it's important that the
-        // backend is some kind of cufft.
-        // using cufft_backend = heffte::backend::cufft;
-        // auto options = heffte::default_options<cufft_backend>();
 
         this->WithFFTTypeAs(
             this->AsHeFFTeBackendTag,
@@ -797,9 +783,7 @@ public:
         MPI_CHECK(MPI_Comm_rank(cart_comm, &rank));
         auto my_pencil = pencils[rank];
         auto my_slab = slabs[rank];
-        // TODO - The osize should be the same as size, depending on the
-        // final use (or non-use) of ordering, remove the TODO
-        // (or make a comment)
+
         GridSizes<3> my_pencil_size{
             static_cast<std::size_t>(my_pencil.osize(0)),
             static_cast<std::size_t>(my_pencil.osize(1)),
@@ -834,14 +818,12 @@ public:
             this->AsWorkspace, fft_type, [&](auto workspace_elem_instance) {
                 using Workspace = decltype(workspace_elem_instance);
 
-                // TODO - Not sure this cast isn't UB
                 auto source =
                     reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                         dev_buffer);
 
                 // If no reshape takes place, use the source buffer
                 auto intermediate =
-                    // TODO - Not sure this cast isn't UB
                     reshape_to_pencils_
                         ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                               this->workspace_.get())
@@ -852,7 +834,6 @@ public:
                     reshape_to_pencils_->apply(1, source, intermediate, wspace);
                 }
 
-                // TODO - Not sure this cast isn't UB
                 LocalFFTPolicy::Forward1D(
                     reinterpret_cast<Workspace *>(intermediate), fft_plan_1d_);
 
@@ -869,14 +850,12 @@ public:
             this->AsWorkspace, fft_type, [&](auto workspace_elem_instance) {
                 using Workspace = decltype(workspace_elem_instance);
 
-                // TODO - Not sure this cast isn't UB
                 auto source =
                     reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                         dev_buffer);
 
                 // If no reshape takes place, use the source buffer
                 auto intermediate =
-                    // TODO - Not sure this cast isn't UB
                     reshape_to_pencils_
                         ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                               this->workspace_.get())
@@ -887,7 +866,6 @@ public:
                     reshape_to_pencils_->apply(1, source, intermediate, wspace);
                 }
 
-                // TODO - Not sure this cast isn't UB
                 LocalFFTPolicy::Backward1D(
                     reinterpret_cast<Workspace *>(intermediate), fft_plan_1d_);
 
@@ -904,14 +882,12 @@ public:
             this->AsWorkspace, fft_type, [&](auto workspace_elem_instance) {
                 using Workspace = decltype(workspace_elem_instance);
 
-                // TODO - Not sure this cast isn't UB
                 auto source =
                     reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                         dev_buffer);
 
                 // If no reshape takes place, use the source buffer
                 auto intermediate =
-                    // TODO - Not sure this cast isn't UB
                     reshape_to_slabs_
                         ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                               this->workspace_.get())
@@ -922,7 +898,6 @@ public:
                     reshape_to_slabs_->apply(1, source, intermediate, wspace);
                 }
 
-                // TODO - Not sure this cast isn't UB
                 LocalFFTPolicy::Forward2D(
                     reinterpret_cast<Workspace *>(intermediate), fft_plan_2d_);
 
@@ -939,14 +914,12 @@ public:
             this->AsWorkspace, fft_type, [&](auto workspace_elem_instance) {
                 using Workspace = decltype(workspace_elem_instance);
 
-                // TODO - Not sure this cast isn't UB
                 auto source =
                     reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                         dev_buffer);
 
                 // If no reshape takes place, we use the source buffer
                 auto intermediate =
-                    // TODO - Not sure this cast isn't UB
                     reshape_to_slabs_
                         ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                               this->workspace_.get())
@@ -957,7 +930,6 @@ public:
                     reshape_to_slabs_->apply(1, source, intermediate, wspace);
                 }
 
-                // TODO - Not sure this cast isn't UB
                 LocalFFTPolicy::Backward2D(
                     reinterpret_cast<Workspace *>(intermediate), fft_plan_2d_);
 
@@ -1005,9 +977,8 @@ private:
      * @brief Returns the greater size of a workspace element
      * of the given FFT types.
      */
-    auto GreaterWorkspaceElementSize(FFTTransformType fft_type1,
-                                     FFTTransformType fft_type2)
-        -> std::size_t {
+    auto GreaterWorkspaceElementSize(
+        FFTTransformType fft_type1, FFTTransformType fft_type2) -> std::size_t {
         std::size_t wspace_elem_size1 = this->WithFFTTypeAs(
             this->AsWorkspace, fft_type1, [](auto workspace_elem_instance) {
                 return sizeof(decltype(workspace_elem_instance));
@@ -1063,38 +1034,32 @@ public:
 
     template <ValidWorkspace<T> Workspace>
     static void Forward(Workspace *dev_buffer, Plan &plan) {
-        // TODO - Not sure this cast isn't UB
-        plan.handle->Forward(reinterpret_cast<void *>(dev_buffer));
+        plan.handle->Forward(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Backward(Workspace *dev_buffer, Plan &plan) {
-        // TODO - Not sure this cast isn't UB
-        plan.handle->Backward(reinterpret_cast<void *>(dev_buffer));
+        plan.handle->Backward(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Forward1D(Workspace *dev_buffer, Plan &plan) {
-        // TODO - Not sure this cast isn't UB
-        plan.handle->Forward1D(reinterpret_cast<void *>(dev_buffer));
+        plan.handle->Forward1D(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Backward1D(Workspace *dev_buffer, Plan &plan) {
-        // TODO - Not sure this cast isn't UB
-        plan.handle->Backward1D(reinterpret_cast<void *>(dev_buffer));
+        plan.handle->Backward1D(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Forward2D(Workspace *dev_buffer, Plan &plan) {
-        // TODO - Not sure this cast isn't UB
-        plan.handle->Forward2D(reinterpret_cast<void *>(dev_buffer));
+        plan.handle->Forward2D(dev_buffer);
     }
 
     template <ValidWorkspace<T> Workspace>
     static void Backward2D(Workspace *dev_buffer, Plan &plan) {
-        // TODO - Not sure this cast isn't UB
-        plan.handle->Backward2D(reinterpret_cast<void *>(dev_buffer));
+        plan.handle->Backward2D(dev_buffer);
     }
 
 private:
@@ -1208,7 +1173,8 @@ private:
                              GridOffsets<3> offs,
                              MPI_Comm comm) -> Plan {
         auto my_box = GetGridBox(ns, offs);
-        return Plan{std::make_unique<MpiFftSplitHandle<T>>(l, my_box, comm)};
+        return Plan{
+            std::make_unique<MpiFftSplitHandle<T>>(l, std::move(my_box), comm)};
     }
 };
 
