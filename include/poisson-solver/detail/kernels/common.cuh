@@ -123,10 +123,11 @@ __device__ void ApplyStrideLoop(GridSizes<Dim> ns, Func f) {
 
 template <std::floating_point T, std::size_t Dim>
 __device__ auto SumIndexedDenoms(DenomConstPtrs<T, Dim> denoms,
-                                 MultidimIdx<Dim> midx) -> T {
+                                 MultidimIdx<Dim> midx,
+                                 GridOffsets<Dim> offs) -> T {
     T res = 0.0;
     for (std::size_t d = 0; d < Dim; ++d) {
-        res += denoms[d][midx[d]];
+        res += denoms[d][midx[d] + offs[d]];
     }
     return res;
 }
@@ -134,6 +135,7 @@ __device__ auto SumIndexedDenoms(DenomConstPtrs<T, Dim> denoms,
 template <std::floating_point T, std::size_t Dim, ValidWorkspace<T> Workspace>
 __global__ void DivideByDenoms(Workspace *workspace,
                                GridSizes<Dim> ns,
+                               GridOffsets<Dim> offs,
                                DenomConstPtrs<T, Dim> denoms,
                                bool zero_first) {
     ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
@@ -142,7 +144,7 @@ __global__ void DivideByDenoms(Workspace *workspace,
             workspace[idx] = Workspace{T{0.0}};
             return;
         }
-        workspace[idx] /= SumIndexedDenoms(denoms, midx);
+        workspace[idx] /= SumIndexedDenoms(denoms, midx, offs);
     });
 }
 }  // namespace poisson_solver::detail::kernels

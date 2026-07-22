@@ -12,6 +12,7 @@ template <std::floating_point T, ValidWorkspace<T> Workspace>
 void TridiagZ(Workspace *workspace,
               T *cp_workspace,
               GridSizes<3> ns,
+              GridOffsets<2> offs,
               DenomConstPtrs<T, 2> denoms,
               const T *mat_a,
               const T *mat_b,

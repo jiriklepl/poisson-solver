@@ -12,6 +12,7 @@ namespace poisson_solver::detail::runners {
 template <std::floating_point T, std::size_t Dim, ValidWorkspace<T> Workspace>
 void DivideByDenoms(Workspace *workspace,
                     GridSizes<Dim> ns,
+                    GridOffsets<Dim> offs,
                     DenomConstPtrs<T, Dim> denoms,
                     dim3 cu_grid_size,
                     dim3 cu_block_size,

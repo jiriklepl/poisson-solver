@@ -13,6 +13,7 @@ template <std::floating_point T, ValidWorkspace<T> Workspace>
 __global__ void TridiagZ(Workspace *workspace,
                          T *cp_workspace,
                          GridSizes<3> ns,
+                         GridOffsets<2> offs,
                          DenomConstPtrs<T, 2> denoms,
                          const T *mat_a,
                          const T *mat_b,
@@ -25,8 +26,9 @@ __global__ void TridiagZ(Workspace *workspace,
         auto stride_z = ns[0] * ns[1];
         auto nz = ns[2];
 
-        T c1 = (idx == 0) ? T{0.0} : mat_c[0];
-        T lam = denoms[0][x] + denoms[1][y];
+        bool operates_on_grid_origin = (x + offs[0] == 0) && (y + offs[1] == 0);
+        T c1 = operates_on_grid_origin ? T{0.0} : mat_c[0];
+        T lam = denoms[0][x + offs[0]] + denoms[1][y + offs[1]];
         T m = mat_b[0] + lam;
 
         workspace[idx] /= m;

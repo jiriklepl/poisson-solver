@@ -14,6 +14,7 @@ template <std::floating_point T, ValidWorkspace<T> Workspace>
 void TridiagZ(Workspace *real_workspace,
               T *cp_workspace,
               GridSizes<3> ns,
+              GridOffsets<2> offs,
               DenomConstPtrs<T, 2> denoms,
               const T *mat_a,
               const T *mat_b,
@@ -21,7 +22,7 @@ void TridiagZ(Workspace *real_workspace,
               dim3 cu_grid_size,
               dim3 cu_block_size) {
     nzk::TridiagZ<<<cu_grid_size, cu_block_size>>>(
-        real_workspace, cp_workspace, ns, denoms, mat_a, mat_b, mat_c);
+        real_workspace, cp_workspace, ns, offs, denoms, mat_a, mat_b, mat_c);
     CUCH(cudaGetLastError());
 }
 
@@ -31,6 +32,7 @@ void TridiagZ(Workspace *real_workspace,
         TYPE * real_workspace, /* NOLINT(bugprone-macro-parentheses) */ \
         TYPE * cp_workspace,   /* NOLINT(bugprone-macro-parentheses) */ \
         GridSizes<3> ns,                                                \
+        GridOffsets<2> offs,                                            \
         DenomConstPtrs<TYPE, 2> denoms,                                 \
         const TYPE *mat_a,                                              \
         const TYPE *mat_b,                                              \
@@ -43,6 +45,7 @@ void TridiagZ(Workspace *real_workspace,
         CuComplexTrait<TYPE> * cmplx_workspace,                       \
         TYPE * cp_workspace, /* NOLINT(bugprone-macro-parentheses) */ \
         GridSizes<3> ns,                                              \
+        GridOffsets<2> offs,                                          \
         DenomConstPtrs<TYPE, 2> denoms,                               \
         const TYPE *mat_a,                                            \
         const TYPE *mat_b,                                            \
