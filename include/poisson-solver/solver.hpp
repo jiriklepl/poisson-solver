@@ -6,6 +6,7 @@
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/fft_policies.hpp"
 #include "poisson-solver/detail/helpers.hpp"
+#include "poisson-solver/detail/reshaper.hpp"
 #include "poisson-solver/detail/runners/common.hpp"
 #include "poisson-solver/detail/runners/common_cmplx.hpp"
 #include "poisson-solver/detail/runners/common_real.hpp"
@@ -82,7 +83,7 @@ public:
            BCs<Dim> bcs,
            const IApproximation<T> &approx = SpectralApproximation<T>{},
            dim3 cuda_block_size = ISolver<T, Dim>::DefaultBlockSize())
-        : solver_plan_(bcs),
+        : solver_plan_(bcs, detail::DummyReshapePipeline{ns, {0, 0, 0}}),
           core_(ns, lens, approx, cuda_block_size, solver_plan_) {}
 
 #ifdef USE_MPI
@@ -110,7 +111,7 @@ public:
            MPI_Comm comm,
            const IApproximation<T> &approx = SpectralApproximation<T>{},
            dim3 cuda_block_size = ISolver<T, Dim>::DefaultBlockSize())
-        : solver_plan_(bcs),
+        : solver_plan_(bcs, detail::ReshapePipeline::From(ns, offs)),
           core_(ns,
                 lens,
                 gns,
@@ -158,10 +159,10 @@ public:
     }
 
 private:
-    friend struct detail::SolverPlan<T, Dim>;
+    friend struct detail::SolverPlan<T, Dim, Dim>;
     using FFTPolicy = detail::FFTPolicy<T, Dim>;
 
-    detail::SolverPlan<T, Dim> solver_plan_;
+    detail::SolverPlan<T, Dim, Dim> solver_plan_;
     detail::SolverCore<T, Dim> core_;
 
     void SolveFullPeriodic() {
@@ -241,31 +242,43 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        FFTPolicy::Forward1D(core_.cu_real_workspace.get(), core_.fft_plan);
-        Init(core_.cu_cmplx_workspace.value().get(),
-             core_.cu_real_workspace.get(),
-             core_.ns,
-             core_.cu_grid_size,
+        auto new_layout = solver_plan_.reshaper.ReshapeReal(
+            core_.cu_real_workspace1.get(), core_.cu_real_workspace2.get());
+        FFTPolicy::Forward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
+        Init(core_.cu_cmplx_workspace1.value().get(),
+             core_.cu_real_workspace2.get(),
+             new_layout.ns,
+             core_.ComputeCUDAGridSize(new_layout.ns),
              core_.cu_block_size);
 
-        FFTPolicy::Forward2D(core_.cu_cmplx_workspace.value().get(),
+        new_layout = solver_plan_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace1.value().get(),
+            core_.cu_cmplx_workspace2.value().get());
+        FFTPolicy::Forward2D(core_.cu_cmplx_workspace2.value().get(),
                              core_.fft_plan);
-        DivideByDenoms(core_.cu_cmplx_workspace.value().get(),
-                       core_.ns,
+        DivideByDenoms(core_.cu_cmplx_workspace2.value().get(),
+                       new_layout.ns,
+                       new_layout.offs,
                        core_.cu_denom_observers,
-                       core_.cu_grid_size,
+                       core_.ComputeCUDAGridSize(new_layout.ns),
                        core_.cu_block_size,
-                       core_.operates_on_grid_origin);
-        FFTPolicy::Backward2D(core_.cu_cmplx_workspace.value().get(),
+                       true);
+        FFTPolicy::Backward2D(core_.cu_cmplx_workspace2.value().get(),
                               core_.fft_plan);
 
-        Normalize(core_.cu_real_workspace.get(),
-                  core_.cu_cmplx_workspace.value().get(),
-                  core_.ns,
+        new_layout = solver_plan_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace2.value().get(),
+            core_.cu_cmplx_workspace1.value().get());
+        Normalize(core_.cu_real_workspace2.get(),
+                  core_.cu_cmplx_workspace1.value().get(),
+                  new_layout.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(new_layout.ns),
                   core_.cu_block_size);
-        FFTPolicy::Backward1D(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
+
+        solver_plan_.reshaper.ReshapeReal(core_.cu_real_workspace2.get(),
+                                         core_.cu_real_workspace1.get());
     }
 
     void SolvePPD() {
