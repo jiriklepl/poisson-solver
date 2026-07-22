@@ -20,10 +20,10 @@ namespace poisson_solver::detail::axis_strategy_internals {
  * @param solver_full If all BCs are identical.
  * @return Adjusted norm factor.
  */
-inline auto AdjustNormFactorIfHeFFTeUsed(
-    std::size_t norm_factor,
-    [[maybe_unused]] std::size_t times,
-    [[maybe_unused]] bool solver_full) -> std::size_t {
+inline auto AdjustNormFactorIfHeFFTeUsed(std::size_t norm_factor,
+                                         [[maybe_unused]] std::size_t times,
+                                         [[maybe_unused]] bool solver_full)
+    -> std::size_t {
 #ifdef USE_MPI
     return solver_full ? norm_factor * times : norm_factor;
 #else
@@ -36,13 +36,12 @@ namespace poisson_solver::detail {
 template <std::floating_point T>
 class IAxisStrategy {
 public:
-    virtual auto GetGridDx(std::size_t n, T len) const -> T = 0;
-    virtual auto GetApproximationInput(std::size_t i,
-                                       std::size_t offset,
+    virtual auto GetGridDx(std::size_t gn, T len) const -> T = 0;
+    virtual auto GetApproximationInput(std::size_t gi,
                                        std::size_t gn,
                                        T dkx) const -> T = 0;
     virtual auto ComputeNormalizationFactor(
-        std::size_t n,
+        std::size_t gn,
         [[maybe_unused]] bool solver_full) const -> std::size_t = 0;
 
     virtual ~IAxisStrategy() = default;
@@ -51,134 +50,121 @@ public:
 template <std::floating_point T>
 class PeriodicStrategy : public IAxisStrategy<T> {
 public:
-    auto GetGridDx(std::size_t n, T len) const -> T override {
-        return len / n;
+    auto GetGridDx(std::size_t gn, T len) const -> T override {
+        return len / gn;
     }
 
-    auto GetApproximationInput(std::size_t i,
-                               std::size_t offset,
+    auto GetApproximationInput(std::size_t gi,
                                std::size_t gn,
                                T dkx) const -> T override {
-        auto gi = i + offset;
         return gi <= (gn / 2) ? gi * dkx : (gn - gi) * dkx;
     }
 
-    auto ComputeNormalizationFactor(std::size_t n,
-                                    [[maybe_unused]] bool solver_full)
-        const -> std::size_t override {
-        return n;
+    auto ComputeNormalizationFactor(std::size_t gn,
+                                    [[maybe_unused]] bool solver_full) const
+        -> std::size_t override {
+        return gn;
     }
 };
 
 template <std::floating_point T>
 class DirichletStrategy : public IAxisStrategy<T> {
 public:
-    auto GetGridDx(std::size_t n, T len) const -> T override {
-        return len / (n + 1);
+    auto GetGridDx(std::size_t gn, T len) const -> T override {
+        return len / (gn + 1);
     }
 
-    auto GetApproximationInput(std::size_t i,
-                               std::size_t offset,
+    auto GetApproximationInput(std::size_t gi,
                                [[maybe_unused]] std::size_t gn,
                                T dkx) const -> T override {
-        auto gi = i + offset;
         return (gi + 1) * (dkx / 2);
     }
 
-    auto ComputeNormalizationFactor(std::size_t n,
-                                    [[maybe_unused]] bool solver_full)
-        const -> std::size_t override {
-        return 2 * (n + 1);
+    auto ComputeNormalizationFactor(std::size_t gn,
+                                    [[maybe_unused]] bool solver_full) const
+        -> std::size_t override {
+        return 2 * (gn + 1);
     }
 };
 
 template <std::floating_point T>
 class NeumannStrategy : public IAxisStrategy<T> {
 public:
-    auto GetGridDx(std::size_t n, T len) const -> T override {
-        return len / (n - 1);
+    auto GetGridDx(std::size_t gn, T len) const -> T override {
+        return len / (gn - 1);
     }
 
-    auto GetApproximationInput(std::size_t i,
-                               std::size_t offset,
+    auto GetApproximationInput(std::size_t gi,
                                [[maybe_unused]] std::size_t gn,
                                T dkx) const -> T override {
-        auto gi = i + offset;
         return gi * (dkx / 2);
     }
 
-    auto ComputeNormalizationFactor(
-        std::size_t n, bool solver_full) const -> std::size_t override {
+    auto ComputeNormalizationFactor(std::size_t gn, bool solver_full) const
+        -> std::size_t override {
         using axis_strategy_internals::AdjustNormFactorIfHeFFTeUsed;
-        return AdjustNormFactorIfHeFFTeUsed(
-            2 * (n - 1), 2, solver_full);
+        return AdjustNormFactorIfHeFFTeUsed(2 * (gn - 1), 2, solver_full);
     }
 };
 
 template <std::floating_point T>
 class DirichletStagStrategy : public IAxisStrategy<T> {
 public:
-    auto GetGridDx(std::size_t n, T len) const -> T override {
-        return len / n;
+    auto GetGridDx(std::size_t gn, T len) const -> T override {
+        return len / gn;
     }
 
-    auto GetApproximationInput(std::size_t i,
-                               std::size_t offset,
+    auto GetApproximationInput(std::size_t gi,
                                [[maybe_unused]] std::size_t gn,
                                T dkx) const -> T override {
-        auto gi = i + offset;
         return (gi + 1) * (dkx / 2);
     }
 
-    auto ComputeNormalizationFactor(
-        std::size_t n, bool solver_full) const -> std::size_t override {
+    auto ComputeNormalizationFactor(std::size_t gn, bool solver_full) const
+        -> std::size_t override {
         using axis_strategy_internals::AdjustNormFactorIfHeFFTeUsed;
-        return AdjustNormFactorIfHeFFTeUsed(2 * n, 2, solver_full);
+        return AdjustNormFactorIfHeFFTeUsed(2 * gn, 2, solver_full);
     }
 };
 
 template <std::floating_point T>
 class NeumannStagStrategy : public IAxisStrategy<T> {
 public:
-    auto GetGridDx(std::size_t n, T len) const -> T override {
-        return len / n;
+    auto GetGridDx(std::size_t gn, T len) const -> T override {
+        return len / gn;
     }
 
-    auto GetApproximationInput(std::size_t i,
-                               std::size_t offset,
+    auto GetApproximationInput(std::size_t gi,
                                [[maybe_unused]] std::size_t gn,
                                T dkx) const -> T override {
-        auto gi = i + offset;
         return gi * (dkx / 2);
     }
 
-    auto ComputeNormalizationFactor(std::size_t n,
-                                    [[maybe_unused]] bool solver_full)
-        const -> std::size_t override {
+    auto ComputeNormalizationFactor(std::size_t gn,
+                                    [[maybe_unused]] bool solver_full) const
+        -> std::size_t override {
         using axis_strategy_internals::AdjustNormFactorIfHeFFTeUsed;
-        return AdjustNormFactorIfHeFFTeUsed(2 * n, 2, solver_full);
+        return AdjustNormFactorIfHeFFTeUsed(2 * gn, 2, solver_full);
     }
 };
 
 template <std::floating_point T>
 class MixedStrategy : public IAxisStrategy<T> {
 public:
-    auto GetGridDx(std::size_t n, T len) const -> T override {
-        return len / n;
+    auto GetGridDx(std::size_t gn, T len) const -> T override {
+        return len / gn;
     }
 
-    auto GetApproximationInput(std::size_t i,
-                               std::size_t offset,
+    auto GetApproximationInput(std::size_t gi,
                                [[maybe_unused]] std::size_t gn,
                                T dkx) const -> T override {
-        auto gi = i + offset;
         return (gi + 1 - static_cast<T>(0.5)) * (dkx / 2);
     }
 
-    auto ComputeNormalizationFactor(std::size_t n,
-                                    [[maybe_unused]] bool solver_full)
-        const -> std::size_t override {
-        return 2 * n;
+    auto ComputeNormalizationFactor(std::size_t gn,
+                                    [[maybe_unused]] bool solver_full) const
+        -> std::size_t override {
+        return 2 * gn;
     }
 };
 }  // namespace poisson_solver::detail
