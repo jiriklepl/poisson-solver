@@ -82,7 +82,6 @@ public:
 
     // === Device Settings ===
     dim3 cu_block_size;
-    dim3 cu_grid_size;
 
     /**
      * @brief Constructs core for local solver.
@@ -128,6 +127,33 @@ public:
               sp) {}
 #endif  // USE_MPI
 
+    /**
+     * @note The dimensionality of the result is determined by `FFTDim`.
+     * The computations in dimensions not transformed via FFT
+     * (e.g. Z in `NonuniformZSolver`) contain dependencies in that dimension.
+     * This forces the GPU threads to parallelize only on the remaining dims
+     * (e.g. X and Y in `NonuniformZSolver`).
+     */
+    auto ComputeCUDAGridSize(GridSizes<Dim> ns) -> dim3 {
+        if constexpr (FFTDim == 1) {
+            return {(static_cast<unsigned>(ns[0]) + cu_block_size.x - 1) /
+                    cu_block_size.x};
+        } else if constexpr (FFTDim == 2) {
+            return {(static_cast<unsigned>(ns[0]) + cu_block_size.x - 1) /
+                        cu_block_size.x,
+                    (static_cast<unsigned>(ns[1]) + cu_block_size.y - 1) /
+                        cu_block_size.y};
+        } else {
+            // FFTDim == 3
+            return {(static_cast<unsigned>(ns[0]) + cu_block_size.x - 1) /
+                        cu_block_size.x,
+                    (static_cast<unsigned>(ns[1]) + cu_block_size.y - 1) /
+                        cu_block_size.y,
+                    (static_cast<unsigned>(ns[2]) + cu_block_size.z - 1) /
+                        cu_block_size.z};
+        }
+    }
+
 private:
     /**
      * @brief Master constructor.
@@ -152,14 +178,13 @@ private:
                                                           return off == 0;
                                                       })),
           norm_factor(ComputeNormFactor(gns, sp)),
-          cu_block_size(cuda_block_size),
-          cu_grid_size(ComputeCUDAGridSize(ns, cuda_block_size)) {
-        AllocDeviceBuffers();
+          cu_block_size(cuda_block_size) {
+        AllocDeviceBuffers(gns);
 
         // Denoms are constant for the solver lifetime.
         // They can be copied just once, here.
-        const auto denoms = GetEigenvalues(ns, lens, gns, offs, approx, sp);
-        CopyDenomsToDevice(denoms);
+        const auto denoms = GetEigenvalues(lens, gns, approx, sp);
+        CopyDenomsToDevice(denoms, gns);
         cu_denom_observers = CreateDenomObservers();
     }
 
@@ -179,27 +204,6 @@ private:
         return static_cast<T>(factor);
     }
 
-    /**
-     * @note The dimensionality of the result is determined by `FFTDim`.
-     * The computations in dimensions not transformed via FFT
-     * (e.g. Z in `NonuniformZSolver`) contain dependencies in that dimension.
-     * This forces the GPU threads to parallelize only on the remaining dims
-     * (e.g. X and Y in `NonuniformZSolver`).
-     */
-    static auto ComputeCUDAGridSize(GridSizes<Dim> ns, dim3 block) -> dim3 {
-        if constexpr (FFTDim == 1) {
-            return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x};
-        } else if constexpr (FFTDim == 2) {
-            return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x,
-                    (static_cast<unsigned>(ns[1]) + block.y - 1) / block.y};
-        } else {
-            // FFTDim == 3
-            return {(static_cast<unsigned>(ns[0]) + block.x - 1) / block.x,
-                    (static_cast<unsigned>(ns[1]) + block.y - 1) / block.y,
-                    (static_cast<unsigned>(ns[2]) + block.z - 1) / block.z};
-        }
-    }
-
     void AllocDeviceWorkspaces() {
         using detail::CuComplexTrait;
         using detail::MakeCudaUnique;
@@ -211,54 +215,46 @@ private:
         cu_real_workspace = MakeCudaUnique<T>(cnt);
     }
 
-    void AllocDeviceDenoms() {
+    void AllocDeviceDenoms(GridSizes<FFTDim> gns) {
         using detail::MakeCudaUnique;
         for (std::size_t d = 0; d < FFTDim; ++d) {
-            cu_denoms[d] = MakeCudaUnique<T>(ns[d]);
+            cu_denoms[d] = MakeCudaUnique<T>(gns[d]);
         }
     }
 
-    void AllocDeviceBuffers() {
+    void AllocDeviceBuffers(GridSizes<FFTDim> gns) {
         AllocDeviceWorkspaces();
-        AllocDeviceDenoms();
+        AllocDeviceDenoms(gns);
     }
 
-    auto GetOneAxisEigenvalues(std::size_t n,
-                               T len,
+    auto GetOneAxisEigenvalues(T len,
                                std::size_t gn,
-                               std::size_t offset,
                                const IApproximation<T> &approx,
                                const IAxisStrategy<T> &axis_strategy) const
         -> HostOneAxisDenoms {
-        HostOneAxisDenoms eigenvals(n);
+        HostOneAxisDenoms eigenvals(gn);
 
         const T grid_dx = axis_strategy.GetGridDx(gn, len);
         const T dkx = std::numbers::pi_v<T> * grid_dx / len;
         const T inv_grid_dx_squared = static_cast<T>(1.0) / (grid_dx * grid_dx);
 
-        for (std::size_t i = 0; i < n; ++i) {
-            eigenvals[i] = approx(axis_strategy.GetApproximationInput(
-                               i, offset, gn, dkx)) *
-                           inv_grid_dx_squared;
+        for (std::size_t i = 0; i < gn; ++i) {
+            eigenvals[i] =
+                approx(axis_strategy.GetApproximationInput(i, gn, dkx)) *
+                inv_grid_dx_squared;
         }
 
         return eigenvals;
     }
 
-    auto GetEigenvalues(GridSizes<Dim> ns,
-                        std::array<T, FFTDim> lens,
+    auto GetEigenvalues(std::array<T, FFTDim> lens,
                         GridSizes<Dim> gns,
-                        GridOffsets<Dim> offs,
                         const IApproximation<T> &approx,
                         const ISolverPlan<T, FFTDim> &sp) const -> HostDenoms {
         HostDenoms denoms{};
         for (std::size_t d = 0; d < FFTDim; ++d) {
-            denoms[d] = GetOneAxisEigenvalues(ns[d],
-                                              lens[d],
-                                              gns[d],
-                                              offs[d],
-                                              approx,
-                                              *sp.axis_strategies[d]);
+            denoms[d] = GetOneAxisEigenvalues(
+                lens[d], gns[d], approx, *sp.axis_strategies[d]);
         }
         return denoms;
     }
@@ -266,11 +262,11 @@ private:
     /**
      * @note Device `denom` buffers have to be already allocated.
      */
-    void CopyDenomsToDevice(const HostDenoms &denoms) {
+    void CopyDenomsToDevice(const HostDenoms &denoms, GridSizes<FFTDim> gns) {
         for (std::size_t d = 0; d < FFTDim; ++d) {
             CUCH(cudaMemcpy(cu_denoms[d].get(),
                             denoms[d].data(),
-                            ns[d] * sizeof(T),
+                            gns[d] * sizeof(T),
                             cudaMemcpyHostToDevice));
         }
     }
