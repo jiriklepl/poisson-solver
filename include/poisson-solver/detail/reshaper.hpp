@@ -46,7 +46,9 @@ class ReshapePipeline {
 public:
     friend class Reshaper;
 
-    static auto From(GridSizes<3> ns, MPI_Comm cart_comm) -> ReshapePipeline;
+    static auto From(GridSizes<3> ns,
+                     GridOffsets<3> offs,
+                     MPI_Comm cart_comm) -> ReshapePipeline;
     auto ToPencils(std::size_t dimension) -> ReshapePipeline &;
     auto ToSlabs(std::size_t dimension1,
                  std::size_t dimension2) -> ReshapePipeline &;
@@ -67,8 +69,8 @@ private:
                     mpi_utils::ProcsPerDim<2> &&nps_yz,
                     MPI_Comm comm);
 
-    static auto GetGridBox(GridSizes<Dim> ns,
-                           GridOffsets<Dim> offs) -> heffte::box3d<>;
+    static auto GetGridBox(GridSizes<3> ns,
+                           GridOffsets<3> offs) -> heffte::box3d<>;
 };
 
 class Reshaper {
