@@ -16,7 +16,7 @@ void DivideByDenoms(Workspace *workspace,
                     DenomConstPtrs<T, Dim> denoms,
                     dim3 cu_grid_size,
                     dim3 cu_block_size,
-                    bool zero_first = false);
+                    bool zero_origin = false);
 }  // namespace poisson_solver::detail::runners
 
 #endif  // COMMON_HPP

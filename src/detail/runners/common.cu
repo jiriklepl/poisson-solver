@@ -15,9 +15,9 @@ void DivideByDenoms(Workspace *workspace,
                     DenomConstPtrs<T, Dim> denoms,
                     dim3 cu_grid_size,
                     dim3 cu_block_size,
-                    bool zero_first) {
+                    bool zero_origin) {
     ker::DivideByDenoms<<<cu_grid_size, cu_block_size>>>(
-        workspace, ns, offs, denoms, zero_first);
+        workspace, ns, offs, denoms, zero_origin);
     CUCH(cudaGetLastError());
 }
 
@@ -31,7 +31,7 @@ void DivideByDenoms(Workspace *workspace,
         DenomConstPtrs<TYPE, DIM> denoms,                          \
         dim3 cu_grid_size,                                         \
         dim3 cu_block_size,                                        \
-        bool zero_first);
+        bool zero_origin);
 
 #define INSTANTIATE_DIVISION_COMPLEX(TYPE, DIM)                                \
     template void                                                              \
@@ -45,7 +45,7 @@ void DivideByDenoms(Workspace *workspace,
                                          DenomConstPtrs<TYPE, DIM> denoms,     \
                                          dim3 cu_grid_size,                    \
                                          dim3 cu_block_size,                   \
-                                         bool zero_first);
+                                         bool zero_origin);
 
 #define INSTANTIATE_DIV_REAL_ALL_DIMS(TYPE) \
     INSTANTIATE_DIVISION_REAL(TYPE, 1)      \
