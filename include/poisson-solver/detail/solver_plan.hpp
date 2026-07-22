@@ -4,6 +4,7 @@
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/axis_strategies.hpp"
 #include "poisson-solver/detail/fft_policies.hpp"
+#include "poisson-solver/detail/reshaper.hpp"
 
 #include <algorithm>
 #include <array>
@@ -12,6 +13,7 @@
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
+#include <utility>
 
 namespace poisson_solver {
 // === Forward Declarations ===
@@ -40,6 +42,11 @@ public:
 
     AxisStrategies axis_strategies{};
     VariantLayout fft_layout{};
+
+    // We need default initialization.
+    // The derived classes will construct this
+    // as a part of their ctor.
+    std::unique_ptr<Reshaper> reshaper{};
 
 protected:
     ISolverPlan(BCs<FFTDim> bcs, VariantLayout default_layout)
@@ -121,13 +128,13 @@ public:
 
     SolveMethod solve_method{};
 
-    explicit SolverPlan(BCs<FFTDim> bcs)
+    SolverPlan(BCs<FFTDim> bcs, ReshapePipeline &&rp)
         : ISolverPlan<T, FFTDim>(bcs, FullLayout{}) {
         bool all_bcs_identical = TryConstructFromFullBCs(bcs);
         if (all_bcs_identical) {
             return;
         }
-        ConstructFromNonFullBCs(bcs);
+        ConstructFromNonFullBCs(bcs, std::move(rp));
     }
 
 private:
@@ -179,7 +186,7 @@ private:
         solve_method = &Solver<T, FFTDim>::SolveFullDirichlet;
     }
 
-    void ConstructFromNonFullBCs3D(BCs<3> bcs) {
+    void ConstructFromNonFullBCs3D(BCs<3> bcs, ReshapePipeline &&rp) {
         using std::ranges::any_of;
         using std::ranges::none_of;
         using enum FFTTransformType;
@@ -195,6 +202,11 @@ private:
             layout.forward_type_1d = this->GetAxisFFTType(bcz);
             layout.forward_type_2d = Complex;
             layout.isolated_dim_idx = 2;
+            std::array<std::size_t, 2> slab_dims{
+                (layout.isolated_dim_idx + 1) % 3,
+                (layout.isolated_dim_idx + 2) % 3};
+            rp.ToPencils(layout.isolated_dim_idx)
+                .ToSlabs(slab_dims[0], slab_dims[1]);
 
         } else if (IsPeriodic(bcx) && IsPeriodic(bcy) && !HasPeriodic(bcz) &&
                    HasDirichletOrStag(bcz)) {
@@ -202,12 +214,22 @@ private:
             layout.forward_type_1d = this->GetAxisFFTType(bcz);
             layout.forward_type_2d = Complex;
             layout.isolated_dim_idx = 2;
+            std::array<std::size_t, 2> slab_dims{
+                (layout.isolated_dim_idx + 1) % 3,
+                (layout.isolated_dim_idx + 2) % 3};
+            rp.ToPencils(layout.isolated_dim_idx)
+                .ToSlabs(slab_dims[0], slab_dims[1]);
 
         } else if (IsNeumannOrStag(bcx) && IsPeriodic(bcy) && IsPeriodic(bcz)) {
             solve_method = &Solver<T, FFTDim>::SolveNsPP;
             layout.forward_type_1d = this->GetAxisFFTType(bcx);
             layout.forward_type_2d = Complex;
             layout.isolated_dim_idx = 0;
+            std::array<std::size_t, 2> slab_dims{
+                (layout.isolated_dim_idx + 1) % 3,
+                (layout.isolated_dim_idx + 2) % 3};
+            rp.ToPencils(layout.isolated_dim_idx)
+                .ToSlabs(slab_dims[0], slab_dims[1]);
 
         } else if (IsPeriodic(bcx) &&
                    ((IsNeumann(bcy) && IsNeumann(bcz)) ||
@@ -216,12 +238,22 @@ private:
             layout.forward_type_1d = Complex;
             layout.forward_type_2d = this->GetAxisFFTType(bcy);
             layout.isolated_dim_idx = 0;
+            std::array<std::size_t, 2> slab_dims{
+                (layout.isolated_dim_idx + 1) % 3,
+                (layout.isolated_dim_idx + 2) % 3};
+            rp.ToSlabs(slab_dims[0], slab_dims[1])
+                .ToPencils(layout.isolated_dim_idx);
 
         } else if (IsPeriodic(bcx) && IsNeumannOrStag(bcy) && IsPeriodic(bcz)) {
             solve_method = &Solver<T, FFTDim>::SolvePNsP;
             layout.forward_type_1d = this->GetAxisFFTType(bcy);
             layout.forward_type_2d = Complex;
             layout.isolated_dim_idx = 1;
+            std::array<std::size_t, 2> slab_dims{
+                (layout.isolated_dim_idx + 1) % 3,
+                (layout.isolated_dim_idx + 2) % 3};
+            rp.ToPencils(layout.isolated_dim_idx)
+                .ToSlabs(slab_dims[0], slab_dims[1]);
 
         } else if (((IsDirichlet(bcx) && IsDirichlet(bcy)) ||
                     (IsDirichletStag(bcx) && IsDirichletStag(bcy))) &&
@@ -230,6 +262,11 @@ private:
             layout.forward_type_1d = Complex;
             layout.forward_type_2d = this->GetAxisFFTType(bcx);
             layout.isolated_dim_idx = 2;
+            std::array<std::size_t, 2> slab_dims{
+                (layout.isolated_dim_idx + 1) % 3,
+                (layout.isolated_dim_idx + 2) % 3};
+            rp.ToSlabs(slab_dims[0], slab_dims[1])
+                .ToPencils(layout.isolated_dim_idx);
 
         } else if (none_of(bcs, IsPeriodic) && (bcx == bcy) && (bcx != bcz) &&
                    any_of(bcs, HasDirichletOrStag)) {
@@ -237,6 +274,11 @@ private:
             layout.forward_type_1d = this->GetAxisFFTType(bcz);
             layout.forward_type_2d = this->GetAxisFFTType(bcx);
             layout.isolated_dim_idx = 2;
+            std::array<std::size_t, 2> slab_dims{
+                (layout.isolated_dim_idx + 1) % 3,
+                (layout.isolated_dim_idx + 2) % 3};
+            rp.ToSlabs(slab_dims[0], slab_dims[1])
+                .ToPencils(layout.isolated_dim_idx);
 
         } else if (none_of(bcs, IsPeriodic) && (bcy == bcz) && (bcx != bcy) &&
                    any_of(bcs, HasDirichletOrStag)) {
@@ -244,21 +286,28 @@ private:
             layout.forward_type_1d = this->GetAxisFFTType(bcx);
             layout.forward_type_2d = this->GetAxisFFTType(bcy);
             layout.isolated_dim_idx = 0;
+            std::array<std::size_t, 2> slab_dims{
+                (layout.isolated_dim_idx + 1) % 3,
+                (layout.isolated_dim_idx + 2) % 3};
+            rp.ToSlabs(slab_dims[0], slab_dims[1])
+                .ToPencils(layout.isolated_dim_idx);
 
         } else {
             throw std::invalid_argument("Invalid combination of 3D BCs.");
         }
+
+        this->reshaper = std::make_unique(std::move(rp));
     }
 
     // Fallback option if all BCs are not identical.
-    void ConstructFromNonFullBCs(BCs<FFTDim> bcs) {
+    void ConstructFromNonFullBCs(BCs<FFTDim> bcs, ReshapePipeline &&rp) {
         if constexpr (FFTDim == 1) {
             ConstructFromNonFullBCs1D(bcs);
         } else if constexpr (FFTDim == 2) {
             // In 2D it is only valid to use full BCs.
             throw std::invalid_argument("Invalid combination of 2D BCs.");
         } else if constexpr (FFTDim == 3) {
-            ConstructFromNonFullBCs3D(bcs);
+            ConstructFromNonFullBCs3D(bcs, std::move(rp));
         }
     }
 };
@@ -279,7 +328,7 @@ public:
      * @note All three BCs are required to check their correctness for
      * nonuniform Z solver.
      */
-    explicit NonuniformZSolverPlan(BCs<3> bcs)
+    NonuniformZSolverPlan(BCs<3> bcs, ReshapePipeline &&rp)
         : ISolverPlan<T, 2>(BCs<2>{bcs[0], bcs[1]}, SplitLayout{}) {
         using std::ranges::all_of;
         using enum FFTTransformType;
@@ -288,6 +337,10 @@ public:
         auto [bcx, bcy, bcz] = bcs;
 
         layout.isolated_dim_idx = 2;
+        std::array<std::size_t, 2> slab_dims{(layout.isolated_dim_idx + 1) % 3,
+                                             (layout.isolated_dim_idx + 2) % 3};
+        rp.ToSlabs(slab_dims[0], slab_dims[1])
+            .ToPencils(layout.isolated_dim_idx);
 
         if (all_of(bcs, IsNeumann) || all_of(bcs, IsNeumannStag)) {
             solve_method = &NonuniformZSolver<T>::SolveFullNeumann;
