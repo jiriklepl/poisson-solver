@@ -43,9 +43,8 @@ public:
     AxisStrategies axis_strategies{};
     VariantLayout fft_layout{};
 
-    // We need default initialization.
-    // The derived classes will construct this
-    // as a part of their ctor.
+    // The derived classes will assign this
+    // as a part of their ctors.
     std::unique_ptr<IReshaper<T, Dim>> reshaper{};
 
 protected:
