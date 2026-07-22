@@ -61,7 +61,6 @@ public:
     // === Grid ===
     GridSizes<Dim> ns;
     std::size_t cnt;
-    bool operates_on_grid_origin{false};
 
     // === Physics and Math ===
     std::array<CudaUniquePtrT, FFTDim> cu_denoms;
@@ -173,10 +172,6 @@ private:
         : fft_plan(std::move(fft_plan)),
           ns(ns),
           cnt(ComputeLocalGridSize(ns)),
-          operates_on_grid_origin(std::ranges::all_of(offs,
-                                                      [](const auto &off) {
-                                                          return off == 0;
-                                                      })),
           norm_factor(ComputeNormFactor(gns, sp)),
           cu_block_size(cuda_block_size) {
         AllocDeviceBuffers(gns);
