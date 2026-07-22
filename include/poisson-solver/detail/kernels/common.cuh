@@ -132,6 +132,17 @@ __device__ auto SumIndexedDenoms(DenomConstPtrs<T, Dim> denoms,
     return res;
 }
 
+template <std::size_t Dim>
+__device__ auto OperatesOnGridOrigin(MultidimIdx<Dim> midx,
+                                     GridOffsets<Dim> offs) -> bool {
+    bool operates_on_grid_origin{true};
+    for (std::size_t d{0}; d < Dim; ++d) {
+        operates_on_grid_origin =
+            operates_on_grid_origin && (midx[d] + offs[d]) == 0;
+    }
+    return operates_on_grid_origin;
+}
+
 template <std::floating_point T, std::size_t Dim, ValidWorkspace<T> Workspace>
 __global__ void DivideByDenoms(Workspace *workspace,
                                GridSizes<Dim> ns,
