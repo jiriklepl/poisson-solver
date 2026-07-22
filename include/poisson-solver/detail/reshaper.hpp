@@ -1,20 +1,126 @@
 #ifndef RESHAPER_HPP
 #define RESHAPER_HPP
-#ifdef USE_MPI
 
 #include "poisson-solver/aliases.hpp"
-#include "poisson-solver/mpi_utils.hpp"
+#include "poisson-solver/detail/helpers.hpp"
 
 #include <concepts>
 #include <cstddef>
+#include <functional>
 #include <memory>
+#include <numeric>
+#include <utility>
+
+#ifdef USE_MPI
+#include "poisson-solver/mpi_utils.hpp"
+
+#include <complex>
 #include <mpi.h>
 #include <vector>
+#endif  // USE_MPI
 
 // TODO - See what is not templated and move it to src file
-// TODO - Docs
+// TODO - Docs (for the whole file as well as for individual classes/fctions)
 
 namespace poisson_solver::detail {
+// === Structs ===
+template <std::size_t Dim>
+struct Layout {
+    GridSizes<Dim> ns{};
+    GridOffsets<Dim> offs{};
+};
+
+// === Interfaces ===
+template <std::floating_point T, std::size_t Dim>
+class IReshaper {
+    virtual ~IReshaper() = default;
+    virtual auto ReshapeReal(const T *src, T *dest) -> Layout<Dim> = 0;
+    virtual auto ReshapeCmplx(const CuComplexTrait<T> *src,
+                              CuComplexTrait<T> *dest) -> Layout<Dim> = 0;
+};
+
+template <std::floating_point T, std::size_t Dim>
+class IReshapePipeline {
+public:
+    virtual ~IReshapePipeline() = default;
+    virtual auto ToPencils(std::size_t dimension) -> IReshapePipeline & = 0;
+    virtual auto ToSlabs(std::size_t dimension1,
+                         std::size_t dimension2) -> IReshapePipeline & = 0;
+    virtual auto Build() -> std::unique_ptr<IReshaper<T, Dim>> = 0;
+    virtual auto MaxLocalElements() const -> std::size_t = 0;
+};
+
+// === Local Forward Declarations ===
+template <std::floating_point T, std::size_t Dim>
+class DummyReshaper;
+
+// === Local Implementations ===
+/**
+ * @brief Acts as a sink of build operatins (i.e., does no-op) so the
+ * source code of distributed vs local solver doesn't need to change
+ * but the local solver buids no reshape pipeline and reshapes nothing.
+ */
+template <std::floating_point T, std::size_t Dim>
+class DummyReshapePipeline : public IReshapePipeline<T, Dim> {
+public:
+    friend class DummyReshaper<T, Dim>;
+
+    DummyReshapePipeline(GridSizes<Dim> ns, GridOffsets<Dim> offs)
+        : ns_{ns},
+          offs_{offs} {}
+
+    auto ToPencils([[maybe_unused]] std::size_t dimension)
+        -> DummyReshapePipeline & override {
+        // nop
+    }
+
+    auto ToSlabs([[maybe_unused]] std::size_t dimension1,
+                 [[maybe_unused]] std::size_t dimension2)
+        -> DummyReshapePipeline & override {
+        // nop
+    }
+
+    auto Build() -> std::unique_ptr<IReshaper<T, Dim>> {
+        return std::make_unique<DummyReshaper<T, Dim>>(std::move(*this));
+    }
+
+    auto MaxLocalElements() const -> std::size_t override {
+        return std::accumulate(
+            ns_.begin(), ns_.end(), std::size_t{1}, std::multiplies<>());
+    }
+
+private:
+    GridSizes<Dim> ns_;
+    GridOffsets<Dim> offs_{};
+};
+
+template <std::floating_point T, std::size_t Dim>
+class DummyReshaper : public IReshaper<T, Dim> {
+public:
+    explicit DummyReshaper(DummyReshapePipeline<T, Dim> &&rp)
+        : ns_{std::move(rp.ns_)},
+          offs_{std::move(rp.offs_)} {};
+
+    auto ReshapeReal([[maybe_unused]] const T *src,
+                     [[maybe_unused]] T *dest) -> Layout<Dim> override {
+        // nop
+        return {ns_, offs_};
+    }
+
+    auto ReshapeCmplx([[maybe_unused]] const CuComplexTrait<T> *src,
+                      [[maybe_unused]] CuComplexTrait<T> *dest)
+        -> Layout<Dim> override {
+        // nop
+        return {ns_, offs_};
+    }
+
+private:
+    GridSizes<Dim> ns_{};
+    GridOffsets<Dim> offs_{};
+};
+
+#ifdef USE_MPI
+// === Distributed Helper Structs ===
 template <typename Workspace>
 struct HeFFTeWorkspaceTraitImpl;
 
@@ -42,17 +148,78 @@ struct HeFFTeWorkspaceTraitImpl<CuComplexTrait<double>> {
 template <typename Workspace>
 using HeFFTeWorkspaceTrait = HeFFTeWorkspaceTraitImpl<Workspace>::Type;
 
-class ReshapePipeline {
+template <std::floating_point T, std::size_t Dim>
+class ReshapePipeline : public IReshapePipeline<T, Dim> {
 public:
-    friend class Reshaper;
+    friend class Reshaper<T, Dim>;
 
-    static auto From(GridSizes<3> ns,
-                     GridOffsets<3> offs,
-                     MPI_Comm cart_comm) -> ReshapePipeline;
-    auto ToPencils(std::size_t dimension) -> ReshapePipeline &;
+    static auto From(GridSizes<Dim> ns,
+                     GridOffsets<Dim> offs,
+                     MPI_Comm cart_comm)
+        -> std::unique_ptr<IReshapePipeline<T, Dim>> {
+        if constexpr (Dim == 1 || Dim == 2) {
+            return std::make_unique<DummyReshapePipeline<T, Dim>>(ns, offs);
+        } else {
+            MPI_CHECK(MPI_Comm_rank(comm_, &rank_));
+
+            heffte::box3d<> my_box = GetGridBox(ns, offs);
+            auto all_boxes =
+                heffte::mpi::gather_boxes(my_box, my_box, cart_comm);
+
+            auto nps_xyz = mpi_utils::GetProcGrid(cart_comm);
+            mpi_utils::ProcsPerDim<2> nps_yz = {nps_xyz[1], nps_xyz[2]};
+
+            return std::make_unique<ReshapePipeline<T, 3>>(
+                all_boxes, nps_yz, cart_comm);
+        }
+    }
+
+    auto ToPencils(std::size_t dimension) -> ReshapePipeline & override {
+        // TODO - Currently pretty much unused because we preserve
+        // the original order. This probably runs slower in case
+        // the FFT is in non-contiguous dimension but idk.
+        // Later get rid of this or make it work with reversing the order.
+        // auto pencil_order = GetOrder(sl.isolated_dim_idx);
+        // auto slab_order = GetOrder(pencil_order[1]);
+
+        // Resulting decomp by reshaping last decomp into pencils
+        // in the direction of `dimension`
+        decompositions_.emplace_back(heffte::make_pencils(
+            world_, nps_yz_, dimension, decompositions_.back(), {0, 1, 2}));
+
+        return *this;
+    }
+
     auto ToSlabs(std::size_t dimension1,
-                 std::size_t dimension2) -> ReshapePipeline &;
-    auto MaxLocalElements() const -> std::size_t;
+                 std::size_t dimension2) -> ReshapePipeline & override {
+        auto num_procs = nps_yz_[0] * nps_yz_[1];
+
+        // Resulting decomp by reshaping last decomp into slabs
+        // that span the whole `dimension1` x `dimension2`
+        decompositions_.emplace_back(heffte::make_slabs(world_,
+                                                        num_procs,
+                                                        dimension1,
+                                                        dimension2,
+                                                        decompositions_.back(),
+                                                        {0, 1, 2},
+                                                        heffte::rank_remap{}));
+        return *this;
+    }
+
+    auto Build() -> std::unique_ptr<IReshaper<T, 3>> {
+        return std::make_unique<Reshaper<T>>(std::move(*this));
+    }
+
+    auto MaxLocalElements() const -> std::size_t override {
+        std::size_t max{0};
+
+        for (const auto &decomp : decompositions_) {
+            max =
+                std::max(max, static_cast<std::size_t>(decomp[rank_].count()));
+        }
+
+        return max;
+    }
 
 private:
     using Decomposition = std::vector<heffte::box3d<>>;
@@ -67,25 +234,81 @@ private:
 
     ReshapePipeline(Decomposition &&original_boxes,
                     mpi_utils::ProcsPerDim<2> &&nps_yz,
-                    MPI_Comm comm);
+                    MPI_Comm comm)
+        : world_(heffte::find_world(original_boxes.in)),
+          nps_yz_{std::move(nps_yz)},
+          comm_{comm} {
+        decompositions_.emplace_back(std::move(original_boxes));
+    }
 
     static auto GetGridBox(GridSizes<3> ns,
-                           GridOffsets<3> offs) -> heffte::box3d<>;
+                           GridOffsets<3> offs) -> heffte::box3d<> {
+        auto begin_x = offs[0];
+        auto begin_y = offs[1];
+        auto begin_z = offs[2];
+
+        auto end_x = begin_x + ns[0] - 1;
+        auto end_y = (begin_y + ns[1] - 1);
+        auto end_z = (begin_z + ns[2] - 1);
+
+        std::array<int, 3> low = {static_cast<int>(begin_x),
+                                  static_cast<int>(begin_y),
+                                  static_cast<int>(begin_z)};
+        std::array<int, 3> high = {static_cast<int>(end_x),
+                                   static_cast<int>(end_y),
+                                   static_cast<int>(end_z)};
+
+        return heffte::box3d<>{low, high};
+    }
 };
 
-class Reshaper {
+template <std::floating_point T>
+class Reshaper : public IReshaper<T, 3> {
 public:
-    Reshaper(ReshapePipeline &&rp);
+    Reshaper(ReshapePipeline &&rp)
+        : rp_{std::move(rp)} {
+        AssignReshapes(rp_.decompositions_);
 
-    template <std::floating_point T, ValidWorkspace<T> Workspace>
-    auto Reshape(const Workspace *src, Workspace *dest) const -> GridSizes<3> {
+        // TODO - Max possible sizeof is used here
+        // But in the future it would be cool to allocate
+        // only the amount we need
+        this->workspace_ = MakeCudaUnique<std::byte>(
+            MaxWorkspaceSize(reshapes_) * sizeof(std::complex<double>));
+    };
+
+    auto ReshapeReal(const T *src, T *dest) -> Layout<3> override {
         ApplyReshape(src, dest);
+
         auto &my_new_box =
-            rp_.decompositions_[next_reshape_box_idx_][rp_.rank_].size;
+            rp_.decompositions_[next_reshape_box_idx_][rp_.rank_];
+
         UpdateIdxs();
-        return {static_cast<std::size_t>(my_new_box[0]),
-                static_cast<std::size_t>(my_new_box[1]),
-                static_cast<std::size_t>(my_new_box[2])};
+
+        GridSizes<3> new_ns = {static_cast<std::size_t>(my_new_box.size[0]),
+                               static_cast<std::size_t>(my_new_box.size[1]),
+                               static_cast<std::size_t>(my_new_box.size[2])};
+        GridOffsets<3> new_offs = {static_cast<std::size_t>(my_new_box.low[0]),
+                                   static_cast<std::size_t>(my_new_box.low[1]),
+                                   static_cast<std::size_t>(my_new_box.low[2])};
+        return Layout{new_ns, new_offs};
+    }
+
+    auto ReshapeCmplx(const CuComplexTrait<T> *src,
+                      CuComplexTrait<T> *dest) -> Layout<3> override {
+        ApplyReshape(src, dest);
+
+        auto &my_new_box =
+            rp_.decompositions_[next_reshape_box_idx_][rp_.rank_];
+
+        UpdateIdxs();
+
+        new_ns = {static_cast<std::size_t>(my_new_box.size[0]),
+                  static_cast<std::size_t>(my_new_box.size[1]),
+                  static_cast<std::size_t>(my_new_box.size[2])};
+        new_offs = {static_cast<std::size_t>(my_new_box.low[0]),
+                    static_cast<std::size_t>(my_new_box.low[1]),
+                    static_cast<std::size_t>(my_new_box.low[2])};
+        return Layout{new_ns, new_offs};
     }
 
 private:
@@ -99,11 +322,40 @@ private:
     CudaUniquePtr<std::byte> workspace_{};
 
     void AssignReshapes(
-        const std::vector<ReshapePipeline::Decomposition> &decomps);
+        const std::vector<ReshapePipeline::Decomposition> &decomps) {
+        using BackendTag = heffte::backend::cufft;
 
-    static auto MaxWorkspaceSize(Reshapes reshapes) -> std::size_t;
+        // For both forward reshapes and backward reshapes
+        reshapes_.resize(2 * (decomps.size() - 1));
 
-    template <std::floating_point T, ValidWorkspace<T> Workspace>
+        auto options = heffte::default_options<BackendTag>();
+
+        for (std::size_t i{0}; i < decomps.size() - 1; ++i) {
+            auto decomp_from = decomps[i];
+            auto decomp_to = decomps[i + 1];
+
+            // Forward reshape
+            reshapes_[i] = heffte::make_reshape3d<BackendTag>(
+                nullptr, decomp_from, decomp_to, rp_.comm_, options);
+
+            // Backward reshape
+            reshapes_[reshapes_.size() - 1 - i] =
+                heffte::make_reshape3d<BackendTag>(
+                    nullptr, decomp_to, decomp_from, rp_.comm_, options);
+        }
+    }
+
+    auto MaxWorkspaceSize(const Reshapes &reshapes) const -> std::size_t {
+        std::size_t max{0};
+
+        for (const auto &reshape : reshapes) {
+            max = std::max(max, reshape->size_workspace());
+        }
+
+        return max;
+    }
+
+    template <ValidWorkspace<T> Workspace>
     void ApplyReshape(const Workspace *src, Workspace *dest) {
         auto &next_reshape = reshapes_[next_reshape_idx_];
         if (next_reshape) {
@@ -116,15 +368,21 @@ private:
         }
     }
 
-    void UpdateIdxs();
+    void UpdateIdxs() {
+        bool next_reshape_is_forward =
+            next_reshape_idx_ < (reshapes_.size() / 2) - 1;
+        bool next_reshape_is_the_last =
+            next_reshape_idx_ == reshapes_.size() - 1;
+
+        if (next_reshape_is_forward || next_reshape_is_the_last) {
+            next_reshape_box_idx_++;
+        } else {
+            next_reshape_box_idx_--;
+        }
+        next_reshape_idx_++;
+        next_reshape_idx_ %= reshapes_.size();
+    }
 };
 }  // namespace poisson_solver::detail
-
-#else
-
-namespace poisson_solver::detail {
-// TODO - Dummy classes and methods for non-mpi reshaper
-}
-
 #endif  // USE_MPI
 #endif  // RESHAPER_HPP
