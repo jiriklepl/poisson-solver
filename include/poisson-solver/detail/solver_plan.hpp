@@ -33,7 +33,7 @@ namespace poisson_solver::detail {
 // of the solver that is _dependant_ on BCs.
 // Also performs verification of BC combination.
 // Doesn't manage any memory.
-template <std::floating_point T, std::size_t FFTDim>
+template <std::floating_point T, std::size_t Dim, std::size_t FFTDim>
     requires(FFTDim <= 3 && FFTDim >= 1)
 struct ISolverPlan {
 public:
@@ -46,7 +46,7 @@ public:
     // We need default initialization.
     // The derived classes will construct this
     // as a part of their ctor.
-    std::unique_ptr<Reshaper> reshaper{};
+    std::unique_ptr<IReshaper<T, Dim>> reshaper{};
 
 protected:
     ISolverPlan(BCs<FFTDim> bcs, VariantLayout default_layout)
@@ -121,14 +121,14 @@ private:
     }
 };
 
-template <std::floating_point T, std::size_t FFTDim>
-struct SolverPlan : public ISolverPlan<T, FFTDim> {
+template <std::floating_point T, std::size_t Dim, std::size_t FFTDim>
+struct SolverPlan : public ISolverPlan<T, Dim, FFTDim> {
 public:
     using SolveMethod = void (poisson_solver::Solver<T, FFTDim>::*)();
 
     SolveMethod solve_method{};
 
-    SolverPlan(BCs<FFTDim> bcs, ReshapePipeline &&rp)
+    SolverPlan(BCs<FFTDim> bcs, std::unique_ptr<IReshapePipeline<T, Dim>> &&rp)
         : ISolverPlan<T, FFTDim>(bcs, FullLayout{}) {
         bool all_bcs_identical = TryConstructFromFullBCs(bcs);
         if (all_bcs_identical) {
@@ -186,7 +186,7 @@ private:
         solve_method = &Solver<T, FFTDim>::SolveFullDirichlet;
     }
 
-    void ConstructFromNonFullBCs3D(BCs<3> bcs, ReshapePipeline &&rp) {
+    void ConstructFromNonFullBCs3D(BCs<3> bcs, std::unique_ptr<ReshapePipeline<T, Dim>> &&rp) {
         using std::ranges::any_of;
         using std::ranges::none_of;
         using enum FFTTransformType;
@@ -205,7 +205,7 @@ private:
             std::array<std::size_t, 2> slab_dims{
                 (layout.isolated_dim_idx + 1) % 3,
                 (layout.isolated_dim_idx + 2) % 3};
-            rp.ToPencils(layout.isolated_dim_idx)
+            rp->ToPencils(layout.isolated_dim_idx)
                 .ToSlabs(slab_dims[0], slab_dims[1]);
 
         } else if (IsPeriodic(bcx) && IsPeriodic(bcy) && !HasPeriodic(bcz) &&
@@ -217,7 +217,7 @@ private:
             std::array<std::size_t, 2> slab_dims{
                 (layout.isolated_dim_idx + 1) % 3,
                 (layout.isolated_dim_idx + 2) % 3};
-            rp.ToPencils(layout.isolated_dim_idx)
+            rp->ToPencils(layout.isolated_dim_idx)
                 .ToSlabs(slab_dims[0], slab_dims[1]);
 
         } else if (IsNeumannOrStag(bcx) && IsPeriodic(bcy) && IsPeriodic(bcz)) {
@@ -228,7 +228,7 @@ private:
             std::array<std::size_t, 2> slab_dims{
                 (layout.isolated_dim_idx + 1) % 3,
                 (layout.isolated_dim_idx + 2) % 3};
-            rp.ToPencils(layout.isolated_dim_idx)
+            rp->ToPencils(layout.isolated_dim_idx)
                 .ToSlabs(slab_dims[0], slab_dims[1]);
 
         } else if (IsPeriodic(bcx) &&
@@ -241,7 +241,7 @@ private:
             std::array<std::size_t, 2> slab_dims{
                 (layout.isolated_dim_idx + 1) % 3,
                 (layout.isolated_dim_idx + 2) % 3};
-            rp.ToSlabs(slab_dims[0], slab_dims[1])
+            rp->ToSlabs(slab_dims[0], slab_dims[1])
                 .ToPencils(layout.isolated_dim_idx);
 
         } else if (IsPeriodic(bcx) && IsNeumannOrStag(bcy) && IsPeriodic(bcz)) {
@@ -252,7 +252,7 @@ private:
             std::array<std::size_t, 2> slab_dims{
                 (layout.isolated_dim_idx + 1) % 3,
                 (layout.isolated_dim_idx + 2) % 3};
-            rp.ToPencils(layout.isolated_dim_idx)
+            rp->ToPencils(layout.isolated_dim_idx)
                 .ToSlabs(slab_dims[0], slab_dims[1]);
 
         } else if (((IsDirichlet(bcx) && IsDirichlet(bcy)) ||
@@ -265,7 +265,7 @@ private:
             std::array<std::size_t, 2> slab_dims{
                 (layout.isolated_dim_idx + 1) % 3,
                 (layout.isolated_dim_idx + 2) % 3};
-            rp.ToSlabs(slab_dims[0], slab_dims[1])
+            rp->ToSlabs(slab_dims[0], slab_dims[1])
                 .ToPencils(layout.isolated_dim_idx);
 
         } else if (none_of(bcs, IsPeriodic) && (bcx == bcy) && (bcx != bcz) &&
@@ -277,7 +277,7 @@ private:
             std::array<std::size_t, 2> slab_dims{
                 (layout.isolated_dim_idx + 1) % 3,
                 (layout.isolated_dim_idx + 2) % 3};
-            rp.ToSlabs(slab_dims[0], slab_dims[1])
+            rp->ToSlabs(slab_dims[0], slab_dims[1])
                 .ToPencils(layout.isolated_dim_idx);
 
         } else if (none_of(bcs, IsPeriodic) && (bcy == bcz) && (bcx != bcy) &&
@@ -289,18 +289,18 @@ private:
             std::array<std::size_t, 2> slab_dims{
                 (layout.isolated_dim_idx + 1) % 3,
                 (layout.isolated_dim_idx + 2) % 3};
-            rp.ToSlabs(slab_dims[0], slab_dims[1])
+            rp->ToSlabs(slab_dims[0], slab_dims[1])
                 .ToPencils(layout.isolated_dim_idx);
 
         } else {
             throw std::invalid_argument("Invalid combination of 3D BCs.");
         }
 
-        this->reshaper = std::make_unique(std::move(rp));
+        this->reshaper = rp.Build();
     }
 
     // Fallback option if all BCs are not identical.
-    void ConstructFromNonFullBCs(BCs<FFTDim> bcs, ReshapePipeline &&rp) {
+    void ConstructFromNonFullBCs(BCs<FFTDim> bcs, std::unique_ptr<IReshapePipeline<T, Dim>> &&rp) {
         if constexpr (FFTDim == 1) {
             ConstructFromNonFullBCs1D(bcs);
         } else if constexpr (FFTDim == 2) {
@@ -318,7 +318,7 @@ private:
  * @tparam T Floating point type.
  */
 template <std::floating_point T>
-struct NonuniformZSolverPlan : public ISolverPlan<T, 2> {
+struct NonuniformZSolverPlan : public ISolverPlan<T, 3, 2> {
 public:
     using SolveMethod = void (poisson_solver::NonuniformZSolver<T>::*)();
 
