@@ -19,10 +19,12 @@
 #include <vector>
 #endif  // USE_MPI
 
-// TODO - See what is not templated and move it to src file
 // TODO - Docs (for the whole file as well as for individual classes/fctions)
 
 namespace poisson_solver::detail {
+// === Enums ===
+enum class ReshapeType { ToPencils, ToSlabs };
+
 // === Structs ===
 template <std::size_t Dim>
 struct Layout {
