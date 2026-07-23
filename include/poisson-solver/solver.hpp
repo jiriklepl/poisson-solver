@@ -139,7 +139,7 @@ public:
         // CUDA C-like API interaction.
         // Nothing is actually modified.
         detail::MemcpyActiveGrid(const_cast<T *>(rhs.data()),
-                                 core_.cu_real_workspace.get(),
+                                 core_.cu_real_workspace1.get(),
                                  core_.ns,
                                  ngs_rhs,
                                  cudaMemcpyHostToDevice);
@@ -147,7 +147,7 @@ public:
         (this->*solver_plan_.solve_method)();
 
         detail::MemcpyActiveGrid(phi.data(),
-                                 core_.cu_real_workspace.get(),
+                                 core_.cu_real_workspace1.get(),
                                  core_.ns,
                                  ngs_phi,
                                  cudaMemcpyDeviceToHost);
@@ -169,27 +169,29 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        Init(core_.cu_cmplx_workspace.get(),
-             core_.cu_real_workspace.get(),
+        Init(core_.cu_cmplx_workspace1.get(),
+             core_.cu_real_workspace1.get(),
              core_.ns,
-             core_.cu_grid_size,
+             core_.ComputeCUDAGridSize(core_.ns),
              core_.cu_block_size);
 
-        FFTPolicy::Forward(core_.cu_cmplx_workspace.get(), core_.fft_plan);
+        FFTPolicy::Forward(core_.cu_cmplx_workspace1.get(), core_.fft_plan);
 
-        DivideByDenoms(core_.cu_cmplx_workspace.get(),
+        DivideByDenoms(core_.cu_cmplx_workspace1.get(),
                        core_.ns,
+                       core_.offs,
                        core_.cu_denom_observers,
-                       core_.cu_grid_size,
+                       core_.ComputeCUDAGridSize(core_.ns),
                        core_.cu_block_size,
-                       core_.operates_on_grid_origin);
+                       true);
 
-        FFTPolicy::Backward(core_.cu_cmplx_workspace.get(), core_.fft_plan);
-        Normalize(core_.cu_real_workspace.get(),
-                  core_.cu_cmplx_workspace.get(),
+        FFTPolicy::Backward(core_.cu_cmplx_workspace1.get(), core_.fft_plan);
+
+        Normalize(core_.cu_real_workspace1.get(),
+                  core_.cu_cmplx_workspace1.get(),
                   core_.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(core_.ns),
                   core_.cu_block_size);
     }
 
@@ -197,19 +199,21 @@ private:
         using detail::runners::DivideByDenoms;
         using detail::runners::common_real::Normalize;
 
-        FFTPolicy::Forward(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Forward(core_.cu_real_workspace1.get(), core_.fft_plan);
 
-        DivideByDenoms(core_.cu_real_workspace.get(),
+        DivideByDenoms(core_.cu_real_workspace1.get(),
                        core_.ns,
+                       core_.offs,
                        core_.cu_denom_observers,
-                       core_.cu_grid_size,
+                       core_.ComputeCUDAGridSize(core_.ns),
                        core_.cu_block_size);
 
-        FFTPolicy::Backward(core_.cu_real_workspace.get(), core_.fft_plan);
-        Normalize(core_.cu_real_workspace.get(),
+        FFTPolicy::Backward(core_.cu_real_workspace1.get(), core_.fft_plan);
+
+        Normalize(core_.cu_real_workspace1.get(),
                   core_.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(core_.ns),
                   core_.cu_block_size);
     }
 
@@ -217,20 +221,22 @@ private:
         using detail::runners::DivideByDenoms;
         using detail::runners::common_real::Normalize;
 
-        FFTPolicy::Forward(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Forward(core_.cu_real_workspace1.get(), core_.fft_plan);
 
-        DivideByDenoms(core_.cu_real_workspace.get(),
+        DivideByDenoms(core_.cu_real_workspace1.get(),
                        core_.ns,
+                       core_.offs,
                        core_.cu_denom_observers,
-                       core_.cu_grid_size,
+                       core_.ComputeCUDAGridSize(core_.ns),
                        core_.cu_block_size,
-                       core_.operates_on_grid_origin);
+                       true);
 
-        FFTPolicy::Backward(core_.cu_real_workspace.get(), core_.fft_plan);
-        Normalize(core_.cu_real_workspace.get(),
+        FFTPolicy::Backward(core_.cu_real_workspace1.get(), core_.fft_plan);
+
+        Normalize(core_.cu_real_workspace1.get(),
                   core_.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(core_.ns),
                   core_.cu_block_size);
     }
 
@@ -239,8 +245,8 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        auto new_layout = solver_plan_.reshaper.ReshapeReal(
-            core_.cu_real_workspace1.get(), core_.cu_real_workspace2.get());
+        auto new_layout = core_.reshaper.ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
         FFTPolicy::Forward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
         Init(core_.cu_cmplx_workspace1.get(),
              core_.cu_real_workspace2.get(),
@@ -248,8 +254,8 @@ private:
              core_.ComputeCUDAGridSize(new_layout.ns),
              core_.cu_block_size);
 
-        new_layout = solver_plan_.reshaper.ReshapeCmplx(
-            core_.cu_cmplx_workspace1.get(), core_.cu_cmplx_workspace2.get());
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace2.get(), core_.cu_cmplx_workspace1.get());
         FFTPolicy::Forward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
         DivideByDenoms(core_.cu_cmplx_workspace2.get(),
                        new_layout.ns,
@@ -260,8 +266,8 @@ private:
                        true);
         FFTPolicy::Backward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
 
-        new_layout = solver_plan_.reshaper.ReshapeCmplx(
-            core_.cu_cmplx_workspace2.get(), core_.cu_cmplx_workspace1.get());
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace1.get(), core_.cu_cmplx_workspace2.get());
         Normalize(core_.cu_real_workspace2.get(),
                   core_.cu_cmplx_workspace1.get(),
                   new_layout.ns,
@@ -270,8 +276,8 @@ private:
                   core_.cu_block_size);
         FFTPolicy::Backward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
-        solver_plan_.reshaper.ReshapeReal(core_.cu_real_workspace2.get(),
-                                          core_.cu_real_workspace1.get());
+        core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                   core_.cu_real_workspace2.get());
     }
 
     void SolvePPD() {
@@ -279,28 +285,38 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        FFTPolicy::Forward1D(core_.cu_real_workspace.get(), core_.fft_plan);
-        Init(core_.cu_cmplx_workspace.get(),
-             core_.cu_real_workspace.get(),
-             core_.ns,
-             core_.cu_grid_size,
+        auto new_layout = core_.reshaper.ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
+        FFTPolicy::Forward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
+        Init(core_.cu_cmplx_workspace1.get(),
+             core_.cu_real_workspace2.get(),
+             new_layout.ns,
+             core_.ComputeCUDAGridSize(new_layout.ns),
              core_.cu_block_size);
 
-        FFTPolicy::Forward2D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
-        DivideByDenoms(core_.cu_cmplx_workspace.get(),
-                       core_.ns,
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace2.get(), core_.cu_cmplx_workspace1.get());
+        FFTPolicy::Forward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
+        DivideByDenoms(core_.cu_cmplx_workspace2.get(),
+                       new_layout.ns,
+                       new_layout.offs,
                        core_.cu_denom_observers,
-                       core_.cu_grid_size,
+                       core_.ComputeCUDAGridSize(new_layout.ns),
                        core_.cu_block_size);
-        FFTPolicy::Backward2D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
 
-        Normalize(core_.cu_real_workspace.get(),
-                  core_.cu_cmplx_workspace.get(),
-                  core_.ns,
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace1.get(), core_.cu_cmplx_workspace2.get());
+        Normalize(core_.cu_real_workspace2.get(),
+                  core_.cu_cmplx_workspace1.get(),
+                  new_layout.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(new_layout.ns),
                   core_.cu_block_size);
-        FFTPolicy::Backward1D(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
+
+        core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                   core_.cu_real_workspace2.get());
     }
 
     void SolveNsPP() {
@@ -311,29 +327,39 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        FFTPolicy::Forward1D(core_.cu_real_workspace.get(), core_.fft_plan);
-        Init(core_.cu_cmplx_workspace.get(),
-             core_.cu_real_workspace.get(),
-             core_.ns,
-             core_.cu_grid_size,
+        auto new_layout = core_.reshaper.ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
+        FFTPolicy::Forward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
+        Init(core_.cu_cmplx_workspace1.get(),
+             core_.cu_real_workspace2.get(),
+             new_layout.ns,
+             core_.ComputeCUDAGridSize(new_layout.ns),
              core_.cu_block_size);
 
-        FFTPolicy::Forward2D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
-        DivideByDenoms(core_.cu_cmplx_workspace.get(),
-                       core_.ns,
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace2.get(), core_.cu_cmplx_workspace1.get());
+        FFTPolicy::Forward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
+        DivideByDenoms(core_.cu_cmplx_workspace2.get(),
+                       new_layout.ns,
+                       new_layout.offs,
                        core_.cu_denom_observers,
-                       core_.cu_grid_size,
+                       core_.ComputeCUDAGridSize(new_layout.ns),
                        core_.cu_block_size,
-                       core_.operates_on_grid_origin);
-        FFTPolicy::Backward2D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
+                       true);
+        FFTPolicy::Backward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
 
-        Normalize(core_.cu_real_workspace.get(),
-                  core_.cu_cmplx_workspace.get(),
-                  core_.ns,
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace1.get(), core_.cu_cmplx_workspace2.get());
+        Normalize(core_.cu_real_workspace2.get(),
+                  core_.cu_cmplx_workspace1.get(),
+                  new_layout.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(new_layout.ns),
                   core_.cu_block_size);
-        FFTPolicy::Backward1D(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
+
+        core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                   core_.cu_real_workspace2.get());
     }
 
     void SolvePNsNs() {
@@ -341,29 +367,39 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        FFTPolicy::Forward2D(core_.cu_real_workspace.get(), core_.fft_plan);
-        Init(core_.cu_cmplx_workspace.get(),
-             core_.cu_real_workspace.get(),
-             core_.ns,
-             core_.cu_grid_size,
+        auto new_layout = core_.reshaper.ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
+        FFTPolicy::Forward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
+        Init(core_.cu_cmplx_workspace1.get(),
+             core_.cu_real_workspace2.get(),
+             new_layout.ns,
+             core_.ComputeCUDAGridSize(new_layout.ns),
              core_.cu_block_size);
 
-        FFTPolicy::Forward1D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
-        DivideByDenoms(core_.cu_cmplx_workspace.get(),
-                       core_.ns,
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace2.get(), core_.cu_cmplx_workspace1.get());
+        FFTPolicy::Forward1D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
+        DivideByDenoms(core_.cu_cmplx_workspace2.get(),
+                       new_layout.ns,
+                       new_layout.offs,
                        core_.cu_denom_observers,
-                       core_.cu_grid_size,
+                       core_.ComputeCUDAGridSize(new_layout.ns),
                        core_.cu_block_size,
-                       core_.operates_on_grid_origin);
-        FFTPolicy::Backward1D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
+                       true);
+        FFTPolicy::Backward1D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
 
-        Normalize(core_.cu_real_workspace.get(),
-                  core_.cu_cmplx_workspace.get(),
-                  core_.ns,
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace1.get(), core_.cu_cmplx_workspace2.get());
+        Normalize(core_.cu_real_workspace2.get(),
+                  core_.cu_cmplx_workspace1.get(),
+                  new_layout.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(new_layout.ns),
                   core_.cu_block_size);
-        FFTPolicy::Backward2D(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
+
+        core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                   core_.cu_real_workspace2.get());
     }
 
     void SolvePNsP() {
@@ -374,29 +410,39 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        FFTPolicy::Forward1D(core_.cu_real_workspace.get(), core_.fft_plan);
-        Init(core_.cu_cmplx_workspace.get(),
-             core_.cu_real_workspace.get(),
-             core_.ns,
-             core_.cu_grid_size,
+        auto new_layout = core_.reshaper.ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
+        FFTPolicy::Forward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
+        Init(core_.cu_cmplx_workspace1.get(),
+             core_.cu_real_workspace2.get(),
+             new_layout.ns,
+             core_.ComputeCUDAGridSize(new_layout.ns),
              core_.cu_block_size);
 
-        FFTPolicy::Forward2D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
-        DivideByDenoms(core_.cu_cmplx_workspace.get(),
-                       core_.ns,
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace2.get(), core_.cu_cmplx_workspace1.get());
+        FFTPolicy::Forward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
+        DivideByDenoms(core_.cu_cmplx_workspace2.get(),
+                       new_layout.ns,
+                       new_layout.offs,
                        core_.cu_denom_observers,
-                       core_.cu_grid_size,
+                       core_.ComputeCUDAGridSize(new_layout.ns),
                        core_.cu_block_size,
-                       core_.operates_on_grid_origin);
-        FFTPolicy::Backward2D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
+                       true);
+        FFTPolicy::Backward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
 
-        Normalize(core_.cu_real_workspace.get(),
-                  core_.cu_cmplx_workspace.get(),
-                  core_.ns,
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace1.get(), core_.cu_cmplx_workspace2.get());
+        Normalize(core_.cu_real_workspace2.get(),
+                  core_.cu_cmplx_workspace1.get(),
+                  new_layout.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(new_layout.ns),
                   core_.cu_block_size);
-        FFTPolicy::Backward1D(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
+
+        core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                   core_.cu_real_workspace2.get());
     }
 
     void SolveDDP() {
@@ -404,50 +450,70 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        FFTPolicy::Forward2D(core_.cu_real_workspace.get(), core_.fft_plan);
-        Init(core_.cu_cmplx_workspace.get(),
-             core_.cu_real_workspace.get(),
-             core_.ns,
-             core_.cu_grid_size,
+        auto new_layout = core_.reshaper.ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
+        FFTPolicy::Forward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
+        Init(core_.cu_cmplx_workspace1.get(),
+             core_.cu_real_workspace2.get(),
+             new_layout.ns,
+             core_.ComputeCUDAGridSize(new_layout.ns),
              core_.cu_block_size);
 
-        FFTPolicy::Forward1D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
-        DivideByDenoms(core_.cu_cmplx_workspace.get(),
-                       core_.ns,
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace2.get(), core_.cu_cmplx_workspace1.get());
+        FFTPolicy::Forward1D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
+        DivideByDenoms(core_.cu_cmplx_workspace2.get(),
+                       new_layout.ns,
+                       new_layout.offs,
                        core_.cu_denom_observers,
-                       core_.cu_grid_size,
+                       core_.ComputeCUDAGridSize(new_layout.ns),
                        core_.cu_block_size);
-        FFTPolicy::Backward1D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward1D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
 
-        Normalize(core_.cu_real_workspace.get(),
-                  core_.cu_cmplx_workspace.get(),
-                  core_.ns,
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace1.get(), core_.cu_cmplx_workspace2.get());
+        Normalize(core_.cu_real_workspace2.get(),
+                  core_.cu_cmplx_workspace1.get(),
+                  new_layout.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(new_layout.ns),
                   core_.cu_block_size);
-        FFTPolicy::Backward2D(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
+
+        core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                   core_.cu_real_workspace2.get());
     }
 
     void Solve2Real1Real() {
         using detail::runners::DivideByDenoms;
         using detail::runners::common_real::Normalize;
 
-        FFTPolicy::Forward2D(core_.cu_real_workspace.get(), core_.fft_plan);
+        auto new_layout = core_.reshaper.ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
+        FFTPolicy::Forward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
-        FFTPolicy::Forward1D(core_.cu_real_workspace.get(), core_.fft_plan);
-        DivideByDenoms(core_.cu_real_workspace.get(),
-                       core_.ns,
+        new_layout = core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                                core_.cu_real_workspace2.get());
+        FFTPolicy::Forward1D(core_.cu_real_workspace1.get(), core_.fft_plan);
+        DivideByDenoms(core_.cu_real_workspace1.get(),
+                       new_layout.ns,
+                       new_layout.offs,
                        core_.cu_denom_observers,
-                       core_.cu_grid_size,
+                       core_.ComputeCUDAGridSize(new_layout.ns),
                        core_.cu_block_size);
-        FFTPolicy::Backward1D(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward1D(core_.cu_real_workspace1.get(), core_.fft_plan);
 
-        Normalize(core_.cu_real_workspace.get(),
-                  core_.ns,
+        new_layout = core_.reshaper.ReshapeReal(core_.cu_real_workspace2.get(),
+                                                core_.cu_real_workspace1.get());
+        Normalize(core_.cu_real_workspace2.get(),
+                  new_layout.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(new_layout.ns),
                   core_.cu_block_size);
-        FFTPolicy::Backward2D(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
+
+        core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                   core_.cu_real_workspace2.get());
     }
 
     void Solve1Real2Real() {
@@ -457,22 +523,32 @@ private:
         using detail::runners::DivideByDenoms;
         using detail::runners::common_real::Normalize;
 
-        FFTPolicy::Forward2D(core_.cu_real_workspace.get(), core_.fft_plan);
+        auto new_layout = core_.reshaper.ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
+        FFTPolicy::Forward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
-        FFTPolicy::Forward1D(core_.cu_real_workspace.get(), core_.fft_plan);
-        DivideByDenoms(core_.cu_real_workspace.get(),
-                       core_.ns,
+        new_layout = core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                                core_.cu_real_workspace2.get());
+        FFTPolicy::Forward1D(core_.cu_real_workspace1.get(), core_.fft_plan);
+        DivideByDenoms(core_.cu_real_workspace1.get(),
+                       new_layout.ns,
+                       new_layout.offs,
                        core_.cu_denom_observers,
-                       core_.cu_grid_size,
+                       core_.ComputeCUDAGridSize(new_layout.ns),
                        core_.cu_block_size);
-        FFTPolicy::Backward1D(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward1D(core_.cu_real_workspace1.get(), core_.fft_plan);
 
-        Normalize(core_.cu_real_workspace.get(),
-                  core_.ns,
+        new_layout = core_.reshaper.ReshapeReal(core_.cu_real_workspace2.get(),
+                                                core_.cu_real_workspace1.get());
+        Normalize(core_.cu_real_workspace2.get(),
+                  new_layout.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(new_layout.ns),
                   core_.cu_block_size);
-        FFTPolicy::Backward2D(core_.cu_real_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
+
+        core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                   core_.cu_real_workspace2.get());
     }
 };
 
@@ -525,14 +601,14 @@ public:
         // CUDA C-like API interaction.
         // Nothing is actually modified.
         detail::MemcpyActiveGrid(const_cast<T *>(rhs.data()),
-                                 core_.cu_real_workspace.get(),
+                                 core_.cu_real_workspace1.get(),
                                  core_.ns,
                                  ngs_rhs,
                                  cudaMemcpyHostToDevice);
         (this->*solver_plan_.solve_method)();
 
         detail::MemcpyActiveGrid(phi.data(),
-                                 core_.cu_real_workspace.get(),
+                                 core_.cu_real_workspace1.get(),
                                  core_.ns,
                                  ngs_phi,
                                  cudaMemcpyDeviceToHost);
@@ -663,57 +739,76 @@ private:
         using detail::runners::common_cmplx::Normalize;
         using detail::runners::nonuniform_z::TridiagZ;
 
-        Init(core_.cu_cmplx_workspace.get(),
-             core_.cu_real_workspace.get(),
-             core_.ns,
-             core_.cu_grid_size,
+        auto new_layout = core_.reshaper.ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
+        Init(core_.cu_cmplx_workspace1.get(),
+             core_.cu_real_workspace2.get(),
+             new_layout.ns,
+             core_.ComputeCUDAGridSize(new_layout.ns),
              core_.cu_block_size);
 
-        FFTPolicy::Forward2D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace2.get(), core_.cu_cmplx_workspace1.get());
+        FFTPolicy::Forward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
 
-        TridiagZ(core_.cu_cmplx_workspace.get(),
+        TridiagZ(core_.cu_cmplx_workspace2.get(),
                  cu_cp_workspace_.get(),
-                 core_.ns,
+                 new_layout.ns,
+                 {new_layout.offs[0], new_layout.offs[1]},
                  core_.cu_denom_observers,
                  cu_mat_a_.get(),
                  cu_mat_b_.get(),
                  cu_mat_c_.get(),
-                 core_.cu_grid_size,
+                 core_.ComputeCUDAGridSize(new_layout.ns),
                  core_.cu_block_size);
 
-        FFTPolicy::Backward2D(core_.cu_cmplx_workspace.get(), core_.fft_plan);
+        FFTPolicy::Backward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
 
-        Normalize(core_.cu_real_workspace.get(),
-                  core_.cu_cmplx_workspace.get(),
-                  core_.ns,
+        new_layout = core_.reshaper.ReshapeCmplx(
+            core_.cu_cmplx_workspace1.get(), core_.cu_cmplx_workspace2.get());
+        Normalize(core_.cu_real_workspace2.get(),
+                  core_.cu_cmplx_workspace1.get(),
+                  new_layout.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(new_layout.ns),
                   core_.cu_block_size);
+
+        core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                   core_.cu_real_workspace2.get());
     }
 
     void SolveFullNeumann() {
         using detail::runners::common_real::Normalize;
         using detail::runners::nonuniform_z::TridiagZ;
 
-        FFTPolicy::Forward2D(core_.cu_real_workspace.get(), core_.fft_plan);
+        auto new_layout = core_.reshaper.ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
+        FFTPolicy::Forward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
-        TridiagZ(core_.cu_real_workspace.get(),
+        new_layout = core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                                core_.cu_real_workspace2.get());
+        TridiagZ(core_.cu_real_workspace1.get(),
                  cu_cp_workspace_.get(),
-                 core_.ns,
+                 new_layout.ns,
+                 {new_layout.offs[0], new_layout.offs[1]},
                  core_.cu_denom_observers,
                  cu_mat_a_.get(),
                  cu_mat_b_.get(),
                  cu_mat_c_.get(),
-                 core_.cu_grid_size,
+                 core_.ComputeCUDAGridSize(new_layout.ns),
                  core_.cu_block_size);
 
-        FFTPolicy::Backward2D(core_.cu_real_workspace.get(), core_.fft_plan);
-
-        Normalize(core_.cu_real_workspace.get(),
-                  core_.ns,
+        new_layout = core_.reshaper.ReshapeReal(core_.cu_real_workspace2.get(),
+                                                core_.cu_real_workspace1.get());
+        FFTPolicy::Backward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
+        Normalize(core_.cu_real_workspace2.get(),
+                  new_layout.ns,
                   core_.norm_factor,
-                  core_.cu_grid_size,
+                  core_.ComputeCUDAGridSize(new_layout.ns),
                   core_.cu_block_size);
+
+        core_.reshaper.ReshapeReal(core_.cu_real_workspace1.get(),
+                                   core_.cu_real_workspace2.get());
     }
 };
 }  // namespace poisson_solver
