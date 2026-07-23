@@ -668,7 +668,7 @@ private:
 
         auto gnz = gns[2];
         AllocateDeviceBuffers(gnz);
-        auto mat = BuildTridiagMatrix(z, z_u, nz);
+        auto mat = BuildTridiagMatrix(z, z_u, gnz);
         CopyTridiagMatrixToDevice(mat, gnz);
     }
 
