@@ -73,7 +73,7 @@ public:
     // === Workspaces ===
 
     // Only some solvers need complex workspace.
-    std::optional<CudaUniquePtrCmplxT> cu_cmplx_workspace;
+    CudaUniquePtrCmplxT cu_cmplx_workspace;
 
     // This is always used - either straight for computation
     // or to initialize complex workspace from it.
