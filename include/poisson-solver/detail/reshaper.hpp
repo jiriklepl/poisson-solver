@@ -39,6 +39,7 @@ class IReshaper {
     virtual auto ReshapeReal(const T *src, T *dest) -> Layout<Dim> = 0;
     virtual auto ReshapeCmplx(const CuComplexTrait<T> *src,
                               CuComplexTrait<T> *dest) -> Layout<Dim> = 0;
+    virtual auto MaxLocalElements() const -> std::size_t = 0;
 };
 
 template <std::floating_point T, std::size_t Dim>
@@ -49,7 +50,6 @@ public:
     virtual auto ToSlabs(std::size_t dimension1,
                          std::size_t dimension2) -> IReshapePipeline & = 0;
     virtual auto Build() -> std::unique_ptr<IReshaper<T, Dim>> = 0;
-    virtual auto MaxLocalElements() const -> std::size_t = 0;
 };
 
 // === Local Forward Declarations ===
@@ -86,11 +86,6 @@ public:
         return std::make_unique<DummyReshaper<T, Dim>>(std::move(*this));
     }
 
-    auto MaxLocalElements() const -> std::size_t override {
-        return std::accumulate(
-            ns_.begin(), ns_.end(), std::size_t{1}, std::multiplies<>());
-    }
-
 private:
     GridSizes<Dim> ns_;
     GridOffsets<Dim> offs_{};
@@ -114,6 +109,11 @@ public:
         -> Layout<Dim> override {
         // nop
         return {ns_, offs_};
+    }
+
+    auto MaxLocalElements() const -> std::size_t override {
+        return std::accumulate(
+            ns_.begin(), ns_.end(), std::size_t{1}, std::multiplies<>());
     }
 
 private:
@@ -150,6 +150,7 @@ struct HeFFTeWorkspaceTraitImpl<CuComplexTrait<double>> {
 template <typename Workspace>
 using HeFFTeWorkspaceTrait = HeFFTeWorkspaceTraitImpl<Workspace>::Type;
 
+// === Distributed Implementations ===
 template <std::floating_point T, std::size_t Dim>
 class ReshapePipeline : public IReshapePipeline<T, Dim> {
 public:
@@ -210,17 +211,6 @@ public:
 
     auto Build() -> std::unique_ptr<IReshaper<T, 3>> {
         return std::make_unique<Reshaper<T>>(std::move(*this));
-    }
-
-    auto MaxLocalElements() const -> std::size_t override {
-        std::size_t max{0};
-
-        for (const auto &decomp : decompositions_) {
-            max =
-                std::max(max, static_cast<std::size_t>(decomp[rank_].count()));
-        }
-
-        return max;
     }
 
 private:
@@ -311,6 +301,17 @@ public:
                     static_cast<std::size_t>(my_new_box.low[1]),
                     static_cast<std::size_t>(my_new_box.low[2])};
         return Layout{new_ns, new_offs};
+    }
+
+    auto MaxLocalElements() const -> std::size_t override {
+        std::size_t max{0};
+
+        for (const auto &decomp : rp_.decompositions_) {
+            max =
+                std::max(max, static_cast<std::size_t>(decomp[rank_].count()));
+        }
+
+        return max;
     }
 
 private:
