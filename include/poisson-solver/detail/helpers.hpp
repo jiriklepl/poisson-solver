@@ -14,6 +14,12 @@
 
 namespace poisson_solver::detail {
 // === Structs ===
+// Helper struct for `std::variant` visiting.
+template <typename... Ts>
+struct Overloaded : Ts... {
+    using Ts::operator()...;
+};
+
 struct CudaFreeDeleter {
     void operator()(void *ptr) {
         cudaFree(ptr);

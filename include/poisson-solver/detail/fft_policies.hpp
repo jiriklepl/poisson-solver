@@ -58,12 +58,6 @@ using VkFFTVariantHandle =
     std::variant<std::monostate, VkFFTFullHandle, VkFFTSplitHandle>;
 
 // === Structs ===
-// Helper struct for `std::variant` visiting.
-template <typename... Ts>
-struct Overloaded : Ts... {
-    using Ts::operator()...;
-};
-
 struct VkFFTApplicationDeleter {
     void operator()(VkFFTApplication *app) const {
         // It's possible that `app` wasn't even initialized, calling
