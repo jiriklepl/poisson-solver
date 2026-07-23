@@ -67,9 +67,15 @@ class DummyReshapePipeline : public IReshapePipeline<T, Dim> {
 public:
     friend class DummyReshaper<T, Dim>;
 
-    DummyReshapePipeline(GridSizes<Dim> ns, GridOffsets<Dim> offs)
-        : ns_{ns},
-          offs_{offs} {}
+    static auto From(GridSizes<Dim> ns)
+        -> std::unique_ptr<IReshapePipeline<T, Dim>> {
+        return std::make_unique<DummyReshapePipeline<T, Dim>>(ns, {0, 0, 0});
+    }
+
+    static auto From(GridSizes<Dim> ns, GridOffsets<Dim> offs)
+        -> std::unique_ptr<IReshapePipeline<T, Dim>> {
+        return std::make_unique<DummyReshapePipeline<T, Dim>>(ns, offs);
+    }
 
     auto ToPencils([[maybe_unused]] std::size_t dimension)
         -> DummyReshapePipeline & override {
@@ -89,6 +95,10 @@ public:
 private:
     GridSizes<Dim> ns_;
     GridOffsets<Dim> offs_{};
+
+    DummyReshapePipeline(GridSizes<Dim> ns, GridOffsets<Dim> offs)
+        : ns_{ns},
+          offs_{offs} {}
 };
 
 template <std::floating_point T, std::size_t Dim>
@@ -161,7 +171,7 @@ public:
                      MPI_Comm cart_comm)
         -> std::unique_ptr<IReshapePipeline<T, Dim>> {
         if constexpr (Dim == 1 || Dim == 2) {
-            return std::make_unique<DummyReshapePipeline<T, Dim>>(ns, offs);
+            return DummyReshapePipeline<T, Dim>::From(ns, offs);
         } else {
             MPI_CHECK(MPI_Comm_rank(comm_, &rank_));
 
