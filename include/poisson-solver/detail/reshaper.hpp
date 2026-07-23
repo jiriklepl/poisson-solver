@@ -37,9 +37,9 @@ struct Layout {
 template <std::floating_point T, std::size_t Dim>
 class IReshaper {
     virtual ~IReshaper() = default;
-    virtual auto ReshapeReal(const T *src, T *dest) -> Layout<Dim> = 0;
-    virtual auto ReshapeCmplx(const CuComplexTrait<T> *src,
-                              CuComplexTrait<T> *dest) -> Layout<Dim> = 0;
+    virtual auto ReshapeReal(T *dest, const T *src) -> Layout<Dim> = 0;
+    virtual auto ReshapeCmplx(CuComplexTrait<T> *dest,
+                              const CuComplexTrait<T> *src) -> Layout<Dim> = 0;
     virtual auto MaxLocalElements() const -> std::size_t = 0;
 };
 
@@ -109,8 +109,8 @@ public:
         : ns_{std::move(rp.ns_)},
           offs_{std::move(rp.offs_)} {};
 
-    auto ReshapeReal([[maybe_unused]] const T *src,
-                     [[maybe_unused]] T *dest) -> Layout<Dim> override {
+    auto ReshapeReal([[maybe_unused]] T *dest,
+                     [[maybe_unused]] const T *src) -> Layout<Dim> override {
         // nop if aliased
         if (src != dest) {
             CUCH(cudaMemcpy(dest,
@@ -121,8 +121,8 @@ public:
         return {ns_, offs_};
     }
 
-    auto ReshapeCmplx([[maybe_unused]] const CuComplexTrait<T> *src,
-                      [[maybe_unused]] CuComplexTrait<T> *dest)
+    auto ReshapeCmplx([[maybe_unused]] CuComplexTrait<T> *dest,
+                      [[maybe_unused]] const CuComplexTrait<T> *src)
         -> Layout<Dim> override {
         // nop if aliased
         if (src != dest) {
@@ -291,8 +291,8 @@ public:
             MaxWorkspaceSize(reshapes_) * sizeof(std::complex<double>));
     };
 
-    auto ReshapeReal(const T *src, T *dest) -> Layout<3> override {
-        ApplyReshape(src, dest);
+    auto ReshapeReal(T *dest, const T *src) -> Layout<3> override {
+        ApplyReshape(dest, src);
 
         auto &my_new_box =
             rp_.decompositions_[next_reshape_box_idx_][rp_.rank_];
@@ -308,9 +308,9 @@ public:
         return Layout{new_ns, new_offs};
     }
 
-    auto ReshapeCmplx(const CuComplexTrait<T> *src,
-                      CuComplexTrait<T> *dest) -> Layout<3> override {
-        ApplyReshape(src, dest);
+    auto ReshapeCmplx(CuComplexTrait<T> *dest,
+                      const CuComplexTrait<T> *src) -> Layout<3> override {
+        ApplyReshape(dest, src);
 
         auto &my_new_box =
             rp_.decompositions_[next_reshape_box_idx_][rp_.rank_];
@@ -318,11 +318,11 @@ public:
         UpdateIdxs();
 
         GridSizes<3> new_ns = {static_cast<std::size_t>(my_new_box.size[0]),
-                  static_cast<std::size_t>(my_new_box.size[1]),
-                  static_cast<std::size_t>(my_new_box.size[2])};
+                               static_cast<std::size_t>(my_new_box.size[1]),
+                               static_cast<std::size_t>(my_new_box.size[2])};
         GridOffsets<3> new_offs = {static_cast<std::size_t>(my_new_box.low[0]),
-                    static_cast<std::size_t>(my_new_box.low[1]),
-                    static_cast<std::size_t>(my_new_box.low[2])};
+                                   static_cast<std::size_t>(my_new_box.low[1]),
+                                   static_cast<std::size_t>(my_new_box.low[2])};
         return Layout{new_ns, new_offs};
     }
 
@@ -330,8 +330,8 @@ public:
         std::size_t max{0};
 
         for (const auto &decomp : rp_.decompositions_) {
-            max =
-                std::max(max, static_cast<std::size_t>(decomp[rp_.rank_].count()));
+            max = std::max(max,
+                           static_cast<std::size_t>(decomp[rp_.rank_].count()));
         }
 
         return max;
@@ -382,7 +382,7 @@ private:
     }
 
     template <ValidWorkspace<T> Workspace>
-    void ApplyReshape(const Workspace *src, Workspace *dest) {
+    void ApplyReshape(Workspace *dest, const Workspace *src) {
         auto &next_reshape = reshapes_[next_reshape_idx_];
         if (next_reshape) {
             next_reshape->apply(
