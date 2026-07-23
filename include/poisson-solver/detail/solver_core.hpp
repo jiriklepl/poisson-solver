@@ -74,13 +74,19 @@ public:
     T norm_factor;
 
     // === Workspaces ===
+    // We need two of each to account for out-of-place
+    // reshaping in distributed solvers.
+    // We "ping-pong" between the two (i.e., use wspace1, reshape into
+    // wspace2, use wspace2, etc.).
 
     // Only some solvers need complex workspace.
-    CudaUniquePtrCmplxT cu_cmplx_workspace;
+    CudaUniquePtrCmplxT cu_cmplx_workspace1{};
+    CudaUniquePtrCmplxT cu_cmplx_workspace2{};
 
     // This is always used - either straight for computation
     // or to initialize complex workspace from it.
-    CudaUniquePtrT cu_real_workspace;
+    CudaUniquePtrT cu_real_workspace1{};
+    CudaUniquePtrT cu_real_workspace2{};
 
     // === Device Settings ===
     dim3 cu_block_size;
@@ -244,11 +250,18 @@ private:
         using detail::CuComplexTrait;
         using detail::MakeCudaUnique;
 
-        // TODO: Only allocate one of those depending on the BCs (or solve
-        // method? could be cleaner). For now both are allocated as idk when
-        // specifically each is needed.
-        cu_cmplx_workspace = MakeCudaUnique<CuComplexTrait<T>>(cnt);
-        cu_real_workspace = MakeCudaUnique<T>(cnt);
+        // TODO - No cmplx wspace is required for the following solvers:
+        // Uniform - FullDirichlet, FullNeumann, 2Real1Real, 1Real2Real and
+        // NonuniformZ - FullNeumann.
+        // For those allocate only real.
+        // TODO - If we aren't using SplitLayout then the pointers should
+        // be aliased so that no copying takes place.
+        cu_cmplx_workspace1 =
+            MakeCudaUnique<CuComplexTrait<T>>(MaxLocalElements());
+        cu_cmplx_workspace2 =
+            MakeCudaUnique<CuComplexTrait<T>>(MaxLocalElements());
+        cu_real_workspace1 = MakeCudaUnique<T>(MaxLocalElements());
+        cu_real_workspace2 = MakeCudaUnique<T>(MaxLocalElements());
     }
 
     void AllocDeviceDenoms(GridSizes<FFTDim> gns) {
