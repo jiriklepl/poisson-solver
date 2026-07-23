@@ -6,6 +6,7 @@
 #include "poisson-solver/detail/axis_strategies.hpp"
 #include "poisson-solver/detail/fft_policies.hpp"
 #include "poisson-solver/detail/helpers.hpp"
+#include "poisson-solver/detail/reshaper.hpp"
 #include "poisson-solver/detail/solver_plan.hpp"
 
 #include <algorithm>
@@ -14,6 +15,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 #include <functional>
+#include <memory>
 #include <numbers>
 #include <numeric>
 #include <optional>
@@ -61,6 +63,7 @@ public:
     // === Grid ===
     GridSizes<Dim> ns;
     std::size_t cnt;
+    std::unique_ptr<IReshaper<T, Dim>> reshaper{};
 
     // === Physics and Math ===
     std::array<CudaUniquePtrT, FFTDim> cu_denoms;
@@ -91,6 +94,7 @@ public:
                dim3 cuda_block_size,
                const ISolverPlan<T, FFTDim> &sp)
         : SolverCore(CoreFFTPolicy::Init(ns, sp.fft_layout),
+                     DummyReshapePipeline<T, Dim>::From(ns),
                      ns,
                      lens,
                      ns,
@@ -117,6 +121,7 @@ public:
                                   offs,
                                   AssignGPUAndReturnComm(std::move(comm)),
                                   sp.fft_layout),
+              ReshapePipeline<T, Dim>::From(ns, offs, comm),
               ns,
               lens,
               gns,
@@ -162,6 +167,7 @@ private:
      * passed here.
      */
     SolverCore(FFTPlan &&fft_plan,
+               std::unique_ptr<IReshapePipeline<T, Dim>> &&rp,
                GridSizes<Dim> ns,
                std::array<T, FFTDim> lens,
                GridSizes<Dim> gns,
@@ -172,6 +178,7 @@ private:
         : fft_plan(std::move(fft_plan)),
           ns(ns),
           cnt(ComputeLocalGridSize(ns)),
+          reshaper(BuildReshaper(std::move(rp), sp)),
           norm_factor(ComputeNormFactor(gns, sp)),
           cu_block_size(cuda_block_size) {
         AllocDeviceBuffers(gns);
@@ -186,6 +193,40 @@ private:
     static auto ComputeLocalGridSize(GridSizes<Dim> ns) -> std::size_t {
         return std::accumulate(
             ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>{});
+    }
+
+    static auto BuildReshaper(std::unique_ptr<IReshapePipeline<T, Dim>> &&rp,
+                              const ISolverPlan<T, FFTDim> &sp)
+        -> std::unique_ptr<IReshaper<T, Dim>> {
+        using enum ReshapeType;
+
+        std::size_t pencil_dir{};
+        std::array<std::size_t, 2> slab_dirs{};
+
+        std::visit(
+            Overloaded{[&](FullLayout fl) { /* nop */ },
+                       [&](SplitLayout sl) {
+                           pencil_dir = sl.isolated_dim_idx;
+                           slab_dirs[0] = (sl.isolated_dim_idx + 1) % 3;
+                           slab_dirs[1] = (sl.isolated_dim_idx + 2) % 3;
+                       },
+                       [](std::monostate) -> Plan {
+                           throw std::runtime_error("Visited a monostate.");
+                       }},
+            sp.fft_layout);
+
+        for (const auto &reshape_type : sp.reshape_types) {
+            switch (reshape_type) {
+                case ToPencils:
+                    rp->ToPencils(pencil_dir);
+                case ToSlabs:
+                    rp->ToSlabs(slab_dirs[0], slab_dirs[1]);
+                default:
+                    throw std::runtime_error("Unknown reshape type.");
+            }
+        }
+
+        rp->Build();
     }
 
     auto ComputeNormFactor(GridSizes<Dim> gns,
