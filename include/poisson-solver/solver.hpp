@@ -6,7 +6,6 @@
 #include "poisson-solver/boundary_conditions.hpp"
 #include "poisson-solver/detail/fft_policies.hpp"
 #include "poisson-solver/detail/helpers.hpp"
-#include "poisson-solver/detail/reshaper.hpp"
 #include "poisson-solver/detail/runners/common.hpp"
 #include "poisson-solver/detail/runners/common_cmplx.hpp"
 #include "poisson-solver/detail/runners/common_real.hpp"
@@ -83,7 +82,7 @@ public:
            BCs<Dim> bcs,
            const IApproximation<T> &approx = SpectralApproximation<T>{},
            dim3 cuda_block_size = ISolver<T, Dim>::DefaultBlockSize())
-        : solver_plan_(bcs, detail::DummyReshapePipeline{ns, {0, 0, 0}}),
+        : solver_plan_(bcs),
           core_(ns, lens, approx, cuda_block_size, solver_plan_) {}
 
 #ifdef USE_MPI
@@ -111,7 +110,7 @@ public:
            MPI_Comm comm,
            const IApproximation<T> &approx = SpectralApproximation<T>{},
            dim3 cuda_block_size = ISolver<T, Dim>::DefaultBlockSize())
-        : solver_plan_(bcs, detail::ReshapePipeline::From(ns, offs)),
+        : solver_plan_(bcs),
           core_(ns,
                 lens,
                 gns,
