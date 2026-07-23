@@ -589,13 +589,33 @@ public:
         dim3 cuda_block_size = DefaultBlockSize())
         : solver_plan_(bcs),
           core_(ns, lens, approx, cuda_block_size, solver_plan_) {
-        cuda_block_size.z = 1;
-
-        auto nz = ns[2];
-        AllocateDeviceBuffers(nz);
-        auto mat = BuildTridiagMatrix(z, z_u, nz);
-        CopyTridiagMatrixToDevice(mat, nz);
+        Init(z, z_u, ns);
     }
+
+#ifdef USE_MPI
+    NonuniformZSolver(
+        GridSizes<3> ns,
+        std::array<T, 2> lens,
+        std::span<const T> z,
+        std::span<const T> z_u,
+        BCs<3> bcs,
+        GridSizes<Dim> gns,
+        GridOffsets<Dim> offs,
+        MPI_Comm comm,
+        const IApproximation<T> &approx = SpectralApproximation<T>{},
+        dim3 cuda_block_size = DefaultBlockSize())
+        : solver_plan_(bcs),
+          core_(ns,
+                lens,
+                gns,
+                offs,
+                comm,
+                approx,
+                cuda_block_size,
+                solver_plan_) {
+        Init(z, z_u, gns);
+    }
+#endif  // USE_MPI
 
     void Execute(std::span<T> phi,
                  std::span<const T> rhs,
@@ -641,6 +661,17 @@ private:
 
     CudaUniquePtrT cu_cp_workspace_;
 
+    void Init(std::span<const T> z,
+              std::span<const T> z_u,
+              GridSizes<Dim> gns) {
+        cuda_block_size.z = 1;
+
+        auto gnz = gns[2];
+        AllocateDeviceBuffers(gnz);
+        auto mat = BuildTridiagMatrix(z, z_u, nz);
+        CopyTridiagMatrixToDevice(mat, gnz);
+    }
+
     /**
      * @note Shadows the `DefaultBlockSize` method in `ISolver` because
      * `NonuniformZSolver` doesn't parallelize in Z dimension.
@@ -651,20 +682,21 @@ private:
         return {16, 16, 1};
     }
 
-    void AllocateDeviceBuffers(std::size_t nz) {
+    void AllocateDeviceBuffers(std::size_t gnz) {
         using detail::MakeCudaUnique;
 
-        cu_mat_a_ = MakeCudaUnique<T>(nz);
-        cu_mat_b_ = MakeCudaUnique<T>(nz);
-        cu_mat_c_ = MakeCudaUnique<T>(nz);
-        cu_cp_workspace_ = MakeCudaUnique<T>(core_.cnt);
+        cu_mat_a_ = MakeCudaUnique<T>(gnz);
+        cu_mat_b_ = MakeCudaUnique<T>(gnz);
+        cu_mat_c_ = MakeCudaUnique<T>(gnz);
+        cu_cp_workspace_ =
+            MakeCudaUnique<T>(core_.reshaper->MaxLocalElements());
     }
 
     static auto BuildMatrixDiagonalA(std::span<const T> z,
                                      std::span<const T> z_u,
-                                     std::size_t nz) -> TridiagMatrixDiagonal {
-        TridiagMatrixDiagonal mat_a(nz, 0);
-        for (std::size_t i = 1; i < nz; ++i) {
+                                     std::size_t gnz) -> TridiagMatrixDiagonal {
+        TridiagMatrixDiagonal mat_a(gnz, 0);
+        for (std::size_t i = 1; i < gnz; ++i) {
             mat_a[i] = 1.0 / (z[i] - z[i - 1]) / (z_u[i + 1] - z_u[i]);
         }
         return mat_a;
@@ -672,21 +704,21 @@ private:
 
     static auto BuildMatrixDiagonalB(std::span<const T> z,
                                      std::span<const T> z_u,
-                                     std::size_t nz) -> TridiagMatrixDiagonal {
-        TridiagMatrixDiagonal mat_b(nz, 0);
-        if (nz == 1) {
+                                     std::size_t gnz) -> TridiagMatrixDiagonal {
+        TridiagMatrixDiagonal mat_b(gnz, 0);
+        if (gnz == 1) {
             mat_b[0] = 0;
         } else {
             mat_b[0] = -1.0 / (z[1] - z[0]) / (z_u[1] - z_u[0]);
         }
 
-        for (std::size_t i = 1; i < nz - 1; ++i) {
+        for (std::size_t i = 1; i < gnz - 1; ++i) {
             mat_b[i] = -1.0 / (z[i + 1] - z[i]) / (z_u[i + 1] - z_u[i]);
             mat_b[i] -= 1.0 / (z[i] - z[i - 1]) / (z_u[i + 1] - z_u[i]);
         }
 
-        if (nz > 1) {
-            std::size_t i = nz - 1;
+        if (gnz > 1) {
+            std::size_t i = gnz - 1;
             mat_b[i] = -1.0 / (z[i] - z[i - 1]) / (z_u[i + 1] - z_u[i]);
         }
         return mat_b;
@@ -694,9 +726,9 @@ private:
 
     static auto BuildMatrixDiagonalC(std::span<const T> z,
                                      std::span<const T> z_u,
-                                     std::size_t nz) -> TridiagMatrixDiagonal {
-        TridiagMatrixDiagonal mat_c(nz, 0);
-        for (std::size_t i = 0; i < nz - 1; ++i) {
+                                     std::size_t gnz) -> TridiagMatrixDiagonal {
+        TridiagMatrixDiagonal mat_c(gnz, 0);
+        for (std::size_t i = 0; i < gnz - 1; ++i) {
             mat_c[i] = 1.0 / (z[i + 1] - z[i]) / (z_u[i + 1] - z_u[i]);
         }
         return mat_c;
@@ -704,17 +736,17 @@ private:
 
     static auto BuildTridiagMatrix(std::span<const T> z,
                                    std::span<const T> z_u,
-                                   std::size_t nz) -> TridiagMatrix {
-        if (z.size() < nz) {
+                                   std::size_t gnz) -> TridiagMatrix {
+        if (z.size() < gnz) {
             throw std::invalid_argument("The size of `z` is too small.");
         }
-        if (z_u.size() < nz + 1) {
+        if (z_u.size() < gnz + 1) {
             throw std::invalid_argument("The size of `z_u` is too small.");
         }
 
-        return {BuildMatrixDiagonalA(z, z_u, nz),
-                BuildMatrixDiagonalB(z, z_u, nz),
-                BuildMatrixDiagonalC(z, z_u, nz)};
+        return {BuildMatrixDiagonalA(z, z_u, gnz),
+                BuildMatrixDiagonalB(z, z_u, gnz),
+                BuildMatrixDiagonalC(z, z_u, gnz)};
     }
 
     /**
@@ -723,18 +755,18 @@ private:
      * @param[in] mat The three diagonals (all allocated to have size \p nz).
      * @param[in] nz Main diagonal size.
      */
-    void CopyTridiagMatrixToDevice(TridiagMatrix mat, std::size_t nz) {
+    void CopyTridiagMatrixToDevice(TridiagMatrix mat, std::size_t gnz) {
         CUCH(cudaMemcpy(cu_mat_a_.get(),
                         mat[0].data(),
-                        nz * sizeof(T),
+                        gnz * sizeof(T),
                         cudaMemcpyHostToDevice));
         CUCH(cudaMemcpy(cu_mat_b_.get(),
                         mat[1].data(),
-                        nz * sizeof(T),
+                        gnz * sizeof(T),
                         cudaMemcpyHostToDevice));
         CUCH(cudaMemcpy(cu_mat_c_.get(),
                         mat[2].data(),
-                        nz * sizeof(T),
+                        gnz * sizeof(T),
                         cudaMemcpyHostToDevice));
     }
 
