@@ -225,14 +225,16 @@ private:
             switch (reshape_type) {
                 case ToPencils:
                     rp->ToPencils(pencil_dir);
+                    break;
                 case ToSlabs:
                     rp->ToSlabs(slab_dirs[0], slab_dirs[1]);
+                    break;
                 default:
                     throw std::runtime_error("Unknown reshape type.");
             }
         }
 
-        rp->Build();
+        return rp->Build();
     }
 
     auto ComputeNormFactor(GridSizes<Dim> gns,
@@ -257,11 +259,11 @@ private:
         // TODO - If we aren't using SplitLayout then the pointers should
         // be aliased so that no copying takes place.
         cu_cmplx_workspace1 =
-            MakeCudaUnique<CuComplexTrait<T>>(MaxLocalElements());
+            MakeCudaUnique<CuComplexTrait<T>>(reshaper->MaxLocalElements());
         cu_cmplx_workspace2 =
-            MakeCudaUnique<CuComplexTrait<T>>(MaxLocalElements());
-        cu_real_workspace1 = MakeCudaUnique<T>(MaxLocalElements());
-        cu_real_workspace2 = MakeCudaUnique<T>(MaxLocalElements());
+            MakeCudaUnique<CuComplexTrait<T>>(reshaper->MaxLocalElements());
+        cu_real_workspace1 = MakeCudaUnique<T>(reshaper->MaxLocalElements());
+        cu_real_workspace2 = MakeCudaUnique<T>(reshaper->MaxLocalElements());
     }
 
     void AllocDeviceDenoms(GridSizes<FFTDim> gns) {

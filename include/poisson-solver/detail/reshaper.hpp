@@ -317,10 +317,10 @@ public:
 
         UpdateIdxs();
 
-        new_ns = {static_cast<std::size_t>(my_new_box.size[0]),
+        GridSizes<3> new_ns = {static_cast<std::size_t>(my_new_box.size[0]),
                   static_cast<std::size_t>(my_new_box.size[1]),
                   static_cast<std::size_t>(my_new_box.size[2])};
-        new_offs = {static_cast<std::size_t>(my_new_box.low[0]),
+        GridOffsets<3> new_offs = {static_cast<std::size_t>(my_new_box.low[0]),
                     static_cast<std::size_t>(my_new_box.low[1]),
                     static_cast<std::size_t>(my_new_box.low[2])};
         return Layout{new_ns, new_offs};
@@ -331,7 +331,7 @@ public:
 
         for (const auto &decomp : rp_.decompositions_) {
             max =
-                std::max(max, static_cast<std::size_t>(decomp[rank_].count()));
+                std::max(max, static_cast<std::size_t>(decomp[rp_.rank_].count()));
         }
 
         return max;
