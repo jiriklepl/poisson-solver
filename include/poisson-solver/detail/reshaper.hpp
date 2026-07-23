@@ -12,6 +12,7 @@
 #include <utility>
 
 #ifdef USE_MPI
+#include "poisson-solver/detail/cuch.hpp"
 #include "poisson-solver/mpi_utils.hpp"
 
 #include <complex>
@@ -110,14 +111,26 @@ public:
 
     auto ReshapeReal([[maybe_unused]] const T *src,
                      [[maybe_unused]] T *dest) -> Layout<Dim> override {
-        // nop
+        // nop if aliased
+        if (src != dest) {
+            CUCH(cudaMemcpy(dest,
+                            src,
+                            MaxLocalElements() * sizeof(T),
+                            cudaMemcpyDeviceToDevice));
+        }
         return {ns_, offs_};
     }
 
     auto ReshapeCmplx([[maybe_unused]] const CuComplexTrait<T> *src,
                       [[maybe_unused]] CuComplexTrait<T> *dest)
         -> Layout<Dim> override {
-        // nop
+        // nop if aliased
+        if (src != dest) {
+            CUCH(cudaMemcpy(dest,
+                            src,
+                            MaxLocalElements() * sizeof(CuComplexTrait<T>),
+                            cudaMemcpyDeviceToDevice));
+        }
         return {ns_, offs_};
     }
 
