@@ -21,6 +21,8 @@
 #endif  // USE_MPI
 
 // TODO - Docs (for the whole file as well as for individual classes/fctions)
+// Mention the guarantee that reshape to pencils and slabs will be there
+// exactly once.
 
 namespace poisson_solver::detail {
 // === Enums ===
@@ -41,6 +43,8 @@ class IReshaper {
     virtual auto ReshapeCmplx(CuComplexTrait<T> *dest,
                               const CuComplexTrait<T> *src) -> Layout<Dim> = 0;
     virtual auto MaxLocalElements() const -> std::size_t = 0;
+    virtual auto PencilLayout() const -> Layout<Dim> = 0;
+    virtual auto SlabLayout() const -> Layout<Dim> = 0;
 };
 
 template <std::floating_point T, std::size_t Dim>
@@ -80,22 +84,39 @@ public:
 
     auto ToPencils([[maybe_unused]] std::size_t dimension)
         -> DummyReshapePipeline & override {
+        if (contains_reshape_to_pencils_) {
+            throw std::runtime_error(
+                "Cannot reshape to pencils more than once.");
+        }
+        contains_reshape_to_pencils_ = true;
         // nop
     }
 
     auto ToSlabs([[maybe_unused]] std::size_t dimension1,
                  [[maybe_unused]] std::size_t dimension2)
         -> DummyReshapePipeline & override {
+        if (contains_reshape_to_slabs_) {
+            throw std::runtime_error("Cannot reshape to slabs more than once.");
+        }
+        contains_reshape_to_slabs_ = true;
         // nop
     }
 
     auto Build() -> std::unique_ptr<IReshaper<T, Dim>> {
+        if (!(contains_reshape_to_pencils_ && contains_reshape_to_slabs_)) {
+            throw std::runtime_error(
+                "Not all reshapes were specified in the pipeline (pencil, slab "
+                "or both missing).");
+        }
         return std::make_unique<DummyReshaper<T, Dim>>(std::move(*this));
     }
 
 private:
     GridSizes<Dim> ns_;
     GridOffsets<Dim> offs_{};
+
+    bool contains_reshape_to_pencils_{false};
+    bool contains_reshape_to_slabs_{false};
 
     DummyReshapePipeline(GridSizes<Dim> ns, GridOffsets<Dim> offs)
         : ns_{ns},
@@ -137,6 +158,14 @@ public:
     auto MaxLocalElements() const -> std::size_t override {
         return std::accumulate(
             ns_.begin(), ns_.end(), std::size_t{1}, std::multiplies<>());
+    }
+
+    auto PencilLayout() const -> Layout<Dim> override {
+        return Layout<Dim>{};
+    }
+
+    auto SlabLayout() const -> Layout<Dim> override {
+        return Layout<Dim>{};
     }
 
 private:
@@ -210,14 +239,35 @@ public:
 
         // Resulting decomp by reshaping last decomp into pencils
         // in the direction of `dimension`
+        if (contains_reshape_to_pencils_) {
+            throw std::runtime_error(
+                "Cannot reshape to pencils more than once.");
+        }
+        contains_reshape_to_pencils_ = true;
+
         decompositions_.emplace_back(heffte::make_pencils(
             world_, nps_yz_, dimension, decompositions_.back(), {0, 1, 2}));
+
+        auto my_pencil = decompositions_.back()[rank_];
+        auto my_pencil_sizes = my_pencil.size;
+        auto my_pencil_offs = my_pencil.low;
+        pencil_sizes_ = {static_cast<std::size_t>(my_pencil_sizes[0]),
+                         static_cast<std::size_t>(my_pencil_sizes[1]),
+                         static_cast<std::size_t>(my_pencil_sizes[2])};
+        pencil_offs_ = {static_cast<std::size_t>(my_pencil_offs[0]),
+                        static_cast<std::size_t>(my_pencil_offs[1]),
+                        static_cast<std::size_t>(my_pencil_offs[2])};
 
         return *this;
     }
 
     auto ToSlabs(std::size_t dimension1,
                  std::size_t dimension2) -> ReshapePipeline & override {
+        if (contains_reshape_to_slabs_) {
+            throw std::runtime_error("Cannot reshape to slabs more than once.");
+        }
+        contains_reshape_to_slabs_ = true;
+
         auto num_procs = nps_yz_[0] * nps_yz_[1];
 
         // Resulting decomp by reshaping last decomp into slabs
@@ -229,15 +279,39 @@ public:
                                                         decompositions_.back(),
                                                         {0, 1, 2},
                                                         heffte::rank_remap{}));
+
+        auto my_slab = decompositions_.back()[rank_];
+        auto my_slab_sizes = my_slab.size;
+        auto my_slab_offs = my_slab.low;
+        slab_sizes_ = {static_cast<std::size_t>(my_slab_sizes[0]),
+                       static_cast<std::size_t>(my_slab_sizes[1]),
+                       static_cast<std::size_t>(my_slab_sizes[2])};
+        slab_offs_ = {static_cast<std::size_t>(my_slab_offs[0]),
+                      static_cast<std::size_t>(my_slab_offs[1]),
+                      static_cast<std::size_t>(my_slab_offs[2])};
+
         return *this;
     }
 
     auto Build() -> std::unique_ptr<IReshaper<T, 3>> {
+        if (!(contains_reshape_to_pencils_ && contains_reshape_to_slabs_)) {
+            throw std::runtime_error(
+                "Not all reshapes were specified in the pipeline (pencil, slab "
+                "or both missing).");
+        }
         return std::make_unique<Reshaper<T>>(std::move(*this));
     }
 
 private:
     using Decomposition = std::vector<heffte::box3d<>>;
+
+    bool contains_reshape_to_pencils_{false};
+    bool contains_reshape_to_slabs_{false};
+
+    GridSizes<Dim> pencil_sizes_{};
+    GridOffsets<Dim> pencil_offs_{};
+    GridSizes<Dim> slab_sizes_{};
+    GridOffsets<Dim> slab_offs_{};
 
     heffte::box3d<> world_;
     mpi_utils::ProcsPerDim<2> nps_yz_{};
@@ -335,6 +409,14 @@ public:
         }
 
         return max;
+    }
+
+    auto PencilLayout() const -> Layout<3> override {
+        return {rp_.pencil_sizes_, rp_.pencil_offs_};
+    }
+
+    auto SlabLayout() const -> Layout<3> override {
+        return {rp_.slab_sizes_, rp_.slab_offs_};
     }
 
 private:
