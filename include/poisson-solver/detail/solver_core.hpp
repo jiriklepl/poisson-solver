@@ -62,6 +62,7 @@ public:
 
     // === Grid ===
     GridSizes<Dim> ns;
+    GridOffsets<Dim> offs;
     std::size_t cnt;
     std::unique_ptr<IReshaper<T, Dim>> reshaper{};
 
@@ -183,6 +184,7 @@ private:
                const ISolverPlan<T, FFTDim> &sp)
         : fft_plan(std::move(fft_plan)),
           ns(ns),
+          offs(offs),
           cnt(ComputeLocalGridSize(ns)),
           reshaper(BuildReshaper(std::move(rp), sp)),
           norm_factor(ComputeNormFactor(gns, sp)),
