@@ -278,7 +278,7 @@ private:
         FFTPolicy::Backward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
         core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                   core_.cu_real_workspace2.get());
+                                    core_.cu_real_workspace2.get());
     }
 
     void SolvePPD() {
@@ -317,7 +317,7 @@ private:
         FFTPolicy::Backward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
         core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                   core_.cu_real_workspace2.get());
+                                    core_.cu_real_workspace2.get());
     }
 
     void SolveNsPP() {
@@ -361,7 +361,7 @@ private:
         FFTPolicy::Backward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
         core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                   core_.cu_real_workspace2.get());
+                                    core_.cu_real_workspace2.get());
     }
 
     void SolvePNsNs() {
@@ -401,7 +401,7 @@ private:
         FFTPolicy::Backward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
         core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                   core_.cu_real_workspace2.get());
+                                    core_.cu_real_workspace2.get());
     }
 
     void SolvePNsP() {
@@ -445,7 +445,7 @@ private:
         FFTPolicy::Backward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
         core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                   core_.cu_real_workspace2.get());
+                                    core_.cu_real_workspace2.get());
     }
 
     void SolveDDP() {
@@ -484,7 +484,7 @@ private:
         FFTPolicy::Backward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
         core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                   core_.cu_real_workspace2.get());
+                                    core_.cu_real_workspace2.get());
     }
 
     void Solve2Real1Real() {
@@ -495,8 +495,8 @@ private:
             core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
         FFTPolicy::Forward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
-        new_layout = core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                                core_.cu_real_workspace2.get());
+        new_layout = core_.reshaper->ReshapeReal(
+            core_.cu_real_workspace1.get(), core_.cu_real_workspace2.get());
         FFTPolicy::Forward1D(core_.cu_real_workspace1.get(), core_.fft_plan);
         DivideByDenoms(core_.cu_real_workspace1.get(),
                        new_layout.ns,
@@ -506,8 +506,8 @@ private:
                        core_.cu_block_size);
         FFTPolicy::Backward1D(core_.cu_real_workspace1.get(), core_.fft_plan);
 
-        new_layout = core_.reshaper->ReshapeReal(core_.cu_real_workspace2.get(),
-                                                core_.cu_real_workspace1.get());
+        new_layout = core_.reshaper->ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
         Normalize(core_.cu_real_workspace2.get(),
                   new_layout.ns,
                   core_.norm_factor,
@@ -516,7 +516,7 @@ private:
         FFTPolicy::Backward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
         core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                   core_.cu_real_workspace2.get());
+                                    core_.cu_real_workspace2.get());
     }
 
     void Solve1Real2Real() {
@@ -531,8 +531,8 @@ private:
             core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
         FFTPolicy::Forward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
-        new_layout = core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                                core_.cu_real_workspace2.get());
+        new_layout = core_.reshaper->ReshapeReal(
+            core_.cu_real_workspace1.get(), core_.cu_real_workspace2.get());
         FFTPolicy::Forward1D(core_.cu_real_workspace1.get(), core_.fft_plan);
         DivideByDenoms(core_.cu_real_workspace1.get(),
                        new_layout.ns,
@@ -542,8 +542,8 @@ private:
                        core_.cu_block_size);
         FFTPolicy::Backward1D(core_.cu_real_workspace1.get(), core_.fft_plan);
 
-        new_layout = core_.reshaper->ReshapeReal(core_.cu_real_workspace2.get(),
-                                                core_.cu_real_workspace1.get());
+        new_layout = core_.reshaper->ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
         Normalize(core_.cu_real_workspace2.get(),
                   new_layout.ns,
                   core_.norm_factor,
@@ -552,7 +552,7 @@ private:
         FFTPolicy::Backward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
         core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                   core_.cu_real_workspace2.get());
+                                    core_.cu_real_workspace2.get());
     }
 };
 
@@ -810,7 +810,7 @@ private:
                   core_.cu_block_size);
 
         core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                   core_.cu_real_workspace2.get());
+                                    core_.cu_real_workspace2.get());
     }
 
     void SolveFullNeumann() {
@@ -821,8 +821,8 @@ private:
             core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
         FFTPolicy::Forward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
 
-        new_layout = core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                                core_.cu_real_workspace2.get());
+        new_layout = core_.reshaper->ReshapeReal(
+            core_.cu_real_workspace1.get(), core_.cu_real_workspace2.get());
         TridiagZ(core_.cu_real_workspace1.get(),
                  cu_cp_workspace_.get(),
                  new_layout.ns,
@@ -834,8 +834,8 @@ private:
                  core_.ComputeCUDAGridSize(new_layout.ns),
                  core_.cu_block_size);
 
-        new_layout = core_.reshaper->ReshapeReal(core_.cu_real_workspace2.get(),
-                                                core_.cu_real_workspace1.get());
+        new_layout = core_.reshaper->ReshapeReal(
+            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
         FFTPolicy::Backward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
         Normalize(core_.cu_real_workspace2.get(),
                   new_layout.ns,
@@ -844,7 +844,7 @@ private:
                   core_.cu_block_size);
 
         core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                   core_.cu_real_workspace2.get());
+                                    core_.cu_real_workspace2.get());
     }
 };
 }  // namespace poisson_solver
