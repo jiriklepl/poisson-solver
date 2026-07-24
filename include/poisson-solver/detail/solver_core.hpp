@@ -100,8 +100,7 @@ public:
                const IApproximation<T> &approx,
                dim3 cuda_block_size,
                const ISolverPlan<T, FFTDim> &sp)
-        : SolverCore(CoreFFTPolicy::Init(ns, sp.fft_layout),
-                     DummyReshapePipeline<T, Dim>::From(ns),
+        : SolverCore(BuildLocalBackend(ns, sp),
                      ns,
                      lens,
                      ns,
@@ -122,20 +121,14 @@ public:
                const IApproximation<T> &approx,
                dim3 cuda_block_size,
                const ISolverPlan<T, FFTDim> &sp)
-        // The GPU has to be assigned before subsequent CUDA calls
-        : SolverCore(
-              CoreFFTPolicy::Init(ns,
-                                  offs,
-                                  AssignGPUAndReturnComm(std::move(comm)),
-                                  sp.fft_layout),
-              ReshapePipeline<T, Dim>::From(ns, offs, comm),
-              ns,
-              lens,
-              gns,
-              offs,
-              approx,
-              cuda_block_size,
-              sp) {}
+        : SolverCore(BuildDistributedBackend(ns, offs, sp, comm),
+                     ns,
+                     lens,
+                     gns,
+                     offs,
+                     approx,
+                     cuda_block_size,
+                     sp) {}
 #endif  // USE_MPI
 
     /**
@@ -166,15 +159,19 @@ public:
     }
 
 private:
+    struct SolverBackend {
+        std::unique_ptr<IReshaper<T, Dim>> reshaper;
+        FFTPlan fft_plan;
+    };
+
     /**
      * @brief Master constructor.
      * Initializes everything common for local and distributed solver.
      *
-     * @note: \p fft_plan should be initialized by the calling ctor and
-     * passed here.
+     * @note: \p fft_plan and \p rp should be initialized by the
+     * calling ctor and passed here.
      */
-    SolverCore(FFTPlan &&fft_plan,
-               std::unique_ptr<IReshapePipeline<T, Dim>> &&rp,
+    SolverCore(SolverBackend &&backend,
                GridSizes<Dim> ns,
                std::array<T, FFTDim> lens,
                GridSizes<Dim> gns,
@@ -182,11 +179,11 @@ private:
                const IApproximation<T> &approx,
                dim3 cuda_block_size,
                const ISolverPlan<T, FFTDim> &sp)
-        : fft_plan(std::move(fft_plan)),
+        : fft_plan(std::move(backend.fft_plan)),
           ns(ns),
           offs(offs),
           cnt(ComputeLocalGridSize(ns)),
-          reshaper(BuildReshaper(std::move(rp), sp)),
+          reshaper(std::move(backend.reshaper)),
           norm_factor(ComputeNormFactor(gns, sp)),
           cu_block_size(cuda_block_size) {
         AllocDeviceBuffers(gns);
@@ -197,6 +194,56 @@ private:
         CopyDenomsToDevice(denoms, gns);
         cu_denom_observers = CreateDenomObservers();
     }
+
+    static auto BuildLocalBackend(
+        GridSizes<Dim> ns, const ISolverPlan<T, FFTDim> &sp) -> SolverBackend {
+        return {BuildReshaper(DummyReshapePipeline<T, Dim>::From(ns), sp),
+                CoreFFTPolicy::Init(ns, sp.fft_layout)};
+    }
+
+#ifdef USE_MPI
+    /**
+     * @brief The reshaper has to be built before the fft_plan because
+     * the fft_plan uses it (in a distributed solver core).
+     * However, the fft_plan construction happens in the local/distributed ctor
+     * and so we have to build the reshaper alongside it in this method.
+     */
+    static auto BuildDistributedBackend(GridSizes<Dim> ns,
+                                        GridOffsets<Dim> offs,
+                                        const ISolverPlan<T, FFTDim> &sp,
+                                        MPI_Comm comm) -> SolverBackend {
+        auto distributed_reshaper =
+            BuildReshaper(ReshapePipeline<T, Dim>::From(ns, offs, comm), sp);
+
+        auto distributed_fft_plan = std::visit(
+                 Overloaded{[&](FullLayout fl) {
+                                return CoreFFTPolicy::Init(
+                                    ns,
+                                    offs,
+                                    // The GPU has to be assigned
+                                    // before subsequent CUDA calls
+                                    AssignGPUAndReturnComm(std::move(comm)),
+                                    fl);
+                            },
+                            [&](SplitLayout sl) {
+                                CoreFFTPolicy::Init(
+                                    ns,
+                                    distributed_reshaper->PencilLayout().ns,
+                                    distributed_reshaper->SlabLayout().ns,
+                                    // The GPU has to be assigned
+                                    // before subsequent CUDA calls
+                                    AssignGPUAndReturnComm(std::move(comm)),
+                                    sl);
+                            },
+                            [](std::monostate) -> FFTPlan {
+                                throw std::runtime_error(
+                                    "Visited a monostate.");
+                            }},
+                 sp.fft_layout),
+
+             return {distributed_reshaper, distributed_fft_plan};
+    }
+#endif  // USE_MPI
 
     static auto ComputeLocalGridSize(GridSizes<Dim> ns) -> std::size_t {
         return std::accumulate(

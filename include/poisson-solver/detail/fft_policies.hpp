@@ -389,40 +389,9 @@ private:
 };
 
 #ifdef USE_MPI
-// == Forward Declarations ===
-template <std::floating_point T>
-struct IMpiFftHandle;
-
-template <typename Workspace>
-struct HeFFTeWorkspaceTraitImpl;
-
-// === Aliases ===
-template <typename Workspace>
-using HeFFTeWorkspaceTrait = HeFFTeWorkspaceTraitImpl<Workspace>::Type;
-
 // === Structs ===
 // We have to use the type erasure idiom with heFFTe to
 // transform the compile-time tags into run-time virtual calls.
-template <>
-struct HeFFTeWorkspaceTraitImpl<float> {
-    using Type = float;
-};
-
-template <>
-struct HeFFTeWorkspaceTraitImpl<CuComplexTrait<float>> {
-    using Type = std::complex<float>;
-};
-
-template <>
-struct HeFFTeWorkspaceTraitImpl<double> {
-    using Type = double;
-};
-
-template <>
-struct HeFFTeWorkspaceTraitImpl<CuComplexTrait<double>> {
-    using Type = std::complex<double>;
-};
-
 template <std::floating_point T>
 class IMpiFftHandle {
 public:
@@ -465,58 +434,6 @@ protected:
 
     using WorkspaceVariant = std::variant<T, CuComplexTrait<T>>;
 
-    // For FullHandle: If we didn't choose to provide a workspace, heFFTe
-    // would allocate and deallocate it itself in every FFT call.
-    // For SplitHandle: The heffte reshape API mandates a workspace.
-    // It is declared as ptr to std::byte because
-    // it will be used for both complex and real numbers.
-    CudaUniquePtr<std::byte> workspace_{};
-
-    IMpiFftHandle(std::size_t workspace_size_bytes)
-        : workspace_{CreateWorkspace(workspace_size_bytes)} {}
-
-    /**
-     * @brief Creates the workspace.
-     * Shall be used e.g. in case a workspace has to be resized.
-     */
-    auto CreateWorkspace(std::size_t workspace_size_bytes)
-        -> CudaUniquePtr<std::byte> {
-        return MakeCudaUnique<std::byte>(workspace_size_bytes);
-    }
-
-    /**
-     * @warning HeFFTe doesn't implement cos3 and sin3. This function
-     * returns cos and sin (respectivelly) for those instead.
-     * Because this is inside the MpiFftSplitHandle the backend tags
-     * are used only for the reshapes and in that regard, there should
-     * be no difference between the two.
-     */
-    static constexpr auto AsHeFFTeBackendTag(FFTTransformType fft_type)
-        -> HeFFTeBackendTagVariant {
-        using enum FFTTransformType;
-        switch (fft_type) {
-            case Complex:
-                return heffte::backend::cufft{};
-            case DST1:
-                return heffte::backend::cufft_sin1{};
-            case DST2:
-                return heffte::backend::cufft_sin{};
-            case DST3:
-                return heffte::backend::cufft_sin{};
-            case DST4:
-                return heffte::backend::cufft_sin4{};
-            case DCT1:
-                return heffte::backend::cufft_cos1{};
-            case DCT2:
-                return heffte::backend::cufft_cos{};
-            case DCT3:
-                return heffte::backend::cufft_cos{};
-            case DCT4:
-                return heffte::backend::cufft_cos4{};
-        }
-        throw std::invalid_argument("Unknown FFT transform type.");
-    }
-
     static constexpr auto AsWorkspace(FFTTransformType fft_type)
         // TODO - Produces compiler error
         // noexcept(std::is_nothrow_default_constructible_v<T> &&
@@ -552,12 +469,11 @@ public:
     using LocalFFTPolicy = VkFFTPolicy<T, 1>;
     using LocalFFTPlan = typename LocalFFTPolicy::Plan;
 
-    MpiFft1DHandle(GridSizes<1> ns,
+    MpiFft1DHandle(FullLayout fl,
+                   GridSizes<1> ns,
                    GridOffsets<1> offs,
-                   MPI_Comm comm,
-                   FullLayout fl)
-        : IMpiFftHandle<T>{0},
-          comm_{comm},
+                   MPI_Comm comm)
+        : comm_{comm},
           fl_{fl} {
         using enum FFTTransformType;
 
@@ -592,7 +508,7 @@ public:
         std::size_t global_elems = global_bytes / elem_size;
 
         if (rank_ == 0) {
-            this->workspace_ = this->CreateWorkspace(global_bytes);
+            workspace_ = MakeCudaUnique<std::byte>(global_bytes);
             plan_ = std::make_unique<LocalFFTPlan>(
                 LocalFFTPolicy::Init(GridSizes<1>{global_elems}, fl));
         }
@@ -678,6 +594,8 @@ private:
     std::vector<int> displs_;
 
     FullLayout fl_{};
+
+    CudaUniquePtr<std::byte> workspace_{};
 };
 
 template <std::floating_point T, typename TransformTag>
@@ -690,23 +608,27 @@ public:
                            T>;
 
     MpiFftFullHandle(heffte::fft3d<TransformTag> &&plan)
-        : IMpiFftHandle<T>{plan.size_workspace() * sizeof(Workspace)},
-          plan_{std::move(plan)} {}
+        : plan_{std::move(plan)} workspace_{plan_.size_workspace()} {}
 
     void Forward(void *dev_buffer) override {
         plan_.forward(reinterpret_cast<Workspace *>(dev_buffer),
                       reinterpret_cast<Workspace *>(dev_buffer),
-                      reinterpret_cast<Workspace *>(this->workspace_.get()));
+                      reinterpret_cast<Workspace *>(workspace_.get()));
     }
 
     void Backward(void *dev_buffer) override {
         plan_.backward(reinterpret_cast<Workspace *>(dev_buffer),
                        reinterpret_cast<Workspace *>(dev_buffer),
-                       reinterpret_cast<Workspace *>(this->workspace_.get()));
+                       reinterpret_cast<Workspace *>(workspace_.get()));
     }
 
 private:
+    // Has to be initialized before workspace_!
     heffte::fft3d<TransformTag> plan_{};
+
+    // If we didn't choose to provide a workspace, heFFTe
+    // would allocate and deallocate it itself in every FFT call.
+    CudaUniquePtr<Workspace> workspace_{};
 };
 
 template <std::floating_point T>
@@ -716,221 +638,65 @@ public:
     using LocalFFTPlan = typename LocalFFTPolicy::Plan;
 
     MpiFftSplitHandle(SplitLayout sl,
-                      heffte::box3d<> &&my_box,
+                      GridSizes<3> original_sizes,
+                      GridSizes<3> pencil_sizes,
+                      GridSizes<3> slab_sizes,
                       MPI_Comm cart_comm)
         // Wspace size computed in the ctor body
-        : IMpiFftHandle<T>{0},
-          sl_{sl} {
-        auto all_boxes = heffte::mpi::gather_boxes(my_box, my_box, cart_comm);
-        auto world = heffte::find_world(all_boxes.in);
-
-        auto nps_xyz = mpi_utils::GetProcGrid(cart_comm);
-        mpi_utils::ProcsPerDim<2> nps_yz = {nps_xyz[1], nps_xyz[2]};
-        auto num_procs = nps_yz[0] * nps_yz[1];
-
-        // TODO - Currently pretty much unused because we preserve
-        // the original order. This probably runs slower in case
-        // the FFT is in non-contiguous dimension but idk.
-        // Later get rid of this or make it work with reversing the order.
-        auto pencil_order = GetOrder(sl.isolated_dim_idx);
-        auto slab_order = GetOrder(pencil_order[1]);
-
-        auto pencils = heffte::make_pencils(
-            world, nps_yz, pencil_order[0], all_boxes.in, {0, 1, 2});
-        auto slabs = heffte::make_slabs(world,
-                                        num_procs,
-                                        slab_order[0],
-                                        slab_order[1],
-                                        all_boxes.in,
-                                        {0, 1, 2},
-                                        heffte::rank_remap{});
-
-        this->WithFFTTypeAs(
-            this->AsHeFFTeBackendTag,
-            sl.forward_type_1d,
-            [&](auto backend_instance) {
-                using BackendTag = decltype(backend_instance);
-
-                auto options = heffte::default_options<BackendTag>();
-
-                reshape_to_pencils_ = heffte::make_reshape3d<BackendTag>(
-                    nullptr, all_boxes.in, pencils, cart_comm, options);
-                reshape_back_from_pencils_ = heffte::make_reshape3d<BackendTag>(
-                    nullptr, pencils, all_boxes.in, cart_comm, options);
-            });
-
-        this->WithFFTTypeAs(
-            this->AsHeFFTeBackendTag,
-            sl.forward_type_2d,
-            [&](auto backend_instance) {
-                using BackendTag = decltype(backend_instance);
-
-                auto options = heffte::default_options<BackendTag>();
-
-                reshape_to_slabs_ = heffte::make_reshape3d<BackendTag>(
-                    nullptr, all_boxes.in, slabs, cart_comm, options);
-                reshape_back_from_slabs_ = heffte::make_reshape3d<BackendTag>(
-                    nullptr, slabs, all_boxes.in, cart_comm, options);
-            });
-
-        int rank;
-        MPI_CHECK(MPI_Comm_rank(cart_comm, &rank));
-        auto my_pencil = pencils[rank];
-        auto my_slab = slabs[rank];
-
-        GridSizes<3> my_pencil_size{
-            static_cast<std::size_t>(my_pencil.osize(0)),
-            static_cast<std::size_t>(my_pencil.osize(1)),
-            static_cast<std::size_t>(my_pencil.osize(2))};
-        GridSizes<3> my_slab_size{static_cast<std::size_t>(my_slab.osize(0)),
-                                  static_cast<std::size_t>(my_slab.osize(1)),
-                                  static_cast<std::size_t>(my_slab.osize(2))};
-
-        fft_plan_1d_ = LocalFFTPolicy::Init(my_pencil_size, sl);
-        fft_plan_2d_ = LocalFFTPolicy::Init(my_slab_size, sl);
-
-        std::size_t max_ws_size = MaxWorkspaceSize(reshape_to_pencils_,
-                                                   reshape_back_from_pencils_,
-                                                   reshape_to_slabs_,
-                                                   reshape_back_from_slabs_);
-        max_dest_count_ = std::max({all_boxes.in[rank].count(),
-                                    pencils[rank].count(),
-                                    slabs[rank].count()});
-
-        this->workspace_ =
-            this->CreateWorkspace((max_ws_size + max_dest_count_) *
-                                  GreaterWorkspaceElementSize(
-                                      sl.forward_type_1d, sl.forward_type_2d));
+        : sl_{sl} {
+        fft_plan_1d_ = LocalFFTPolicy::Init(pencil_sizes, sl);
+        fft_plan_2d_ = LocalFFTPolicy::Init(slab_sizes, sl);
     }
 
-    // TODO - The ForwardND and BackwardND methods look really similar
-    // try to somehow abstract the common
-
     void Forward1D(void *dev_buffer) override {
-        auto fft_type = sl_.forward_type_1d;
         this->WithFFTTypeAs(
-            this->AsWorkspace, fft_type, [&](auto workspace_elem_instance) {
+            this->AsWorkspace,
+            sl_.forward_type_1d,
+            [&](auto workspace_elem_instance) {
                 using Workspace = decltype(workspace_elem_instance);
 
-                auto source =
-                    reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                        dev_buffer);
-
-                // If no reshape takes place, use the source buffer
-                auto intermediate =
-                    reshape_to_pencils_
-                        ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                              this->workspace_.get())
-                        : source;
-                auto wspace = intermediate + max_dest_count_;
-
-                if (reshape_to_pencils_) {
-                    reshape_to_pencils_->apply(1, source, intermediate, wspace);
-                }
-
                 LocalFFTPolicy::Forward1D(
-                    reinterpret_cast<Workspace *>(intermediate), fft_plan_1d_);
-
-                if (reshape_back_from_pencils_) {
-                    reshape_back_from_pencils_->apply(
-                        1, intermediate, source, wspace);
-                }
+                    reinterpret_cast<Workspace *>(dev_buffer), fft_plan_1d_);
             });
     }
 
     void Backward1D(void *dev_buffer) override {
-        auto fft_type = sl_.forward_type_1d;
         this->WithFFTTypeAs(
-            this->AsWorkspace, fft_type, [&](auto workspace_elem_instance) {
+            this->AsWorkspace,
+            // We only do C2C and R2R transforms so the forward
+            // and backward workspace types are identical.
+            sl_.forward_type_1d,
+            [&](auto workspace_elem_instance) {
                 using Workspace = decltype(workspace_elem_instance);
 
-                auto source =
-                    reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                        dev_buffer);
-
-                // If no reshape takes place, use the source buffer
-                auto intermediate =
-                    reshape_to_pencils_
-                        ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                              this->workspace_.get())
-                        : source;
-                auto wspace = intermediate + max_dest_count_;
-
-                if (reshape_to_pencils_) {
-                    reshape_to_pencils_->apply(1, source, intermediate, wspace);
-                }
-
                 LocalFFTPolicy::Backward1D(
-                    reinterpret_cast<Workspace *>(intermediate), fft_plan_1d_);
-
-                if (reshape_back_from_pencils_) {
-                    reshape_back_from_pencils_->apply(
-                        1, intermediate, source, wspace);
-                }
+                    reinterpret_cast<Workspace *>(dev_buffer), fft_plan_1d_);
             });
     }
 
     void Forward2D(void *dev_buffer) override {
-        auto fft_type = sl_.forward_type_2d;
         this->WithFFTTypeAs(
-            this->AsWorkspace, fft_type, [&](auto workspace_elem_instance) {
+            this->AsWorkspace,
+            sl_.forward_type_2d,
+            [&](auto workspace_elem_instance) {
                 using Workspace = decltype(workspace_elem_instance);
 
-                auto source =
-                    reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                        dev_buffer);
-
-                // If no reshape takes place, use the source buffer
-                auto intermediate =
-                    reshape_to_slabs_
-                        ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                              this->workspace_.get())
-                        : source;
-                auto wspace = intermediate + max_dest_count_;
-
-                if (reshape_to_slabs_) {
-                    reshape_to_slabs_->apply(1, source, intermediate, wspace);
-                }
-
                 LocalFFTPolicy::Forward2D(
-                    reinterpret_cast<Workspace *>(intermediate), fft_plan_2d_);
-
-                if (reshape_back_from_slabs_) {
-                    reshape_back_from_slabs_->apply(
-                        1, intermediate, source, wspace);
-                }
+                    reinterpret_cast<Workspace *>(dev_buffer), fft_plan_2d_);
             });
     }
 
     void Backward2D(void *dev_buffer) override {
-        auto fft_type = sl_.forward_type_2d;
         this->WithFFTTypeAs(
-            this->AsWorkspace, fft_type, [&](auto workspace_elem_instance) {
+            this->AsWorkspace,
+            // We only do C2C and R2R transforms so the forward
+            // and backward workspace types are identical.
+            sl_.forward_type_2d,
+            [&](auto workspace_elem_instance) {
                 using Workspace = decltype(workspace_elem_instance);
 
-                auto source =
-                    reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                        dev_buffer);
-
-                // If no reshape takes place, we use the source buffer
-                auto intermediate =
-                    reshape_to_slabs_
-                        ? reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
-                              this->workspace_.get())
-                        : source;
-                auto wspace = intermediate + max_dest_count_;
-
-                if (reshape_to_slabs_) {
-                    reshape_to_slabs_->apply(1, source, intermediate, wspace);
-                }
-
                 LocalFFTPolicy::Backward2D(
-                    reinterpret_cast<Workspace *>(intermediate), fft_plan_2d_);
-
-                if (reshape_back_from_slabs_) {
-                    reshape_back_from_slabs_->apply(
-                        1, intermediate, source, wspace);
-                }
+                    reinterpret_cast<Workspace *>(dev_buffer), fft_plan_2d_);
             });
     }
 
@@ -947,47 +713,7 @@ private:
     LocalFFTPlan fft_plan_1d_{};
     LocalFFTPlan fft_plan_2d_{};
 
-    std::unique_ptr<heffte::reshape3d_base<int>> reshape_to_pencils_{};
-    std::unique_ptr<heffte::reshape3d_base<int>> reshape_back_from_pencils_{};
-    std::unique_ptr<heffte::reshape3d_base<int>> reshape_to_slabs_{};
-    std::unique_ptr<heffte::reshape3d_base<int>> reshape_back_from_slabs_{};
-
-    // Used to correctly cast the dev_buffer inside ForwardND/BackwardND
     SplitLayout sl_{};
-
-    std::size_t max_dest_count_{};
-
-    /**
-     * @brief Returns the order of dimensions beginning with the fastest -
-     * (fastest, fastest + 1, fastest + 2) all mod 3.
-     */
-    auto GetOrder(std::size_t fastest) -> std::array<int, 3> {
-        return {static_cast<int>(fastest),
-                static_cast<int>((fastest + 1) % 3),
-                static_cast<int>((fastest + 2) % 3)};
-    }
-
-    /**
-     * @brief Returns the greater size of a workspace element
-     * of the given FFT types.
-     */
-    auto GreaterWorkspaceElementSize(
-        FFTTransformType fft_type1, FFTTransformType fft_type2) -> std::size_t {
-        std::size_t wspace_elem_size1 = this->WithFFTTypeAs(
-            this->AsWorkspace, fft_type1, [](auto workspace_elem_instance) {
-                return sizeof(decltype(workspace_elem_instance));
-            });
-        std::size_t wspace_elem_size2 = this->WithFFTTypeAs(
-            this->AsWorkspace, fft_type2, [](auto workspace_elem_instance) {
-                return sizeof(decltype(workspace_elem_instance));
-            });
-
-        return std::max(wspace_elem_size1, wspace_elem_size2);
-    }
-
-    auto MaxWorkspaceSize(const auto &...args) -> std::size_t {
-        return std::max({(args ? args->size_workspace() : std::size_t{0})...});
-    }
 };
 
 template <std::floating_point T>
@@ -1002,28 +728,22 @@ public:
     using Plan = HeFFTePlan<T>;
 
     static auto Init(GridSizes<Dim> ns,
+                     GridSizes<Dim> pencil_sizes,
+                     GridSizes<Dim> slab_sizes,
+                     MPI_Comm comm,
+                     SplitLayout sl) -> Plan {
+        if constexpr (Dim == 3) {
+            return GetSplitPlan(sl, ns, pencil_sizes, slab_sizes, comm);
+        } else {
+            throw std::runtime_error("Getting a split plan when Dim != 3");
+        }
+    }
+
+    static auto Init(GridSizes<Dim> ns,
                      GridOffsets<Dim> offs,
                      MPI_Comm comm,
-                     VariantLayout layout) -> Plan {
-        return std::visit(
-            Overloaded{[ns, offs, comm](FullLayout l) {
-                           return GetFullPlan(l, ns, offs, comm);
-                       },
-                       [ns, offs, comm](SplitLayout l) -> Plan {
-                           // This shouldn't be reachable with Dim != 3
-                           // but if not disposed of for Dim != 3, the
-                           // code won't compile.
-                           if constexpr (Dim == 3) {
-                               return GetSplitPlan(l, ns, offs, comm);
-                           } else {
-                               throw std::runtime_error(
-                                   "Getting a split plan when Dim != 3");
-                           }
-                       },
-                       [](std::monostate) -> Plan {
-                           throw std::runtime_error("Visited a monostate.");
-                       }},
-            layout);
+                     FullLayout fl) -> Plan {
+        return GetFullPlan(fl, ns, offs, comm);
     }
 
     template <ValidWorkspace<T> Workspace>
@@ -1057,45 +777,26 @@ public:
     }
 
 private:
-    static auto GetGridBox(GridSizes<Dim> ns, GridOffsets<Dim> offs) {
-        auto begin_x = offs[0];
-        auto begin_y = (Dim >= 2) ? offs[1] : 0;
-        auto begin_z = (Dim >= 3) ? offs[2] : 0;
-
-        auto end_x = begin_x + ns[0] - 1;
-        auto end_y = (Dim >= 2) ? (begin_y + ns[1] - 1) : 0;
-        auto end_z = (Dim >= 3) ? (begin_z + ns[2] - 1) : 0;
-
-        std::array<int, 3> low = {static_cast<int>(begin_x),
-                                  static_cast<int>(begin_y),
-                                  static_cast<int>(begin_z)};
-        std::array<int, 3> high = {static_cast<int>(end_x),
-                                   static_cast<int>(end_y),
-                                   static_cast<int>(end_z)};
-
-        return heffte::box3d<>{low, high};
-    }
-
-    static auto Get1DPlan(FullLayout l,
+    static auto Get1DPlan(FullLayout fl,
                           GridSizes<1> ns,
                           GridOffsets<1> offs,
                           MPI_Comm comm) -> Plan {
-        return Plan{std::make_unique<MpiFft1DHandle<T>>(ns, offs, comm, l)};
+        return Plan{std::make_unique<MpiFft1DHandle<T>>(fl, ns, offs, comm)};
     }
 
-    static auto GetFullPlan(FullLayout l,
+    static auto GetFullPlan(FullLayout fl,
                             GridSizes<Dim> ns,
                             GridOffsets<Dim> offs,
                             MPI_Comm comm) -> Plan {
         using enum FFTTransformType;
 
         if constexpr (Dim == 1) {
-            return Get1DPlan(l, ns, offs, comm);
+            return Get1DPlan(fl, ns, offs, comm);
         }
 
         auto grid_box = GetGridBox(ns, offs);
 
-        switch (l.forward_type) {
+        switch (fl.forward_type) {
             case Complex: {
                 using TransformTag = heffte::backend::cufft;
                 auto plan =
@@ -1162,13 +863,13 @@ private:
         }
     }
 
-    static auto GetSplitPlan(SplitLayout l,
+    static auto GetSplitPlan(SplitLayout sl,
                              GridSizes<3> ns,
-                             GridOffsets<3> offs,
+                             GridSizes<3> pencil_sizes,
+                             GridSizes<3> slab_sizes,
                              MPI_Comm comm) -> Plan {
-        auto my_box = GetGridBox(ns, offs);
-        return Plan{
-            std::make_unique<MpiFftSplitHandle<T>>(l, std::move(my_box), comm)};
+        return Plan{std::make_unique<MpiFftSplitHandle<T>>(
+            sl, ns, pencil_sizes, slab_sizes, comm)};
     }
 };
 
