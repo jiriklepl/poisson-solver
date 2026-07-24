@@ -480,7 +480,7 @@ private:
             auto elems_to_copy = static_cast<std::size_t>(my_new_box.count());
             CUCH(cudaMemcpy(dest,
                             src,
-                            elems_to_copy * sizeof(T),
+                            elems_to_copy * sizeof(Workspace),
                             cudaMemcpyDeviceToDevice));
         }
     }
