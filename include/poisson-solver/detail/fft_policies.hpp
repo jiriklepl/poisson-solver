@@ -288,7 +288,6 @@ private:
     static auto GetSplitHandle(SplitLayout layout,
                                GridSizes<Dim> ns,
                                CUdevice *device_ptr) -> VkFFTSplitHandle {
-       std::cout << "IN GetSplitHandle" << std::endl;
         VkFFTSplitHandle h{};
         auto &config_1d = h.handle_1d.config;
         auto &config_2d = h.handle_2d.config;
@@ -352,10 +351,8 @@ private:
         app_1d.reset(new VkFFTApplication{});
         app_2d.reset(new VkFFTApplication{});
 
-        std::cout << "BEFORE initializeVkFFT" << std::endl;
         VKFFT_CHECK(initializeVkFFT(app_1d.get(), config_1d));
         VKFFT_CHECK(initializeVkFFT(app_2d.get(), config_2d));
-        std::cout << "AFTER initializeVkFFT" << std::endl;
 
         return h;
     }
@@ -872,7 +869,6 @@ private:
                              GridSizes<3> pencil_sizes,
                              GridSizes<3> slab_sizes,
                              MPI_Comm comm) -> Plan {
-         std::cout << "IN GetSplitPlan" << std::endl;
         return Plan{std::make_unique<MpiFftSplitHandle<T>>(
             sl, ns, pencil_sizes, slab_sizes, comm)};
     }

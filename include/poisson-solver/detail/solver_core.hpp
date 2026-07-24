@@ -186,7 +186,6 @@ private:
           reshaper(std::move(backend.reshaper)),
           norm_factor(ComputeNormFactor(gns, sp)),
           cu_block_size(cuda_block_size) {
-        std::cout << "CORE MASTER CTOR" << std::endl;
         AllocDeviceBuffers(gns);
 
         // Denoms are constant for the solver lifetime.
@@ -217,18 +216,14 @@ private:
         // before any CUDA calls.
         AssignGPU(comm);
 
-        auto distributed_reshaper = return BuildReshaper(
+        auto distributed_reshaper = BuildReshaper(
             ReshapePipeline<T, Dim>::From(ns, offs, comm, std::holds_alternative<FullLayout>(sp.fft_layout)), sp);
 
-        std::cout << "After BuildReshaper" << std::endl;
         auto distributed_fft_plan = std::visit(
             Overloaded{[&](FullLayout fl) {
                            return CoreFFTPolicy::Init(ns, offs, comm, fl);
                        },
                        [&](SplitLayout sl) {
-                           std::cout
-                               << "BuildDistributedBackend fft plan lambda"
-                               << std::endl;
                            return CoreFFTPolicy::Init(
                                ns,
                                distributed_reshaper->PencilLayout().ns,
@@ -254,7 +249,6 @@ private:
     static auto BuildReshaper(std::unique_ptr<IReshapePipeline<T, Dim>> &&rp,
                               const ISolverPlan<T, FFTDim> &sp)
         -> std::unique_ptr<IReshaper<T, Dim>> {
-        std::cout << "In BuildReshaper" << std::endl;
         using enum ReshapeType;
 
         std::size_t pencil_dir{};
