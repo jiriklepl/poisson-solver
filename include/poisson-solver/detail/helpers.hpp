@@ -151,6 +151,7 @@ void MemcpyActiveGrid(T *host_ptr,
 }
 
 #ifdef USE_MPI
+template <std::size_t Dim>
 auto GetGridBox(GridSizes<Dim> ns, GridOffsets<Dim> offs) {
     auto begin_x = offs[0];
     auto begin_y = (Dim >= 2) ? offs[1] : 0;

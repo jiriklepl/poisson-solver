@@ -38,6 +38,7 @@ struct Layout {
 // === Interfaces ===
 template <std::floating_point T, std::size_t Dim>
 class IReshaper {
+public:
     virtual ~IReshaper() = default;
     virtual auto ReshapeReal(T *dest, const T *src) -> Layout<Dim> = 0;
     virtual auto ReshapeCmplx(CuComplexTrait<T> *dest,
@@ -69,17 +70,27 @@ class DummyReshaper;
  */
 template <std::floating_point T, std::size_t Dim>
 class DummyReshapePipeline : public IReshapePipeline<T, Dim> {
+private:
+    /**
+     * struct ConstructorKey - Key to the ctor.
+     */
+    struct ConstructorKey {};
+
 public:
     friend class DummyReshaper<T, Dim>;
 
+    DummyReshapePipeline(ConstructorKey /*unused*/, GridSizes<Dim> ns, GridOffsets<Dim> offs)
+        : ns_{ns},
+          offs_{offs} {}
+
     static auto From(GridSizes<Dim> ns)
         -> std::unique_ptr<IReshapePipeline<T, Dim>> {
-        return std::make_unique<DummyReshapePipeline<T, Dim>>(ns, {0, 0, 0});
+        return std::make_unique<DummyReshapePipeline<T, Dim>>(ConstructorKey{}, ns, {0, 0, 0});
     }
 
     static auto From(GridSizes<Dim> ns, GridOffsets<Dim> offs)
         -> std::unique_ptr<IReshapePipeline<T, Dim>> {
-        return std::make_unique<DummyReshapePipeline<T, Dim>>(ns, offs);
+        return std::make_unique<DummyReshapePipeline<T, Dim>>(ConstructorKey{}, ns, offs);
     }
 
     auto ToPencils([[maybe_unused]] std::size_t dimension)
@@ -106,7 +117,7 @@ public:
         return *this;
     }
 
-    auto Build() -> std::unique_ptr<IReshaper<T, Dim>> {
+    auto Build() -> std::unique_ptr<IReshaper<T, Dim>> override {
         if (!(contains_reshape_to_pencils_ && contains_reshape_to_slabs_)) {
             throw std::runtime_error(
                 "Not all reshapes were specified in the pipeline (pencil, slab "
@@ -121,10 +132,6 @@ private:
 
     bool contains_reshape_to_pencils_{false};
     bool contains_reshape_to_slabs_{false};
-
-    DummyReshapePipeline(GridSizes<Dim> ns, GridOffsets<Dim> offs)
-        : ns_{ns},
-          offs_{offs} {}
 };
 
 template <std::floating_point T, std::size_t Dim>
@@ -178,6 +185,10 @@ private:
 };
 
 #ifdef USE_MPI
+// === Distributed Forward Declarations ===
+template <std::floating_point T>
+class Reshaper;
+
 // === Distributed Helper Structs ===
 template <typename Workspace>
 struct HeFFTeWorkspaceTraitImpl;
@@ -209,8 +220,29 @@ using HeFFTeWorkspaceTrait = HeFFTeWorkspaceTraitImpl<Workspace>::Type;
 // === Distributed Implementations ===
 template <std::floating_point T, std::size_t Dim>
 class ReshapePipeline : public IReshapePipeline<T, Dim> {
+private:
+    /**
+     * struct ConstructorKey - Key to the ctor.
+     */
+    struct ConstructorKey {};
+
+    using Decomposition = std::vector<heffte::box3d<>>;
+
 public:
-    friend class Reshaper<T, Dim>;
+    friend class Reshaper<T>;
+
+    /**
+     * @brief Publicly exposed private ctor.
+     * Only callable from inside of this class using ConstructorKey.
+     */
+    ReshapePipeline(ConstructorKey, Decomposition &&original_boxes,
+                    mpi_utils::ProcsPerDim<2> nps_yz,
+                    MPI_Comm comm)
+        : world_(heffte::find_world(original_boxes)),
+          nps_yz_{nps_yz},
+          comm_{comm} {
+        decompositions_.emplace_back(std::move(original_boxes));
+    }
 
     static auto From(GridSizes<Dim> ns,
                      GridOffsets<Dim> offs,
@@ -219,17 +251,15 @@ public:
         if constexpr (Dim == 1 || Dim == 2) {
             return DummyReshapePipeline<T, Dim>::From(ns, offs);
         } else {
-            MPI_CHECK(MPI_Comm_rank(comm_, &rank_));
-
             heffte::box3d<> my_box = GetGridBox(ns, offs);
             auto all_boxes =
-                heffte::mpi::gather_boxes(my_box, my_box, cart_comm);
+                heffte::mpi::gather_boxes(my_box, my_box, cart_comm).in;
 
             auto nps_xyz = mpi_utils::GetProcGrid(cart_comm);
             mpi_utils::ProcsPerDim<2> nps_yz = {nps_xyz[1], nps_xyz[2]};
 
             return std::make_unique<ReshapePipeline<T, 3>>(
-                all_boxes, nps_yz, cart_comm);
+                ConstructorKey{}, std::move(all_boxes), nps_yz, cart_comm);
         }
     }
 
@@ -297,7 +327,7 @@ public:
         return *this;
     }
 
-    auto Build() -> std::unique_ptr<IReshaper<T, 3>> {
+    auto Build() -> std::unique_ptr<IReshaper<T, Dim>> override {
         if (!(contains_reshape_to_pencils_ && contains_reshape_to_slabs_)) {
             throw std::runtime_error(
                 "Not all reshapes were specified in the pipeline (pencil, slab "
@@ -307,8 +337,6 @@ public:
     }
 
 private:
-    using Decomposition = std::vector<heffte::box3d<>>;
-
     bool contains_reshape_to_pencils_{false};
     bool contains_reshape_to_slabs_{false};
 
@@ -324,21 +352,12 @@ private:
     int rank_{-1};
 
     std::vector<Decomposition> decompositions_{};
-
-    ReshapePipeline(Decomposition &&original_boxes,
-                    mpi_utils::ProcsPerDim<2> &&nps_yz,
-                    MPI_Comm comm)
-        : world_(heffte::find_world(original_boxes.in)),
-          nps_yz_{std::move(nps_yz)},
-          comm_{comm} {
-        decompositions_.emplace_back(std::move(original_boxes));
-    }
 };
 
 template <std::floating_point T>
 class Reshaper : public IReshaper<T, 3> {
 public:
-    Reshaper(ReshapePipeline &&rp)
+    Reshaper(ReshapePipeline<T, 3> &&rp)
         : rp_{std::move(rp)} {
         AssignReshapes(rp_.decompositions_);
 
@@ -406,7 +425,7 @@ public:
 private:
     using Reshapes = std::vector<std::unique_ptr<heffte::reshape3d_base<int>>>;
 
-    ReshapePipeline rp_;
+    ReshapePipeline<T, 3> rp_;
     Reshapes reshapes_{};
     std::size_t next_reshape_idx_{0};
     std::size_t next_reshape_box_idx_{1};
@@ -414,7 +433,8 @@ private:
     CudaUniquePtr<std::byte> workspace_{};
 
     void AssignReshapes(
-        const std::vector<ReshapePipeline::Decomposition> &decomps) {
+        const std::vector<typename ReshapePipeline<T, 3>::Decomposition>
+            &decomps) {
         using BackendTag = heffte::backend::cufft;
 
         // For both forward reshapes and backward reshapes
@@ -453,7 +473,7 @@ private:
         if (next_reshape) {
             next_reshape->apply(
                 1,
-                reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(src),
+                reinterpret_cast<const HeFFTeWorkspaceTrait<Workspace> *>(src),
                 reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(dest),
                 reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                     workspace_.get()));

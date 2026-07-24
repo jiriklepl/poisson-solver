@@ -291,7 +291,7 @@ private:
  * @tparam T Floating point type.
  */
 template <std::floating_point T>
-struct NonuniformZSolverPlan : public ISolverPlan<T, 3, 2> {
+struct NonuniformZSolverPlan : public ISolverPlan<T, 2> {
 public:
     using SolveMethod = void (poisson_solver::NonuniformZSolver<T>::*)();
 
@@ -305,6 +305,7 @@ public:
         : ISolverPlan<T, 2>(BCs<2>{bcs[0], bcs[1]}, SplitLayout{}) {
         using std::ranges::all_of;
         using enum FFTTransformType;
+        using enum ReshapeType;
 
         auto &layout = std::get<SplitLayout>(this->fft_layout);
         auto [bcx, bcy, bcz] = bcs;

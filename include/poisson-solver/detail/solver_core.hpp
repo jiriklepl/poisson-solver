@@ -226,7 +226,7 @@ private:
                                     fl);
                             },
                             [&](SplitLayout sl) {
-                                CoreFFTPolicy::Init(
+                                return CoreFFTPolicy::Init(
                                     ns,
                                     distributed_reshaper->PencilLayout().ns,
                                     distributed_reshaper->SlabLayout().ns,
@@ -239,9 +239,9 @@ private:
                                 throw std::runtime_error(
                                     "Visited a monostate.");
                             }},
-                 sp.fft_layout),
+                 sp.fft_layout);
 
-             return {distributed_reshaper, distributed_fft_plan};
+             return {std::move(distributed_reshaper), std::move(distributed_fft_plan)};
     }
 #endif  // USE_MPI
 
@@ -265,7 +265,7 @@ private:
                            slab_dirs[0] = (sl.isolated_dim_idx + 1) % 3;
                            slab_dirs[1] = (sl.isolated_dim_idx + 2) % 3;
                        },
-                       [](std::monostate) -> Plan {
+                       [](std::monostate) {
                            throw std::runtime_error("Visited a monostate.");
                        }},
             sp.fft_layout);

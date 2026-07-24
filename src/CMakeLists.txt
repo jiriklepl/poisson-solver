@@ -7,7 +7,6 @@ set(LIB_SRC
     detail/runners/common_cmplx.cu
     detail/runners/nonuniform_z.cu
     mpi_utils.cpp
-    reshaper.cpp
 )
 
 # Debug files shall have a `_debug` suffix

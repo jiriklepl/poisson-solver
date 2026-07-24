@@ -158,11 +158,11 @@ public:
     }
 
 private:
-    friend struct detail::SolverPlan<T, Dim, Dim>;
+    friend struct detail::SolverPlan<T, Dim>;
     using FFTPolicy = detail::FFTPolicy<T, Dim>;
 
     // Plan has to be initialized before core
-    detail::SolverPlan<T, Dim, Dim> solver_plan_;
+    detail::SolverPlan<T, Dim> solver_plan_;
     detail::SolverCore<T, Dim> core_;
 
     void SolveFullPeriodic() {
@@ -599,8 +599,8 @@ public:
         std::span<const T> z,
         std::span<const T> z_u,
         BCs<3> bcs,
-        GridSizes<Dim> gns,
-        GridOffsets<Dim> offs,
+        GridSizes<3> gns,
+        GridOffsets<3> offs,
         MPI_Comm comm,
         const IApproximation<T> &approx = SpectralApproximation<T>{},
         dim3 cuda_block_size = DefaultBlockSize())
@@ -663,8 +663,8 @@ private:
 
     void Init(std::span<const T> z,
               std::span<const T> z_u,
-              GridSizes<Dim> gns) {
-        cuda_block_size.z = 1;
+              GridSizes<3> gns) {
+        core_.cu_block_size.z = 1;
 
         auto gnz = gns[2];
         AllocateDeviceBuffers(gnz);

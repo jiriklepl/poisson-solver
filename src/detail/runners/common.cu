@@ -27,7 +27,7 @@ void DivideByDenoms(Workspace *workspace,
     template void DivideByDenoms<TYPE, DIM, TYPE>(                 \
         TYPE * workspace, /* NOLINT(bugprone-macro-parentheses) */ \
         GridSizes<DIM> ns,                                         \
-        GridOffsets<Dim> offs,                                     \
+        GridOffsets<DIM> offs,                                     \
         DenomConstPtrs<TYPE, DIM> denoms,                          \
         dim3 cu_grid_size,                                         \
         dim3 cu_block_size,                                        \
@@ -41,7 +41,7 @@ void DivideByDenoms(Workspace *workspace,
                                           */                                   \
                                          CuComplexTrait<TYPE> * workspace,     \
                                          GridSizes<DIM> ns,                    \
-                                         GridOffsets<Dim> offs,                \
+                                         GridOffsets<DIM> offs,                \
                                          DenomConstPtrs<TYPE, DIM> denoms,     \
                                          dim3 cu_grid_size,                    \
                                          dim3 cu_block_size,                   \
