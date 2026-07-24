@@ -186,6 +186,7 @@ private:
           reshaper(std::move(backend.reshaper)),
           norm_factor(ComputeNormFactor(gns, sp)),
           cu_block_size(cuda_block_size) {
+        std::cout << "CORE MASTER CTOR" << std::endl;
         AllocDeviceBuffers(gns);
 
         // Denoms are constant for the solver lifetime.
@@ -212,36 +213,36 @@ private:
                                         GridOffsets<Dim> offs,
                                         const ISolverPlan<T, FFTDim> &sp,
                                         MPI_Comm comm) -> SolverBackend {
-        auto distributed_reshaper =
-            BuildReshaper(ReshapePipeline<T, Dim>::From(ns, offs, comm), sp);
+        // The GPU has to be assigned
+        // before any CUDA calls.
+        AssignGPU(comm);
 
+        auto distributed_reshaper = return BuildReshaper(
+            ReshapePipeline<T, Dim>::From(ns, offs, comm, std::holds_alternative<FullLayout>(sp.fft_layout)), sp);
+
+        std::cout << "After BuildReshaper" << std::endl;
         auto distributed_fft_plan = std::visit(
-                 Overloaded{[&](FullLayout fl) {
-                                return CoreFFTPolicy::Init(
-                                    ns,
-                                    offs,
-                                    // The GPU has to be assigned
-                                    // before subsequent CUDA calls
-                                    AssignGPUAndReturnComm(std::move(comm)),
-                                    fl);
-                            },
-                            [&](SplitLayout sl) {
-                                return CoreFFTPolicy::Init(
-                                    ns,
-                                    distributed_reshaper->PencilLayout().ns,
-                                    distributed_reshaper->SlabLayout().ns,
-                                    // The GPU has to be assigned
-                                    // before subsequent CUDA calls
-                                    AssignGPUAndReturnComm(std::move(comm)),
-                                    sl);
-                            },
-                            [](std::monostate) -> FFTPlan {
-                                throw std::runtime_error(
-                                    "Visited a monostate.");
-                            }},
-                 sp.fft_layout);
+            Overloaded{[&](FullLayout fl) {
+                           return CoreFFTPolicy::Init(ns, offs, comm, fl);
+                       },
+                       [&](SplitLayout sl) {
+                           std::cout
+                               << "BuildDistributedBackend fft plan lambda"
+                               << std::endl;
+                           return CoreFFTPolicy::Init(
+                               ns,
+                               distributed_reshaper->PencilLayout().ns,
+                               distributed_reshaper->SlabLayout().ns,
+                               comm,
+                               sl);
+                       },
+                       [](std::monostate) -> FFTPlan {
+                           throw std::runtime_error("Visited a monostate.");
+                       }},
+            sp.fft_layout);
 
-             return {std::move(distributed_reshaper), std::move(distributed_fft_plan)};
+        return {std::move(distributed_reshaper),
+                std::move(distributed_fft_plan)};
     }
 #endif  // USE_MPI
 
@@ -253,6 +254,7 @@ private:
     static auto BuildReshaper(std::unique_ptr<IReshapePipeline<T, Dim>> &&rp,
                               const ISolverPlan<T, FFTDim> &sp)
         -> std::unique_ptr<IReshaper<T, Dim>> {
+        std::cout << "In BuildReshaper" << std::endl;
         using enum ReshapeType;
 
         std::size_t pencil_dir{};
@@ -387,9 +389,8 @@ private:
      * node.
      *
      * @param comm World communicator.
-     * @return Returns \p comm back.
      */
-    static auto AssignGPUAndReturnComm(MPI_Comm &&comm) -> MPI_Comm {
+    static void AssignGPU(MPI_Comm comm) {
         MPI_Comm local_comm;
         MPI_CHECK(MPI_Comm_split_type(
             comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &local_comm));
@@ -403,8 +404,6 @@ private:
         CUCH(cudaSetDevice(local_rank % num_gpus));
 
         MPI_CHECK(MPI_Comm_free(&local_comm));
-
-        return std::move(comm);
     }
 #endif  // USE_MPI
 };

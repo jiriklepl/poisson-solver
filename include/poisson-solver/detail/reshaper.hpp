@@ -85,7 +85,7 @@ public:
 
     static auto From(GridSizes<Dim> ns)
         -> std::unique_ptr<IReshapePipeline<T, Dim>> {
-        return std::make_unique<DummyReshapePipeline<T, Dim>>(ConstructorKey{}, ns, {0, 0, 0});
+        return std::make_unique<DummyReshapePipeline<T, Dim>>(ConstructorKey{}, ns, GridOffsets<Dim>{});
     }
 
     static auto From(GridSizes<Dim> ns, GridOffsets<Dim> offs)
@@ -222,16 +222,21 @@ public:
         : world_(heffte::find_world(original_boxes)),
           nps_yz_{nps_yz},
           comm_{comm} {
+              std::cout << "ReshapePipeline ctor" << std::endl;
+        MPI_CHECK(MPI_Comm_rank(comm, &rank_));
         decompositions_.emplace_back(std::move(original_boxes));
     }
 
     static auto From(GridSizes<Dim> ns,
                      GridOffsets<Dim> offs,
-                     MPI_Comm cart_comm)
+                     MPI_Comm cart_comm, bool is_full_solver)
         -> std::unique_ptr<IReshapePipeline<T, Dim>> {
         if constexpr (Dim == 1 || Dim == 2) {
             return DummyReshapePipeline<T, Dim>::From(ns, offs);
         } else {
+            if (is_full_solver) {
+                return DummyReshapePipeline<T, Dim>::From(ns, offs);
+            }
             heffte::box3d<> my_box = GetGridBox(ns, offs);
             auto all_boxes =
                 heffte::mpi::gather_boxes(my_box, my_box, cart_comm).in;
@@ -260,6 +265,7 @@ public:
         }
         contains_reshape_to_pencils_ = true;
 
+          std::cout << "Making pencils" << std::endl;
         decompositions_.emplace_back(heffte::make_pencils(
             world_, nps_yz_, dimension, decompositions_.back(), {0, 1, 2}));
 
@@ -287,6 +293,7 @@ public:
 
         // Resulting decomp by reshaping last decomp into slabs
         // that span the whole `dimension1` x `dimension2`
+          std::cout << "Making slabs" << std::endl;
         decompositions_.emplace_back(heffte::make_slabs(world_,
                                                         num_procs,
                                                         dimension1,
@@ -341,12 +348,14 @@ public:
     Reshaper(ReshapePipeline<T, 3> &&rp)
         : rp_{std::move(rp)} {
         AssignReshapes(rp_.decompositions_);
+        std::cout << "In Reshaper ctor, after AssignReshaper" << std::endl;
 
         // TODO - Max possible sizeof is used here
         // But in the future it would be cool to allocate
         // only the amount we need
-        this->workspace_ = MakeCudaUnique<std::byte>(
+        workspace_ = MakeCudaUnique<std::byte>(
             MaxWorkspaceSize(reshapes_) * sizeof(std::complex<double>));
+        std::cout << "In Reshaper ctor, after workspace_ assignment" << std::endl;
     };
 
     auto ReshapeReal(T *dest, const T *src) -> Layout<3> override {
@@ -428,21 +437,27 @@ private:
             auto decomp_to = decomps[i + 1];
 
             // Forward reshape
+            std::cout << "CALLING make_reshape3d FORWARD " << i << std::endl;
             reshapes_[i] = heffte::make_reshape3d<BackendTag>(
                 nullptr, decomp_from, decomp_to, rp_.comm_, options);
 
             // Backward reshape
+            std::cout << "CALLING make_reshape3d BACKWARD " << i << std::endl;
             reshapes_[reshapes_.size() - 1 - i] =
                 heffte::make_reshape3d<BackendTag>(
                     nullptr, decomp_to, decomp_from, rp_.comm_, options);
         }
+        std::cout << "FINISHED AssignReshapes" << std::endl;
     }
 
     auto MaxWorkspaceSize(const Reshapes &reshapes) const -> std::size_t {
+        std::cout << "Inside MaxWorkspaceSize" << std::endl;
         std::size_t max{0};
 
         for (const auto &reshape : reshapes) {
-            max = std::max(max, reshape->size_workspace());
+            if (reshape) {
+                max = std::max(max, reshape->size_workspace());
+            }
         }
 
         return max;
@@ -458,6 +473,17 @@ private:
                 reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(dest),
                 reinterpret_cast<HeFFTeWorkspaceTrait<Workspace> *>(
                     workspace_.get()));
+        } else if (src != dest) {
+            // If no transformation (not even transposition) is
+            // required, this branch is taken.
+            // In that case all the data is already
+            // locally available in the same shape and size.
+            auto my_new_box = rp_.decompositions_[next_reshape_box_idx_][rp_.rank_];
+            auto elems_to_copy = static_cast<std::size_t>(my_new_box.count());
+            CUCH(cudaMemcpy(dest,
+                            src,
+                            elems_to_copy * sizeof(T),
+                            cudaMemcpyDeviceToDevice));
         }
     }
 
