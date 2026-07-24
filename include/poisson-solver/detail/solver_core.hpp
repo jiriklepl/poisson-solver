@@ -316,14 +316,14 @@ private:
         cu_real_workspace2 = MakeCudaUnique<T>(reshaper->MaxLocalElements());
     }
 
-    void AllocDeviceDenoms(GridSizes<FFTDim> gns) {
+    void AllocDeviceDenoms(GridSizes<Dim> gns) {
         using detail::MakeCudaUnique;
         for (std::size_t d = 0; d < FFTDim; ++d) {
             cu_denoms[d] = MakeCudaUnique<T>(gns[d]);
         }
     }
 
-    void AllocDeviceBuffers(GridSizes<FFTDim> gns) {
+    void AllocDeviceBuffers(GridSizes<Dim> gns) {
         AllocDeviceWorkspaces();
         AllocDeviceDenoms(gns);
     }
@@ -363,7 +363,7 @@ private:
     /**
      * @note Device `denom` buffers have to be already allocated.
      */
-    void CopyDenomsToDevice(const HostDenoms &denoms, GridSizes<FFTDim> gns) {
+    void CopyDenomsToDevice(const HostDenoms &denoms, GridSizes<Dim> gns) {
         for (std::size_t d = 0; d < FFTDim; ++d) {
             CUCH(cudaMemcpy(cu_denoms[d].get(),
                             denoms[d].data(),

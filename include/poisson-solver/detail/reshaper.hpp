@@ -500,6 +500,6 @@ private:
         next_reshape_idx_ %= reshapes_.size();
     }
 };
-}  // namespace poisson_solver::detail
 #endif  // USE_MPI
+}  // namespace poisson_solver::detail
 #endif  // RESHAPER_HPP
