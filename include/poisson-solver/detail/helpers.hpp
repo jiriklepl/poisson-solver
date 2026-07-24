@@ -12,6 +12,10 @@
 #include <memory>
 #include <type_traits>
 
+#ifdef USE_MPI
+#include <heffte.h>
+#endif // USE_MPI
+
 namespace poisson_solver::detail {
 // === Structs ===
 // Helper struct for `std::variant` visiting.
@@ -145,6 +149,27 @@ void MemcpyActiveGrid(T *host_ptr,
     params.kind = kind;
     CUCH(cudaMemcpy3D(&params));
 }
+
+#ifdef USE_MPI
+auto GetGridBox(GridSizes<Dim> ns, GridOffsets<Dim> offs) {
+    auto begin_x = offs[0];
+    auto begin_y = (Dim >= 2) ? offs[1] : 0;
+    auto begin_z = (Dim >= 3) ? offs[2] : 0;
+
+    auto end_x = begin_x + ns[0] - 1;
+    auto end_y = (Dim >= 2) ? (begin_y + ns[1] - 1) : 0;
+    auto end_z = (Dim >= 3) ? (begin_z + ns[2] - 1) : 0;
+
+    std::array<int, 3> low = {static_cast<int>(begin_x),
+                              static_cast<int>(begin_y),
+                              static_cast<int>(begin_z)};
+    std::array<int, 3> high = {static_cast<int>(end_x),
+                               static_cast<int>(end_y),
+                               static_cast<int>(end_z)};
+
+    return heffte::box3d<>{low, high};
+}
+#endif // USE_MPI
 }  // namespace poisson_solver::detail
 
 #endif  // HELPERS_HPP

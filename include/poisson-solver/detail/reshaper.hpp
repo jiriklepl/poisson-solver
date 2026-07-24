@@ -329,26 +329,6 @@ private:
           comm_{comm} {
         decompositions_.emplace_back(std::move(original_boxes));
     }
-
-    static auto GetGridBox(GridSizes<3> ns,
-                           GridOffsets<3> offs) -> heffte::box3d<> {
-        auto begin_x = offs[0];
-        auto begin_y = offs[1];
-        auto begin_z = offs[2];
-
-        auto end_x = begin_x + ns[0] - 1;
-        auto end_y = (begin_y + ns[1] - 1);
-        auto end_z = (begin_z + ns[2] - 1);
-
-        std::array<int, 3> low = {static_cast<int>(begin_x),
-                                  static_cast<int>(begin_y),
-                                  static_cast<int>(begin_z)};
-        std::array<int, 3> high = {static_cast<int>(end_x),
-                                   static_cast<int>(end_y),
-                                   static_cast<int>(end_z)};
-
-        return heffte::box3d<>{low, high};
-    }
 };
 
 template <std::floating_point T>
