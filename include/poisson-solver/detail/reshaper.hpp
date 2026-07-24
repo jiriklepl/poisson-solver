@@ -90,6 +90,8 @@ public:
         }
         contains_reshape_to_pencils_ = true;
         // nop
+
+        return *this;
     }
 
     auto ToSlabs([[maybe_unused]] std::size_t dimension1,
@@ -100,6 +102,8 @@ public:
         }
         contains_reshape_to_slabs_ = true;
         // nop
+
+        return *this;
     }
 
     auto Build() -> std::unique_ptr<IReshaper<T, Dim>> {
