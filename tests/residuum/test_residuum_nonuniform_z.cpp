@@ -242,7 +242,10 @@ void ExecuteCBindingNonuniformZ(std::span<T> phi,
                                     cfg.z.data(),
                                     cfg.z_u.data(),
                                     c_bcs.data(),
-                                    approx);
+                                    approx,
+                                    nullptr,
+                                    nullptr,
+                                    nullptr);
         PoissonSolverNonuniformZExecute(&solver,
                                         phi.data(),
                                         rhs.data(),
@@ -256,7 +259,10 @@ void ExecuteCBindingNonuniformZ(std::span<T> phi,
                                          cfg.z.data(),
                                          cfg.z_u.data(),
                                          c_bcs.data(),
-                                         approx);
+                                         approx,
+                                         nullptr,
+                                         nullptr,
+                                         nullptr);
         PoissonSolverNonuniformZExecuteFloat(&solver,
                                              phi.data(),
                                              rhs.data(),

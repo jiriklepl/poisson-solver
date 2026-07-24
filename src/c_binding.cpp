@@ -73,8 +73,8 @@ auto ToCxxBC(BoundaryCondition c_bc) -> ps::BoundaryCondition {
     }
 }
 
-auto ToCxxBCPair(BoundaryCondition c_bc1,
-                 BoundaryCondition c_bc2) -> ps::BCPair {
+auto ToCxxBCPair(BoundaryCondition c_bc1, BoundaryCondition c_bc2)
+    -> ps::BCPair {
     return ps::BCPair{ToCxxBC(c_bc1), ToCxxBC(c_bc2)};
 }
 
@@ -527,7 +527,10 @@ void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
                                  const double *z,
                                  const double *z_u,
                                  const BoundaryCondition *bcs,
-                                 Approximation approx) {
+                                 const int approx,
+                                 const int *gns,
+                                 const int *offs,
+                                 const void *mpi_comm) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
@@ -539,8 +542,20 @@ void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
     auto ps_approx = GetApprox<double>(approx);
 
 #ifdef USE_MPI
-    // TODO
-    ps::ISolver<double, 3> *solver_handle = nullptr;
+    ps::ISolver<double, 3> *solver_handle = new ps::NonuniformZSolver<double>(
+        grid_sizes,
+        {lens[0], lens[1]},
+        std::span{z, grid_sizes[2]},
+        std::span{z_u, grid_sizes[2] + 1},
+        {bcp1, bcp2, bcp3},
+        {static_cast<std::size_t>(gns[0]),
+         static_cast<std::size_t>(gns[1]),
+         static_cast<std::size_t>(gns[2])},
+        {static_cast<std::size_t>(offs[0]),
+         static_cast<std::size_t>(offs[1]),
+         static_cast<std::size_t>(offs[2])},
+        *static_cast<const MPI_Comm *>(mpi_comm),
+        *ps_approx);
 #else
     ps::ISolver<double, 3> *solver_handle =
         new ps::NonuniformZSolver<double>(grid_sizes,
@@ -588,7 +603,10 @@ void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
                                       const float *z,
                                       const float *z_u,
                                       const BoundaryCondition *bcs,
-                                      Approximation approx) {
+                                      const int approx,
+                                      const int *gns,
+                                      const int *offs,
+                                      const void *mpi_comm) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
@@ -600,8 +618,20 @@ void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
     auto ps_approx = GetApprox<float>(approx);
 
 #ifdef USE_MPI
-    // TODO
-    ps::ISolver<float, 3> *solver_handle = nullptr;
+    ps::ISolver<float, 3> *solver_handle = new ps::NonuniformZSolver<float>(
+        grid_sizes,
+        {lens[0], lens[1]},
+        std::span{z, grid_sizes[2]},
+        std::span{z_u, grid_sizes[2] + 1},
+        {bcp1, bcp2, bcp3},
+        {static_cast<std::size_t>(gns[0]),
+         static_cast<std::size_t>(gns[1]),
+         static_cast<std::size_t>(gns[2])},
+        {static_cast<std::size_t>(offs[0]),
+         static_cast<std::size_t>(offs[1]),
+         static_cast<std::size_t>(offs[2])},
+        *static_cast<const MPI_Comm *>(mpi_comm),
+        *ps_approx);
 #else
     ps::ISolver<float, 3> *solver_handle =
         new ps::NonuniformZSolver<float>(grid_sizes,

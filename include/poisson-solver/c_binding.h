@@ -77,7 +77,10 @@ void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
                                  const double *z,
                                  const double *z_u,
                                  const BoundaryCondition bcs[6],
-                                 Approximation approx);
+                                 Approximation approx,
+                                 const int *gns,
+                                 const int *offs,
+                                 const void *mpi_comm);
 
 void PoissonSolverNonuniformZExecute(PoissonSolver *solver,
                                      double *phi,
@@ -93,7 +96,10 @@ void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
                                       const float *z,
                                       const float *z_u,
                                       const BoundaryCondition *bcs,
-                                      Approximation approx);
+                                      Approximation approx,
+                                      const int *gns,
+                                      const int *offs,
+                                      const void *mpi_comm);
 
 void PoissonSolverNonuniformZExecuteFloat(PoissonSolver *solver,
                                           float *phi,

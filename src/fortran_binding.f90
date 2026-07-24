@@ -95,9 +95,9 @@ module PoisSolver
     interface
 
          subroutine poisson_solver_nonuniform_z_new_c(solver_out, ns, lens, &
-                 z, z_u, bcs, approx) &
+                 z, z_u, bcs, approx, gns, offs, mpi_comm) &
                 bind(C, name="PoissonSolverNonuniformZNew")
-             import :: c_int, c_double, PoissonSolver
+             import :: c_int, c_double, c_ptr, PoissonSolver
              type(PoissonSolver), intent(out) :: solver_out
              integer(c_int),      intent(in)  :: ns(*)
              real(c_double),      intent(in)  :: lens(*)
@@ -105,6 +105,9 @@ module PoisSolver
              real(c_double), intent(in) :: z_u(*)
              integer(c_int),      intent(in)  :: bcs(*)
              integer(c_int),      value       :: approx
+             integer(c_int),      intent(in)  :: gns(*)
+             integer(c_int),      intent(in)  :: offs(*)
+             type(c_ptr),         value       :: mpi_comm
         end subroutine poisson_solver_nonuniform_z_new_c
 
         subroutine poisson_solver_nonuniform_z_execute_c(solver, phi, rhs, ngs_phi, ngs_rhs) &
@@ -129,9 +132,9 @@ module PoisSolver
     interface
 
          subroutine poisson_solver_nonuniform_z_new_float_c(solver_out, ns, lens, &
-                 z, z_u, bcs, approx) &
+                 z, z_u, bcs, approx, gns, offs, mpi_comm) &
                 bind(C, name="PoissonSolverNonuniformZNewFloat")
-             import :: c_int, c_float, PoissonSolver
+             import :: c_int, c_float, c_ptr, PoissonSolver
              type(PoissonSolver), intent(out) :: solver_out
              integer(c_int),      intent(in)  :: ns(*)
              real(c_float),      intent(in)  :: lens(*)
@@ -139,6 +142,9 @@ module PoisSolver
              real(c_float), intent(in) :: z_u(*)
              integer(c_int),      intent(in)  :: bcs(*)
              integer(c_int),      value       :: approx
+             integer(c_int),      intent(in)  :: gns(*)
+             integer(c_int),      intent(in)  :: offs(*)
+             type(c_ptr),         value       :: mpi_comm
         end subroutine poisson_solver_nonuniform_z_new_float_c
 
         subroutine poisson_solver_nonuniform_z_execute_float_c(solver, phi, rhs, ngs_phi, ngs_rhs) &
@@ -376,8 +382,8 @@ contains
 
     ! === Nonuniform Solvers ===
     ! == Doubles ==
-    subroutine poisson_solver_nonuniform_z_new(solver, ns, lens,&
-            z, z_u, bcs, approx)
+    subroutine poisson_solver_nonuniform_z_new(solver, ns, lens, &
+            z, z_u, bcs, approx, gns, offs, mpi_comm)
         type(PoissonSolver), intent(out) :: solver
         integer,             intent(in)  :: ns(3)
         real(c_double),      intent(in)  :: lens(2)
@@ -385,9 +391,23 @@ contains
         real(c_double),      intent(in)  :: z_u(:)
         integer,             intent(in)  :: bcs(2 * 3)
         integer,             intent(in)  :: approx
+        integer,             intent(in), optional :: gns(3)
+        integer,             intent(in), optional :: offs(3)
+        integer,             intent(in), optional, target :: mpi_comm
         
+        integer(c_int) :: local_gns(3), local_offs(3)
+        type(c_ptr) :: c_comm
+
+        if(present(gns)) local_gns(1:3) = int(gns, c_int)
+        if(present(offs)) local_offs(1:3) = int(offs, c_int)
+
+        c_comm = c_null_ptr
+        if(present(mpi_comm)) then
+            c_comm = c_loc(mpi_comm)
+        end if
+
         call poisson_solver_nonuniform_z_new_c(solver, int(ns, c_int), lens, &
-            z, z_u, int(bcs, c_int), int(approx, c_int))
+            z, z_u, int(bcs, c_int), int(approx, c_int), local_gns, local_offs, c_comm)
     end subroutine poisson_solver_nonuniform_z_new
 
     subroutine poisson_solver_nonuniform_z_execute(solver, phi, rhs)
@@ -410,7 +430,7 @@ contains
 
     ! == Floats ==
     subroutine poisson_solver_nonuniform_z_new_float(solver, ns, lens,&
-            z, z_u, bcs, approx)
+            z, z_u, bcs, approx, gns, offs, mpi_comm)
         type(PoissonSolver), intent(out) :: solver
         integer,             intent(in)  :: ns(3)
         real(c_float),      intent(in)  :: lens(2)
@@ -418,9 +438,23 @@ contains
         real(c_float),      intent(in)  :: z_u(:)
         integer,             intent(in)  :: bcs(2 * 3)
         integer,             intent(in)  :: approx
+        integer,             intent(in), optional :: gns(3)
+        integer,             intent(in), optional :: offs(3)
+        integer,             intent(in), optional, target :: mpi_comm
         
+        integer(c_int) :: local_gns(3), local_offs(3)
+        type(c_ptr) :: c_comm
+
+        if(present(gns)) local_gns(1:3) = int(gns, c_int)
+        if(present(offs)) local_offs(1:3) = int(offs, c_int)
+
+        c_comm = c_null_ptr
+        if(present(mpi_comm)) then
+            c_comm = c_loc(mpi_comm)
+        end if
+
         call poisson_solver_nonuniform_z_new_float_c(solver, int(ns, c_int), lens, &
-            z, z_u, int(bcs, c_int), int(approx, c_int))
+            z, z_u, int(bcs, c_int), int(approx, c_int), local_gns, local_offs, c_comm)
     end subroutine poisson_solver_nonuniform_z_new_float
 
     subroutine poisson_solver_nonuniform_z_execute_float(solver, phi, rhs)
