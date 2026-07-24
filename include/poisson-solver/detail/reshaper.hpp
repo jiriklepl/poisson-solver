@@ -79,18 +79,22 @@ private:
 public:
     friend class DummyReshaper<T, Dim>;
 
-    DummyReshapePipeline(ConstructorKey /*unused*/, GridSizes<Dim> ns, GridOffsets<Dim> offs)
+    DummyReshapePipeline(ConstructorKey /*unused*/,
+                         GridSizes<Dim> ns,
+                         GridOffsets<Dim> offs)
         : ns_{ns},
           offs_{offs} {}
 
     static auto From(GridSizes<Dim> ns)
         -> std::unique_ptr<IReshapePipeline<T, Dim>> {
-        return std::make_unique<DummyReshapePipeline<T, Dim>>(ConstructorKey{}, ns, GridOffsets<Dim>{});
+        return std::make_unique<DummyReshapePipeline<T, Dim>>(
+            ConstructorKey{}, ns, GridOffsets<Dim>{});
     }
 
     static auto From(GridSizes<Dim> ns, GridOffsets<Dim> offs)
         -> std::unique_ptr<IReshapePipeline<T, Dim>> {
-        return std::make_unique<DummyReshapePipeline<T, Dim>>(ConstructorKey{}, ns, offs);
+        return std::make_unique<DummyReshapePipeline<T, Dim>>(
+            ConstructorKey{}, ns, offs);
     }
 
     auto ToPencils([[maybe_unused]] std::size_t dimension)
@@ -216,7 +220,8 @@ public:
      * @brief Publicly exposed private ctor.
      * Only callable from inside of this class using ConstructorKey.
      */
-    ReshapePipeline(ConstructorKey, Decomposition &&original_boxes,
+    ReshapePipeline(ConstructorKey,
+                    Decomposition &&original_boxes,
                     mpi_utils::ProcsPerDim<2> nps_yz,
                     MPI_Comm comm)
         : world_(heffte::find_world(original_boxes)),
@@ -228,7 +233,8 @@ public:
 
     static auto From(GridSizes<Dim> ns,
                      GridOffsets<Dim> offs,
-                     MPI_Comm cart_comm, bool is_full_solver)
+                     MPI_Comm cart_comm,
+                     bool is_full_solver)
         -> std::unique_ptr<IReshapePipeline<T, Dim>> {
         if constexpr (Dim == 1 || Dim == 2) {
             return DummyReshapePipeline<T, Dim>::From(ns, offs);
@@ -349,8 +355,8 @@ public:
         // TODO - Max possible sizeof is used here
         // But in the future it would be cool to allocate
         // only the amount we need
-        workspace_ = MakeCudaUnique<std::byte>(
-            MaxWorkspaceSize(reshapes_) * sizeof(std::complex<double>));
+        workspace_ = MakeCudaUnique<std::byte>(MaxWorkspaceSize(reshapes_) *
+                                               sizeof(std::complex<double>));
     };
 
     auto ReshapeReal(T *dest, const T *src) -> Layout<3> override {
@@ -469,7 +475,8 @@ private:
             // required, this branch is taken.
             // In that case all the data is already
             // locally available in the same shape and size.
-            auto my_new_box = rp_.decompositions_[next_reshape_box_idx_][rp_.rank_];
+            auto my_new_box =
+                rp_.decompositions_[next_reshape_box_idx_][rp_.rank_];
             auto elems_to_copy = static_cast<std::size_t>(my_new_box.count());
             CUCH(cudaMemcpy(dest,
                             src,

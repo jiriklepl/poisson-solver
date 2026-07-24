@@ -217,7 +217,12 @@ private:
         AssignGPU(comm);
 
         auto distributed_reshaper = BuildReshaper(
-            ReshapePipeline<T, Dim>::From(ns, offs, comm, std::holds_alternative<FullLayout>(sp.fft_layout)), sp);
+            ReshapePipeline<T, Dim>::From(
+                ns,
+                offs,
+                comm,
+                std::holds_alternative<FullLayout>(sp.fft_layout)),
+            sp);
 
         auto distributed_fft_plan = std::visit(
             Overloaded{[&](FullLayout fl) {

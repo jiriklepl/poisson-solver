@@ -661,9 +661,7 @@ private:
 
     CudaUniquePtrT cu_cp_workspace_;
 
-    void Init(std::span<const T> z,
-              std::span<const T> z_u,
-              GridSizes<3> gns) {
+    void Init(std::span<const T> z, std::span<const T> z_u, GridSizes<3> gns) {
         core_.cu_block_size.z = 1;
 
         auto gnz = gns[2];

@@ -14,7 +14,7 @@
 
 #ifdef USE_MPI
 #include <heffte.h>
-#endif // USE_MPI
+#endif  // USE_MPI
 
 namespace poisson_solver::detail {
 // === Structs ===
@@ -170,7 +170,7 @@ auto GetGridBox(GridSizes<Dim> ns, GridOffsets<Dim> offs) {
 
     return heffte::box3d<>{low, high};
 }
-#endif // USE_MPI
+#endif  // USE_MPI
 }  // namespace poisson_solver::detail
 
 #endif  // HELPERS_HPP

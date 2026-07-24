@@ -8,9 +8,9 @@
 #include <cassert>
 #include <concepts>
 #include <cstddef>
-#include <iostream>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -609,7 +609,8 @@ public:
                            T>;
 
     MpiFftFullHandle(heffte::fft3d<TransformTag> &&plan)
-        : plan_{std::move(plan)}, workspace_{MakeCudaUnique<Workspace>(plan_.size_workspace())} {}
+        : plan_{std::move(plan)},
+          workspace_{MakeCudaUnique<Workspace>(plan_.size_workspace())} {}
 
     void Forward(void *dev_buffer) override {
         plan_.forward(reinterpret_cast<Workspace *>(dev_buffer),

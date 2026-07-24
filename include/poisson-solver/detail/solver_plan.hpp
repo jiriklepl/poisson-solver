@@ -10,10 +10,10 @@
 #include <array>
 #include <cassert>
 #include <concepts>
-#include <vector>
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
+#include <vector>
 
 namespace poisson_solver {
 // === Forward Declarations ===

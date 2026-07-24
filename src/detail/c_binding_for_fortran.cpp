@@ -1,6 +1,5 @@
 #include "poisson-solver/detail/c_binding_for_fortran.h"
 
-
 extern "C" {
 void PoissonSolverNewForFortran(PoissonSolver *solver_out,
                                 int dims,
@@ -21,7 +20,7 @@ void PoissonSolverNewForFortran(PoissonSolver *solver_out,
     const void *c_comm_ptr = nullptr;
     if (mpi_comm) {
         c_comm = MPI_Comm_f2c(*mpi_comm);
-        c_comm_ptr = (void*)&c_comm;
+        c_comm_ptr = (void *)&c_comm;
     }
 #else
     const void *c_comm_ptr = mpi_comm;
@@ -49,7 +48,7 @@ void PoissonSolverNewFloatForFortran(PoissonSolver *solver_out,
     const void *c_comm_ptr = nullptr;
     if (mpi_comm) {
         c_comm = MPI_Comm_f2c(*mpi_comm);
-        c_comm_ptr = (void*)&c_comm;
+        c_comm_ptr = (void *)&c_comm;
     }
 #else
     const void *c_comm_ptr = mpi_comm;
