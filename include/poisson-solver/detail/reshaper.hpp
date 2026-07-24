@@ -95,43 +95,24 @@ public:
 
     auto ToPencils([[maybe_unused]] std::size_t dimension)
         -> DummyReshapePipeline & override {
-        if (contains_reshape_to_pencils_) {
-            throw std::runtime_error(
-                "Cannot reshape to pencils more than once.");
-        }
-        contains_reshape_to_pencils_ = true;
         // nop
-
         return *this;
     }
 
     auto ToSlabs([[maybe_unused]] std::size_t dimension1,
                  [[maybe_unused]] std::size_t dimension2)
         -> DummyReshapePipeline & override {
-        if (contains_reshape_to_slabs_) {
-            throw std::runtime_error("Cannot reshape to slabs more than once.");
-        }
-        contains_reshape_to_slabs_ = true;
         // nop
-
         return *this;
     }
 
     auto Build() -> std::unique_ptr<IReshaper<T, Dim>> override {
-        if (!(contains_reshape_to_pencils_ && contains_reshape_to_slabs_)) {
-            throw std::runtime_error(
-                "Not all reshapes were specified in the pipeline (pencil, slab "
-                "or both missing).");
-        }
         return std::make_unique<DummyReshaper<T, Dim>>(std::move(*this));
     }
 
 private:
     GridSizes<Dim> ns_;
     GridOffsets<Dim> offs_{};
-
-    bool contains_reshape_to_pencils_{false};
-    bool contains_reshape_to_slabs_{false};
 };
 
 template <std::floating_point T, std::size_t Dim>
