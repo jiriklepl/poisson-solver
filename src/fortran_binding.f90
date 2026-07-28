@@ -482,7 +482,7 @@ contains
         integer, intent(in)  :: nps(2)
         integer, intent(out) :: comm_out
 
-        call poisson_solver_init_mpi_grid_c(comm_old, int(nps, c_int), comm_out)
+        call poisson_solver_init_mpi_grid_c(comm_old, int([nps(2), nps(1)], c_int), comm_out)
     end subroutine poisson_solver_init_mpi_grid
 
     subroutine poisson_solver_get_local_grid_info(gns, cart_comm, ns, offs)

@@ -1023,7 +1023,7 @@ program testpoisson_MPI
     call error_stop(25)
   end if
 
-  call poisson_solver_init_mpi_grid(glob_comm, npxyz(2:3), cart_comm)
+  call poisson_solver_init_mpi_grid(glob_comm, npxyz(3:2:-1), cart_comm)
   
   call get_image_coords
 
