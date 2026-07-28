@@ -94,6 +94,7 @@ endif()
 if (USE_MPI)
     set(FORTRAN_TEST_SRCS
         test_residuum_mpi.f90
+        test_residuum_mpi_nonuniform_z.f90
     )
 else()
     set(FORTRAN_TEST_SRCS
