@@ -48,6 +48,39 @@ void PoissonSolverNewFloatForFortran(PoissonSolver *solver_out,
                                      const void *mpi_comm
 #endif  // USE_MPI
 );
+
+void PoissonSolverNonuniformZNewForFortran(PoissonSolver *solver_out,
+                                           const int *ns,
+                                           const double *lens,
+                                           const double *z,
+                                           const double *z_u,
+                                           const BoundaryCondition *bcs,
+                                           Approximation approx,
+                                           const int *gns,
+                                           const int *offs,
+#ifdef USE_MPI
+                                           const MPI_Fint *mpi_comm
+#else
+                                           const void *mpi_comm
+#endif  // USE_MPI
+);
+
+void PoissonSolverNonuniformZNewFloatForFortran(PoissonSolver *solver_out,
+                                                const int *ns,
+                                                const float *lens,
+                                                const float *z,
+                                                const float *z_u,
+                                                const BoundaryCondition *bcs,
+                                                Approximation approx,
+                                                const int *gns,
+                                                const int *offs,
+#ifdef USE_MPI
+                                                const MPI_Fint *mpi_comm
+#else
+                                                const void *mpi_comm
+#endif  // USE_MPI
+);
+
 #ifdef USE_MPI
 void PoissonSolverInitMPIGridForFortran(const MPI_Fint *comm_old,
                                         const int *nps,

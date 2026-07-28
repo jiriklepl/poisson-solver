@@ -96,7 +96,7 @@ module PoisSolver
 
          subroutine poisson_solver_nonuniform_z_new_c(solver_out, ns, lens, &
                  z, z_u, bcs, approx, gns, offs, mpi_comm) &
-                bind(C, name="PoissonSolverNonuniformZNew")
+                bind(C, name="PoissonSolverNonuniformZNewForFortran")
              import :: c_int, c_double, c_ptr, PoissonSolver
              type(PoissonSolver), intent(out) :: solver_out
              integer(c_int),      intent(in)  :: ns(*)
@@ -133,7 +133,7 @@ module PoisSolver
 
          subroutine poisson_solver_nonuniform_z_new_float_c(solver_out, ns, lens, &
                  z, z_u, bcs, approx, gns, offs, mpi_comm) &
-                bind(C, name="PoissonSolverNonuniformZNewFloat")
+                bind(C, name="PoissonSolverNonuniformZNewFloatForFortran")
              import :: c_int, c_float, c_ptr, PoissonSolver
              type(PoissonSolver), intent(out) :: solver_out
              integer(c_int),      intent(in)  :: ns(*)
