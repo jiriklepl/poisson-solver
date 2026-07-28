@@ -780,11 +780,10 @@ private:
              new_layout.ns,
              core_.ComputeCUDAGridSize(new_layout.ns),
              core_.cu_block_size);
+        FFTPolicy::Forward2D(core_.cu_cmplx_workspace1.get(), core_.fft_plan);
 
         new_layout = core_.reshaper->ReshapeCmplx(
             core_.cu_cmplx_workspace2.get(), core_.cu_cmplx_workspace1.get());
-        FFTPolicy::Forward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
-
         TridiagZ(core_.cu_cmplx_workspace2.get(),
                  cu_cp_workspace_.get(),
                  new_layout.ns,
@@ -796,10 +795,9 @@ private:
                  core_.ComputeCUDAGridSize(new_layout.ns),
                  core_.cu_block_size);
 
-        FFTPolicy::Backward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
-
         new_layout = core_.reshaper->ReshapeCmplx(
             core_.cu_cmplx_workspace1.get(), core_.cu_cmplx_workspace2.get());
+        FFTPolicy::Backward2D(core_.cu_cmplx_workspace1.get(), core_.fft_plan);
         Normalize(core_.cu_real_workspace2.get(),
                   core_.cu_cmplx_workspace1.get(),
                   new_layout.ns,
