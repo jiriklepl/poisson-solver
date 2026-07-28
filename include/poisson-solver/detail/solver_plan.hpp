@@ -301,7 +301,7 @@ public:
      * @note All three BCs are required to check their correctness for
      * nonuniform Z solver.
      */
-    NonuniformZSolverPlan(BCs<3> bcs)
+    explicit NonuniformZSolverPlan(BCs<3> bcs)
         : ISolverPlan<T, 2>(BCs<2>{bcs[0], bcs[1]}, SplitLayout{}) {
         using std::ranges::all_of;
         using enum FFTTransformType;
