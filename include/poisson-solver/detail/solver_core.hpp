@@ -18,7 +18,6 @@
 #include <memory>
 #include <numbers>
 #include <numeric>
-#include <optional>
 #include <utility>
 #include <variant>
 #include <vector>
