@@ -12,7 +12,7 @@
 #include <string>
 
 namespace poisson_solver::mpi_utils {
-auto LocalGridInfo::ConvertToLocalGridInfo(const heffte::box3d<> &box)
+auto ConvertToLocalGridInfo(const heffte::box3d<> &box)
     -> LocalGridInfo {
     LocalGridInfo lgi{};
 
@@ -83,7 +83,7 @@ auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo {
 
     auto my_box = GetMyBox(cart_comm, boxes);
 
-    return LocalGridInfo::ConvertToLocalGridInfo(my_box);
+    return ConvertToLocalGridInfo(my_box);
 }
 }  // namespace poisson_solver::mpi_utils
 

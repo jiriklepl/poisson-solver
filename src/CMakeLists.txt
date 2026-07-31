@@ -30,14 +30,15 @@ target_include_directories(poisson-solver PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include/>
 )
 
-target_link_libraries(poisson-solver PRIVATE common_flags)
-target_link_libraries(poisson-solver PUBLIC CUDA::cudart VkFFT)
+target_link_libraries(poisson-solver PRIVATE common_flags VkFFT)
+target_link_libraries(poisson-solver PUBLIC CUDA::cudart)
 if (USE_MPI)
     target_link_libraries(poisson-solver PUBLIC
-        Heffte
         MPI::MPI_CXX
         MPI::MPI_Fortran
     )
+
+    target_link_libraries(poisson-solver PRIVATE Heffte)
 
     # Defines `USE_MPI`, therefore code can do `#ifdef USE_MPI`
     target_compile_definitions(poisson-solver PUBLIC USE_MPI)

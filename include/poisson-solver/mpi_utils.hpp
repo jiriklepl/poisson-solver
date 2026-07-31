@@ -6,7 +6,6 @@
 
 #include <array>
 #include <cstddef>
-#include <heffte.h>
 #include <mpi.h>
 
 namespace poisson_solver::mpi_utils {
@@ -22,12 +21,6 @@ using ProcsPerDim = std::array<int, Dim>;
 struct LocalGridInfo {
     GridSizes<3> ns{};
     GridOffsets<3> offs{};
-
-    /**
-     * @brief Factory method to convert heffte::box3d<> to LocalGridInfo.
-     */
-    static auto ConvertToLocalGridInfo(const heffte::box3d<> &box)
-        -> LocalGridInfo;
 };
 
 // === Functions ===
