@@ -59,7 +59,7 @@ module PoisSolver
     interface
 
         subroutine poisson_solver_new_float_c(solver_out, dims, ns, lens, bcs, approx, gns, offs, mpi_comm) &
-                bind(C, name="PoissonSolverNewFloat")
+                bind(C, name="PoissonSolverNewFloatForFortran")
             import :: c_int, c_float, c_ptr, PoissonSolver
             type(PoissonSolver), intent(out)      :: solver_out
             integer(c_int),      value            :: dims
