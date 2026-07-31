@@ -17,7 +17,7 @@
       "name": "debug",
       "inherits": "base-shared",
       "description": "Debug build without MPI support",
-      "binaryDir": "${sourceDir}/build-debug",
+      "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
@@ -28,7 +28,7 @@
       "name": "debug-mpi",
       "inherits": "base-shared",
       "description": "Debug build with MPI support",
-      "binaryDir": "${sourceDir}/build-debug-mpi",
+      "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
@@ -39,7 +39,7 @@
       "name": "release",
       "inherits": "base-shared",
       "description": "Release build without MPI support",
-      "binaryDir": "${sourceDir}/build-release",
+      "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "USE_MPI": "OFF"
@@ -49,7 +49,7 @@
       "name": "release-mpi",
       "inherits": "base-shared",
       "description": "Release build with MPI support",
-      "binaryDir": "${sourceDir}/build-release-mpi",
+      "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "USE_MPI": "ON"
