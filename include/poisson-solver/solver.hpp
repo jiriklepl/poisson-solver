@@ -42,7 +42,9 @@ public:
                          GridSizes<Dim> ngs_phi,
                          GridSizes<Dim> ngs_rhs) = 0;
     virtual void ExecuteGPU(std::span<T> d_phi,
-                            std::span<const T> d_rhs) = 0;
+                            std::span<const T> d_rhs,
+                            GridSizes<Dim> ngs_phi,
+                            GridSizes<Dim> ngs_rhs) = 0;
     virtual auto GetTotalGridSize() const -> std::size_t = 0;
 
 protected:
@@ -144,7 +146,8 @@ public:
                                  core_.cu_real_workspace1.get(),
                                  core_.ns,
                                  ngs_rhs,
-                                 cudaMemcpyHostToDevice);
+                                 cudaMemcpyHostToDevice,
+                                 true);
 
         (this->*solver_plan_.solve_method)();
 
@@ -152,22 +155,29 @@ public:
                                  core_.cu_real_workspace1.get(),
                                  core_.ns,
                                  ngs_phi,
-                                 cudaMemcpyDeviceToHost);
+                                 cudaMemcpyDeviceToHost,
+                                 false);
     }
 
     void ExecuteGPU(std::span<T> d_phi,
-                    std::span<const T> d_rhs) override {
-        cudaMemcpy(core_.cu_real_workspace1.get(),
-                   d_rhs.data(),
-                   core_.cnt * sizeof(T),
-                   cudaMemcpyDeviceToDevice);
+                    std::span<const T> d_rhs,
+                    GridSizes<Dim> ngs_phi,
+                    GridSizes<Dim> ngs_rhs) override {
+        detail::MemcpyActiveGrid(const_cast<T *>(d_rhs.data()),
+                                 core_.cu_real_workspace1.get(),
+                                 core_.ns,
+                                 ngs_rhs,
+                                 cudaMemcpyDeviceToDevice,
+                                 true);
 
         (this->*solver_plan_.solve_method)();
 
-        cudaMemcpy(d_phi.data(),
-                   core_.cu_real_workspace1.get(),
-                   core_.cnt * sizeof(T),
-                   cudaMemcpyDeviceToDevice);
+        detail::MemcpyActiveGrid(d_phi.data(),
+                                 core_.cu_real_workspace1.get(),
+                                 core_.ns,
+                                 ngs_phi,
+                                 cudaMemcpyDeviceToDevice,
+                                 false);
     }
 
     auto GetTotalGridSize() const -> std::size_t override {
@@ -645,28 +655,36 @@ public:
                                  core_.cu_real_workspace1.get(),
                                  core_.ns,
                                  ngs_rhs,
-                                 cudaMemcpyHostToDevice);
+                                 cudaMemcpyHostToDevice,
+                                 true);
         (this->*solver_plan_.solve_method)();
 
         detail::MemcpyActiveGrid(phi.data(),
                                  core_.cu_real_workspace1.get(),
                                  core_.ns,
                                  ngs_phi,
-                                 cudaMemcpyDeviceToHost);
+                                 cudaMemcpyDeviceToHost,
+                                 false);
     }
 
     void ExecuteGPU(std::span<T> d_phi,
-                    std::span<const T> d_rhs) override {
-        cudaMemcpy(core_.cu_real_workspace1.get(),
-                   d_rhs.data(),
-                   core_.cnt * sizeof(T),
-                   cudaMemcpyDeviceToDevice);
+                    std::span<const T> d_rhs,
+                    GridSizes<3> ngs_phi,
+                    GridSizes<3> ngs_rhs) override {
+        detail::MemcpyActiveGrid(const_cast<T *>(d_rhs.data()),
+                                 core_.cu_real_workspace1.get(),
+                                 core_.ns,
+                                 ngs_rhs,
+                                 cudaMemcpyDeviceToDevice,
+                                 true);
         (this->*solver_plan_.solve_method)();
 
-        cudaMemcpy(d_phi.data(),
-                   core_.cu_real_workspace1.get(),
-                   core_.cnt * sizeof(T),
-                   cudaMemcpyDeviceToDevice);
+        detail::MemcpyActiveGrid(d_phi.data(),
+                                 core_.cu_real_workspace1.get(),
+                                 core_.ns,
+                                 ngs_phi,
+                                 cudaMemcpyDeviceToDevice,
+                                 false);
     }
 
     auto GetTotalGridSize() const -> std::size_t override {

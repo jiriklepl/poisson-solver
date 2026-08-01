@@ -88,13 +88,14 @@ auto MakeCudaUnique(std::size_t size) -> CudaUniquePtr<T> {
     return CudaUniquePtr<T>(ptr);
 }
 
-// Transfers the centered active grid between host and device.
+// Transfers the centered active grid between a padded buffer and an active buffer.
 template <typename T, std::size_t Dim>
-void MemcpyActiveGrid(T *host_ptr,
-                      T *dev_ptr,
+void MemcpyActiveGrid(T *padded_ptr,
+                      T *active_ptr,
                       GridSizes<Dim> active_ns,
                       GridSizes<Dim> ngs,
-                      cudaMemcpyKind kind) {
+                      cudaMemcpyKind kind,
+                      bool padded_to_active) {
     cudaMemcpy3DParms params{};
 
     // At multiple places in this function, we compute
@@ -113,16 +114,16 @@ void MemcpyActiveGrid(T *host_ptr,
                                     (Dim >= 2) ? active_ns[1] : 1,
                                     (Dim >= 3) ? active_ns[2] : 1);
 
-    // Host side (padded)
-    cudaPitchedPtr host_pitched =
-        make_cudaPitchedPtr(host_ptr,
+    // Padded side
+    cudaPitchedPtr padded_pitched =
+        make_cudaPitchedPtr(padded_ptr,
                             full_ns[0] * sizeof(T),
                             full_ns[0],
                             (Dim >= 2) ? full_ns[1] : 1);
 
-    // Device side (contiguous)
-    cudaPitchedPtr dev_pitched =
-        make_cudaPitchedPtr(dev_ptr,
+    // Active side (contiguous)
+    cudaPitchedPtr active_pitched =
+        make_cudaPitchedPtr(active_ptr,
                             active_ns[0] * sizeof(T),
                             active_ns[0],
                             (Dim >= 2) ? active_ns[1] : 1);
@@ -131,19 +132,19 @@ void MemcpyActiveGrid(T *host_ptr,
     std::size_t offset_y = (Dim >= 2) ? ngs[1] : 0;
     std::size_t offset_z = (Dim >= 3) ? ngs[2] : 0;
 
-    cudaPos host_pos = make_cudaPos(offset_x * sizeof(T), offset_y, offset_z);
-    cudaPos dev_pos = make_cudaPos(0, 0, 0);
+    cudaPos padded_pos = make_cudaPos(offset_x * sizeof(T), offset_y, offset_z);
+    cudaPos active_pos = make_cudaPos(0, 0, 0);
 
-    if (kind == cudaMemcpyHostToDevice) {
-        params.srcPtr = host_pitched;
-        params.srcPos = host_pos;
-        params.dstPtr = dev_pitched;
-        params.dstPos = dev_pos;
+    if (padded_to_active) {
+        params.srcPtr = padded_pitched;
+        params.srcPos = padded_pos;
+        params.dstPtr = active_pitched;
+        params.dstPos = active_pos;
     } else {
-        params.srcPtr = dev_pitched;
-        params.srcPos = dev_pos;
-        params.dstPtr = host_pitched;
-        params.dstPos = host_pos;
+        params.srcPtr = active_pitched;
+        params.srcPos = active_pos;
+        params.dstPtr = padded_pitched;
+        params.dstPos = padded_pos;
     }
 
     params.kind = kind;

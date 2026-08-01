@@ -47,12 +47,14 @@ module PoisSolver
             integer(c_int),      intent(in)    :: ngs_rhs(*)
         end subroutine poisson_solver_execute_c
 
-        subroutine poisson_solver_execute_gpu_c(solver, d_phi, d_rhs) &
+        subroutine poisson_solver_execute_gpu_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs) &
                 bind(C, name="PoissonSolverExecuteGPU")
-            import :: c_double, PoissonSolver
+            import :: c_int, c_double, PoissonSolver
             type(PoissonSolver), intent(inout) :: solver
             real(c_double),      intent(out)   :: d_phi(*)
             real(c_double),      intent(in)    :: d_rhs(*)
+            integer(c_int),      intent(in)    :: ngs_phi(*)
+            integer(c_int),      intent(in)    :: ngs_rhs(*)
         end subroutine poisson_solver_execute_gpu_c
 
         subroutine poisson_solver_finalize_c(solver) &
@@ -90,12 +92,14 @@ module PoisSolver
             integer(c_int),     intent(in)    :: ngs_rhs(*)
         end subroutine poisson_solver_execute_float_c
 
-        subroutine poisson_solver_execute_gpu_float_c(solver, d_phi, d_rhs) &
+        subroutine poisson_solver_execute_gpu_float_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs) &
                 bind(C, name="PoissonSolverExecuteGPUFloat")
-            import :: c_float, PoissonSolver
+            import :: c_int, c_float, PoissonSolver
             type(PoissonSolver), intent(inout) :: solver
             real(c_float),      intent(out)   :: d_phi(*)
             real(c_float),      intent(in)    :: d_rhs(*)
+            integer(c_int),     intent(in)    :: ngs_phi(*)
+            integer(c_int),     intent(in)    :: ngs_rhs(*)
         end subroutine poisson_solver_execute_gpu_float_c
 
         subroutine poisson_solver_finalize_float_c(solver) &
@@ -136,12 +140,14 @@ module PoisSolver
             integer(c_int),      intent(in)    :: ngs_rhs(*)
         end subroutine poisson_solver_nonuniform_z_execute_c
 
-        subroutine poisson_solver_nonuniform_z_execute_gpu_c(solver, d_phi, d_rhs) &
+        subroutine poisson_solver_nonuniform_z_execute_gpu_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs) &
                 bind(C, name="PoissonSolverNonuniformZExecuteGPU")
-            import :: c_double, PoissonSolver
+            import :: c_int, c_double, PoissonSolver
             type(PoissonSolver), intent(inout) :: solver
             real(c_double),      intent(out)   :: d_phi(*)
             real(c_double),      intent(in)    :: d_rhs(*)
+            integer(c_int),      intent(in)    :: ngs_phi(*)
+            integer(c_int),      intent(in)    :: ngs_rhs(*)
         end subroutine poisson_solver_nonuniform_z_execute_gpu_c
 
         subroutine poisson_solver_nonuniform_z_finalize_c(solver) &
@@ -181,12 +187,14 @@ module PoisSolver
             integer(c_int),      intent(in)    :: ngs_rhs(*)
         end subroutine poisson_solver_nonuniform_z_execute_float_c
 
-        subroutine poisson_solver_nonuniform_z_execute_gpu_float_c(solver, d_phi, d_rhs) &
+        subroutine poisson_solver_nonuniform_z_execute_gpu_float_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs) &
                 bind(C, name="PoissonSolverNonuniformZExecuteGPUFloat")
-            import :: c_float, PoissonSolver
+            import :: c_int, c_float, PoissonSolver
             type(PoissonSolver), intent(inout) :: solver
             real(c_float),      intent(out)   :: d_phi(*)
             real(c_float),      intent(in)    :: d_rhs(*)
+            integer(c_int),      intent(in)    :: ngs_phi(*)
+            integer(c_int),      intent(in)    :: ngs_rhs(*)
         end subroutine poisson_solver_nonuniform_z_execute_gpu_float_c
 
         subroutine poisson_solver_nonuniform_z_finalize_float_c(solver) &
@@ -332,24 +340,36 @@ contains
         type(PoissonSolver), intent(inout) :: solver
         real(c_double),      intent(out)   :: d_phi(:)
         real(c_double),      intent(in)    :: d_rhs(:)
+        integer(c_int) :: ngs_phi(1), ngs_rhs(1)
 
-        call poisson_solver_execute_gpu_c(solver, d_phi, d_rhs)
+        ngs_phi = int((shape(d_phi) - [solver%nx]) / 2, c_int)
+        ngs_rhs = int((shape(d_rhs) - [solver%nx]) / 2, c_int)
+
+        call poisson_solver_execute_gpu_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_1d_gpu
 
     subroutine poisson_solver_execute_2d_gpu(solver, d_phi, d_rhs)
         type(PoissonSolver), intent(inout) :: solver
         real(c_double),      intent(out)   :: d_phi(:, :)
         real(c_double),      intent(in)    :: d_rhs(:, :)
+        integer(c_int) :: ngs_phi(2), ngs_rhs(2)
 
-        call poisson_solver_execute_gpu_c(solver, d_phi, d_rhs)
+        ngs_phi = int((shape(d_phi) - [solver%nx, solver%ny]) / 2, c_int)
+        ngs_rhs = int((shape(d_rhs) - [solver%nx, solver%ny]) / 2, c_int)
+
+        call poisson_solver_execute_gpu_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_2d_gpu
 
     subroutine poisson_solver_execute_3d_gpu(solver, d_phi, d_rhs)
         type(PoissonSolver), intent(inout) :: solver
         real(c_double),      intent(out)   :: d_phi(:, :, :)
         real(c_double),      intent(in)    :: d_rhs(:, :, :)
+        integer(c_int) :: ngs_phi(3), ngs_rhs(3)
 
-        call poisson_solver_execute_gpu_c(solver, d_phi, d_rhs)
+        ngs_phi = int((shape(d_phi) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+        ngs_rhs = int((shape(d_rhs) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+
+        call poisson_solver_execute_gpu_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_3d_gpu
 
     subroutine poisson_solver_finalize(solver)
@@ -446,24 +466,36 @@ contains
         type(PoissonSolver), intent(inout) :: solver
         real(c_float),      intent(out)   :: d_phi(:)
         real(c_float),      intent(in)    :: d_rhs(:)
+        integer(c_int) :: ngs_phi(1), ngs_rhs(1)
 
-        call poisson_solver_execute_gpu_float_c(solver, d_phi, d_rhs)
+        ngs_phi = int((shape(d_phi) - [solver%nx]) / 2, c_int)
+        ngs_rhs = int((shape(d_rhs) - [solver%nx]) / 2, c_int)
+
+        call poisson_solver_execute_gpu_float_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_1d_gpu_float
 
     subroutine poisson_solver_execute_2d_gpu_float(solver, d_phi, d_rhs)
         type(PoissonSolver), intent(inout) :: solver
         real(c_float),      intent(out)   :: d_phi(:, :)
         real(c_float),      intent(in)    :: d_rhs(:, :)
+        integer(c_int) :: ngs_phi(2), ngs_rhs(2)
 
-        call poisson_solver_execute_gpu_float_c(solver, d_phi, d_rhs)
+        ngs_phi = int((shape(d_phi) - [solver%nx, solver%ny]) / 2, c_int)
+        ngs_rhs = int((shape(d_rhs) - [solver%nx, solver%ny]) / 2, c_int)
+
+        call poisson_solver_execute_gpu_float_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_2d_gpu_float
 
     subroutine poisson_solver_execute_3d_gpu_float(solver, d_phi, d_rhs)
         type(PoissonSolver), intent(inout) :: solver
         real(c_float),      intent(out)   :: d_phi(:, :, :)
         real(c_float),      intent(in)    :: d_rhs(:, :, :)
+        integer(c_int) :: ngs_phi(3), ngs_rhs(3)
 
-        call poisson_solver_execute_gpu_float_c(solver, d_phi, d_rhs)
+        ngs_phi = int((shape(d_phi) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+        ngs_rhs = int((shape(d_rhs) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+
+        call poisson_solver_execute_gpu_float_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_execute_3d_gpu_float
 
     subroutine poisson_solver_finalize_float(solver)
@@ -518,8 +550,12 @@ contains
         type(PoissonSolver), intent(inout) :: solver
         real(c_double),      intent(out)   :: d_phi(:, :, :)
         real(c_double),      intent(in)    :: d_rhs(:, :, :)
+        integer(c_int) :: ngs_phi(3), ngs_rhs(3)
 
-        call poisson_solver_nonuniform_z_execute_gpu_c(solver, d_phi, d_rhs)
+        ngs_phi = int((shape(d_phi) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+        ngs_rhs = int((shape(d_rhs) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+
+        call poisson_solver_nonuniform_z_execute_gpu_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_nonuniform_z_execute_gpu
 
     subroutine poisson_solver_nonuniform_z_finalize(solver)
@@ -573,8 +609,12 @@ contains
         type(PoissonSolver), intent(inout) :: solver
         real(c_float),      intent(out)   :: d_phi(:, :, :)
         real(c_float),      intent(in)    :: d_rhs(:, :, :)
+        integer(c_int) :: ngs_phi(3), ngs_rhs(3)
 
-        call poisson_solver_nonuniform_z_execute_gpu_float_c(solver, d_phi, d_rhs)
+        ngs_phi = int((shape(d_phi) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+        ngs_rhs = int((shape(d_rhs) - [solver%nx, solver%ny, solver%nz]) / 2, c_int)
+
+        call poisson_solver_nonuniform_z_execute_gpu_float_c(solver, d_phi, d_rhs, ngs_phi, ngs_rhs)
     end subroutine poisson_solver_nonuniform_z_execute_gpu_float
 
     subroutine poisson_solver_nonuniform_z_finalize_float(solver)

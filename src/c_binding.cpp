@@ -98,11 +98,17 @@ auto ToCxxBCPair(BoundaryCondition c_bc1, BoundaryCondition c_bc2)
                                                                      \
     void PoissonSolverExecuteGPU##DIM##D(PoissonSolver *solver,      \
                                          double *d_phi,              \
-                                         const double *d_rhs) {      \
+                                         const double *d_rhs,        \
+                                         const int *ngs_phi,         \
+                                         const int *ngs_rhs) {       \
         auto *handle =                                               \
             static_cast<ps::ISolver<double, DIM> *>(solver->handle); \
+        auto ngs_phi_gs = ToGridSizes<DIM>(ngs_phi);                 \
+        auto ngs_rhs_gs = ToGridSizes<DIM>(ngs_rhs);                 \
         handle->ExecuteGPU(std::span{d_phi, solver->grid_size},      \
-                           std::span{d_rhs, solver->grid_size});     \
+                           std::span{d_rhs, solver->grid_size},      \
+                           ngs_phi_gs,                               \
+                           ngs_rhs_gs);                              \
     }
 
 #define DEFINE_FINALIZE(DIM)                                            \
@@ -127,10 +133,16 @@ auto ToCxxBCPair(BoundaryCondition c_bc1, BoundaryCondition c_bc2)
                                                                                \
     void PoissonSolverExecuteGPU##DIM##DFloat(PoissonSolver *solver,           \
                                               float *d_phi,                    \
-                                              const float *d_rhs) {            \
+                                              const float *d_rhs,              \
+                                              const int *ngs_phi,              \
+                                              const int *ngs_rhs) {            \
         auto *handle = static_cast<ps::ISolver<float, DIM> *>(solver->handle); \
+        auto ngs_phi_gs = ToGridSizes<DIM>(ngs_phi);                           \
+        auto ngs_rhs_gs = ToGridSizes<DIM>(ngs_rhs);                           \
         handle->ExecuteGPU(std::span{d_phi, solver->grid_size},                \
-                           std::span{d_rhs, solver->grid_size});               \
+                           std::span{d_rhs, solver->grid_size},                \
+                           ngs_phi_gs,                                         \
+                           ngs_rhs_gs);                                        \
     }
 
 #define DEFINE_FINALIZE_FLOAT(DIM)                                     \
@@ -333,16 +345,18 @@ void PoissonSolverExecute(PoissonSolver *solver,
 
 void PoissonSolverExecuteGPU(PoissonSolver *solver,
                              double *d_phi,
-                             const double *d_rhs) {
+                             const double *d_rhs,
+                             const int *ngs_phi,
+                             const int *ngs_rhs) {
     switch (solver->dim) {
         case 1:
-            PoissonSolverExecuteGPU1D(solver, d_phi, d_rhs);
+            PoissonSolverExecuteGPU1D(solver, d_phi, d_rhs, ngs_phi, ngs_rhs);
             break;
         case 2:
-            PoissonSolverExecuteGPU2D(solver, d_phi, d_rhs);
+            PoissonSolverExecuteGPU2D(solver, d_phi, d_rhs, ngs_phi, ngs_rhs);
             break;
         case 3:
-            PoissonSolverExecuteGPU3D(solver, d_phi, d_rhs);
+            PoissonSolverExecuteGPU3D(solver, d_phi, d_rhs, ngs_phi, ngs_rhs);
             break;
         default:
             throw std::invalid_argument("Invalid amount of dimensions" +
@@ -538,16 +552,18 @@ void PoissonSolverExecuteFloat(PoissonSolver *solver,
 
 void PoissonSolverExecuteGPUFloat(PoissonSolver *solver,
                                   float *d_phi,
-                                  const float *d_rhs) {
+                                  const float *d_rhs,
+                                  const int *ngs_phi,
+                                  const int *ngs_rhs) {
     switch (solver->dim) {
         case 1:
-            PoissonSolverExecuteGPU1DFloat(solver, d_phi, d_rhs);
+            PoissonSolverExecuteGPU1DFloat(solver, d_phi, d_rhs, ngs_phi, ngs_rhs);
             break;
         case 2:
-            PoissonSolverExecuteGPU2DFloat(solver, d_phi, d_rhs);
+            PoissonSolverExecuteGPU2DFloat(solver, d_phi, d_rhs, ngs_phi, ngs_rhs);
             break;
         case 3:
-            PoissonSolverExecuteGPU3DFloat(solver, d_phi, d_rhs);
+            PoissonSolverExecuteGPU3DFloat(solver, d_phi, d_rhs, ngs_phi, ngs_rhs);
             break;
         default:
             throw std::invalid_argument("Invalid amount of dimensions" +
@@ -647,10 +663,18 @@ void PoissonSolverNonuniformZExecute(PoissonSolver *solver,
 
 void PoissonSolverNonuniformZExecuteGPU(PoissonSolver *solver,
                                         double *d_phi,
-                                        const double *d_rhs) {
+                                        const double *d_rhs,
+                                        const int *ngs_phi,
+                                        const int *ngs_rhs) {
     auto *handle = static_cast<ps::ISolver<double, 3> *>(solver->handle);
+
+    auto ngs_phi_gs = ToGridSizes<3>(ngs_phi);
+    auto ngs_rhs_gs = ToGridSizes<3>(ngs_rhs);
+
     handle->ExecuteGPU(std::span{d_phi, solver->grid_size},
-                       std::span{d_rhs, solver->grid_size});
+                       std::span{d_rhs, solver->grid_size},
+                       ngs_phi_gs,
+                       ngs_rhs_gs);
 }
 
 void PoissonSolverNonuniformZFinalize(PoissonSolver *solver) {
@@ -731,10 +755,18 @@ void PoissonSolverNonuniformZExecuteFloat(PoissonSolver *solver,
 
 void PoissonSolverNonuniformZExecuteGPUFloat(PoissonSolver *solver,
                                              float *d_phi,
-                                             const float *d_rhs) {
+                                             const float *d_rhs,
+                                             const int *ngs_phi,
+                                             const int *ngs_rhs) {
     auto *handle = static_cast<ps::ISolver<float, 3> *>(solver->handle);
+
+    auto ngs_phi_gs = ToGridSizes<3>(ngs_phi);
+    auto ngs_rhs_gs = ToGridSizes<3>(ngs_rhs);
+
     handle->ExecuteGPU(std::span{d_phi, solver->grid_size},
-                       std::span{d_rhs, solver->grid_size});
+                       std::span{d_rhs, solver->grid_size},
+                       ngs_phi_gs,
+                       ngs_rhs_gs);
 }
 
 void PoissonSolverNonuniformZFinalizeFloat(PoissonSolver *solver) {
