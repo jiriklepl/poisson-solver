@@ -21,6 +21,8 @@ set(SLURM_LAUNCH_BASE
 )
 set(SLURM_FLAG_GPU
     --gpus-per-task 1
+    # Each process has its own gpu
+    --gpu-bind=single:1
 )
 set(SLURM_FLAG_LOCAL
     -N 1

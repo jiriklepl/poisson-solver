@@ -211,10 +211,6 @@ private:
                                         GridOffsets<Dim> offs,
                                         const ISolverPlan<T, FFTDim> &sp,
                                         MPI_Comm comm) -> SolverBackend {
-        // The GPU has to be assigned
-        // before any CUDA calls.
-        AssignGPU(comm);
-
         auto distributed_reshaper = BuildReshaper(
             ReshapePipeline<T, Dim>::From(
                 ns,
@@ -381,29 +377,6 @@ private:
         }
         return observers;
     }
-#ifdef USE_MPI
-    /**
-     * @brief Assigns the correct GPU in case there are multiple on a single
-     * node.
-     *
-     * @param comm World communicator.
-     */
-    static void AssignGPU(MPI_Comm comm) {
-        MPI_Comm local_comm;
-        MPI_CHECK(MPI_Comm_split_type(
-            comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &local_comm));
-
-        int local_rank;
-        MPI_CHECK(MPI_Comm_rank(local_comm, &local_rank));
-
-        int num_gpus{};
-        CUCH(cudaGetDeviceCount(&num_gpus));
-
-        CUCH(cudaSetDevice(local_rank % num_gpus));
-
-        MPI_CHECK(MPI_Comm_free(&local_comm));
-    }
-#endif  // USE_MPI
 };
 }  // namespace poisson_solver::detail
 
