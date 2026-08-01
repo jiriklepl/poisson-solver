@@ -4,6 +4,7 @@
 #include "poisson-solver/solver.hpp"
 #include "test_helpers.hpp"
 
+#include <cuda_runtime.h>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -118,6 +119,29 @@ void RunApis(std::span<T> phi,
     SUBCASE("API: C++") {
         Solver<T, Dim> solver(cfg.ns, cfg.lens, cfg.bcs, approx);
         solver.Execute(phi, rhs, cfg.ngs_phi, cfg.ngs_rhs);
+        verify_residuum();
+    }
+
+    SUBCASE("API: C++ GPU") {
+        Solver<T, Dim> solver(cfg.ns, cfg.lens, cfg.bcs, approx);
+
+        T *d_phi = nullptr;
+        T *d_rhs = nullptr;
+        std::size_t bytes = phi.size() * sizeof(T);
+
+        cudaMalloc(&d_phi, bytes);
+        cudaMalloc(&d_rhs, bytes);
+
+        cudaMemcpy(d_rhs, rhs.data(), bytes, cudaMemcpyHostToDevice);
+
+        solver.ExecuteGPU(std::span{d_phi, phi.size()},
+                          std::span{d_rhs, rhs.size()});
+
+        cudaMemcpy(phi.data(), d_phi, bytes, cudaMemcpyDeviceToHost);
+
+        cudaFree(d_phi);
+        cudaFree(d_rhs);
+
         verify_residuum();
     }
 

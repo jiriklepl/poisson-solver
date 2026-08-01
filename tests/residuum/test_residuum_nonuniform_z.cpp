@@ -4,6 +4,7 @@
 #include "poisson-solver/solver.hpp"
 #include "test_helpers.hpp"
 
+#include <cuda_runtime.h>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -302,6 +303,30 @@ void RunApisNonuniformZ(std::span<T> phi,
         NonuniformZSolver<T> solver{
             cfg.ns, lens_xy, cfg.z, cfg.z_u, cfg.bcs, approx};
         solver.Execute(phi, rhs, cfg.ngs_phi, cfg.ngs_rhs);
+        verify_residuum();
+    }
+
+    SUBCASE("API: C++ GPU") {
+        NonuniformZSolver<T> solver{
+            cfg.ns, lens_xy, cfg.z, cfg.z_u, cfg.bcs, approx};
+
+        T *d_phi = nullptr;
+        T *d_rhs = nullptr;
+        std::size_t bytes = phi.size() * sizeof(T);
+
+        cudaMalloc(&d_phi, bytes);
+        cudaMalloc(&d_rhs, bytes);
+
+        cudaMemcpy(d_rhs, rhs.data(), bytes, cudaMemcpyHostToDevice);
+
+        solver.ExecuteGPU(std::span{d_phi, phi.size()},
+                          std::span{d_rhs, rhs.size()});
+
+        cudaMemcpy(phi.data(), d_phi, bytes, cudaMemcpyDeviceToHost);
+
+        cudaFree(d_phi);
+        cudaFree(d_rhs);
+
         verify_residuum();
     }
 
