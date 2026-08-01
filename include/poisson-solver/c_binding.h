@@ -48,6 +48,10 @@ void PoissonSolverExecute(PoissonSolver *solver,
                           const int *ngs_phi,
                           const int *ngs_rhs);
 
+void PoissonSolverExecuteGPU(PoissonSolver *solver,
+                             double *d_phi,
+                             const double *d_rhs);
+
 void PoissonSolverFinalize(PoissonSolver *solver);
 
 void PoissonSolverNewFloat(PoissonSolver *solver_out,
@@ -65,6 +69,10 @@ void PoissonSolverExecuteFloat(PoissonSolver *solver,
                                const float *rhs,
                                const int *ngs_phi,
                                const int *ngs_rhs);
+
+void PoissonSolverExecuteGPUFloat(PoissonSolver *solver,
+                                  float *d_phi,
+                                  const float *d_rhs);
 
 void PoissonSolverFinalizeFloat(PoissonSolver *solver);
 
@@ -88,6 +96,10 @@ void PoissonSolverNonuniformZExecute(PoissonSolver *solver,
                                      const int *ngs_phi,
                                      const int *ngs_rhs);
 
+void PoissonSolverNonuniformZExecuteGPU(PoissonSolver *solver,
+                                        double *d_phi,
+                                        const double *d_rhs);
+
 void PoissonSolverNonuniformZFinalize(PoissonSolver *solver);
 
 void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
@@ -106,6 +118,10 @@ void PoissonSolverNonuniformZExecuteFloat(PoissonSolver *solver,
                                           const float *rhs,
                                           const int *ngs_phi,
                                           const int *ngs_rhs);
+
+void PoissonSolverNonuniformZExecuteGPUFloat(PoissonSolver *solver,
+                                             float *d_phi,
+                                             const float *d_rhs);
 
 void PoissonSolverNonuniformZFinalizeFloat(PoissonSolver *solver);
 
