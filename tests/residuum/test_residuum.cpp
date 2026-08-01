@@ -91,6 +91,63 @@ void ExecuteCBinding(std::span<T> phi,
     }
 }
 
+template <std::floating_point T, std::size_t Dim>
+void ExecuteCBindingGPU(std::span<T> phi,
+                        std::span<const T> rhs,
+                        SolverConfig<T, Dim> cfg,
+                        Approximation approx) {
+    using pst::ToCBoundary;
+
+    PoissonSolver solver;
+    std::array<int, Dim> c_ns;
+    std::array<T, Dim> c_lens;
+    std::array<BoundaryCondition, 2 * Dim> c_bcs;
+
+    for (std::size_t i = 0; i < Dim; ++i) {
+        c_ns[i] = static_cast<int>(cfg.ns[i]);
+        c_lens[i] = cfg.lens[i];
+        c_bcs[2 * i] = ToCBoundary(cfg.bcs[i].first);
+        c_bcs[2 * i + 1] = ToCBoundary(cfg.bcs[i].second);
+    }
+
+    T *d_phi = nullptr;
+    T *d_rhs = nullptr;
+    std::size_t bytes = phi.size() * sizeof(T);
+    cudaMalloc(&d_phi, bytes);
+    cudaMalloc(&d_rhs, bytes);
+    cudaMemcpy(d_rhs, rhs.data(), bytes, cudaMemcpyHostToDevice);
+
+    if constexpr (std::is_same_v<T, double>) {
+        PoissonSolverNew(&solver,
+                         Dim,
+                         c_ns.data(),
+                         c_lens.data(),
+                         c_bcs.data(),
+                         approx,
+                         nullptr,
+                         nullptr,
+                         nullptr);
+        PoissonSolverExecuteGPU(&solver, d_phi, d_rhs);
+        PoissonSolverFinalize(&solver);
+    } else {
+        PoissonSolverNewFloat(&solver,
+                              Dim,
+                              c_ns.data(),
+                              c_lens.data(),
+                              c_bcs.data(),
+                              approx,
+                              nullptr,
+                              nullptr,
+                              nullptr);
+        PoissonSolverExecuteGPUFloat(&solver, d_phi, d_rhs);
+        PoissonSolverFinalizeFloat(&solver);
+    }
+
+    cudaMemcpy(phi.data(), d_phi, bytes, cudaMemcpyDeviceToHost);
+    cudaFree(d_phi);
+    cudaFree(d_rhs);
+}
+
 // Runs tests for both the C++ and C APIs
 template <std::floating_point T, std::size_t Dim>
 void RunApis(std::span<T> phi,
@@ -147,6 +204,11 @@ void RunApis(std::span<T> phi,
 
     SUBCASE("API: C Binding") {
         ExecuteCBinding(phi, rhs, cfg, c_approx);
+        verify_residuum();
+    }
+
+    SUBCASE("API: C Binding GPU") {
+        ExecuteCBindingGPU(phi, rhs, cfg, c_approx);
         verify_residuum();
     }
 }
