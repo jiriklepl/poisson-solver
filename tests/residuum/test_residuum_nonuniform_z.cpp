@@ -285,10 +285,15 @@ void ExecuteCBindingNonuniformZGPU(std::span<T> phi,
     std::array<T, 2> c_lens_xy;
     std::array<BoundaryCondition, 6> c_bcs;
 
+    std::array<int, 3> c_ngs_phi;
+    std::array<int, 3> c_ngs_rhs;
+
     for (std::size_t i = 0; i < 3; ++i) {
         c_ns[i] = static_cast<int>(cfg.ns[i]);
         c_bcs[2 * i] = ToCBoundary(cfg.bcs[i].first);
         c_bcs[2 * i + 1] = ToCBoundary(cfg.bcs[i].second);
+        c_ngs_phi[i] = static_cast<int>(cfg.ngs_phi[i]);
+        c_ngs_rhs[i] = static_cast<int>(cfg.ngs_rhs[i]);
     }
 
     c_lens_xy[0] = cfg.lens[0];
@@ -312,7 +317,7 @@ void ExecuteCBindingNonuniformZGPU(std::span<T> phi,
                                     nullptr,
                                     nullptr,
                                     nullptr);
-        PoissonSolverNonuniformZExecuteGPU(&solver, d_phi, d_rhs);
+        PoissonSolverNonuniformZExecuteGPU(&solver, d_phi, d_rhs, c_ngs_phi.data(), c_ngs_rhs.data());
         PoissonSolverNonuniformZFinalize(&solver);
     } else {
         PoissonSolverNonuniformZNewFloat(&solver,
@@ -325,7 +330,7 @@ void ExecuteCBindingNonuniformZGPU(std::span<T> phi,
                                          nullptr,
                                          nullptr,
                                          nullptr);
-        PoissonSolverNonuniformZExecuteGPUFloat(&solver, d_phi, d_rhs);
+        PoissonSolverNonuniformZExecuteGPUFloat(&solver, d_phi, d_rhs, c_ngs_phi.data(), c_ngs_rhs.data());
         PoissonSolverNonuniformZFinalizeFloat(&solver);
     }
 
@@ -381,7 +386,9 @@ void RunApisNonuniformZ(std::span<T> phi,
         cudaMemcpy(d_rhs, rhs.data(), bytes, cudaMemcpyHostToDevice);
 
         solver.ExecuteGPU(std::span{d_phi, phi.size()},
-                          std::span{d_rhs, rhs.size()});
+                          std::span{d_rhs, rhs.size()},
+                          cfg.ngs_phi,
+                          cfg.ngs_rhs);
 
         cudaMemcpy(phi.data(), d_phi, bytes, cudaMemcpyDeviceToHost);
 

@@ -103,11 +103,16 @@ void ExecuteCBindingGPU(std::span<T> phi,
     std::array<T, Dim> c_lens;
     std::array<BoundaryCondition, 2 * Dim> c_bcs;
 
+    std::array<int, Dim> c_ngs_phi;
+    std::array<int, Dim> c_ngs_rhs;
+
     for (std::size_t i = 0; i < Dim; ++i) {
         c_ns[i] = static_cast<int>(cfg.ns[i]);
         c_lens[i] = cfg.lens[i];
         c_bcs[2 * i] = ToCBoundary(cfg.bcs[i].first);
         c_bcs[2 * i + 1] = ToCBoundary(cfg.bcs[i].second);
+        c_ngs_phi[i] = static_cast<int>(cfg.ngs_phi[i]);
+        c_ngs_rhs[i] = static_cast<int>(cfg.ngs_rhs[i]);
     }
 
     T *d_phi = nullptr;
@@ -127,7 +132,7 @@ void ExecuteCBindingGPU(std::span<T> phi,
                          nullptr,
                          nullptr,
                          nullptr);
-        PoissonSolverExecuteGPU(&solver, d_phi, d_rhs);
+        PoissonSolverExecuteGPU(&solver, d_phi, d_rhs, c_ngs_phi.data(), c_ngs_rhs.data());
         PoissonSolverFinalize(&solver);
     } else {
         PoissonSolverNewFloat(&solver,
@@ -139,7 +144,7 @@ void ExecuteCBindingGPU(std::span<T> phi,
                               nullptr,
                               nullptr,
                               nullptr);
-        PoissonSolverExecuteGPUFloat(&solver, d_phi, d_rhs);
+        PoissonSolverExecuteGPUFloat(&solver, d_phi, d_rhs, c_ngs_phi.data(), c_ngs_rhs.data());
         PoissonSolverFinalizeFloat(&solver);
     }
 
@@ -192,7 +197,9 @@ void RunApis(std::span<T> phi,
         cudaMemcpy(d_rhs, rhs.data(), bytes, cudaMemcpyHostToDevice);
 
         solver.ExecuteGPU(std::span{d_phi, phi.size()},
-                          std::span{d_rhs, rhs.size()});
+                          std::span{d_rhs, rhs.size()},
+                          cfg.ngs_phi,
+                          cfg.ngs_rhs);
 
         cudaMemcpy(phi.data(), d_phi, bytes, cudaMemcpyDeviceToHost);
 
