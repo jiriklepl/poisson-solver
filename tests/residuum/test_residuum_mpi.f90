@@ -936,8 +936,35 @@ program testpoisson_MPI
   
   implicit none
 
+  interface
+    function fortran_cuda_malloc(bytes) bind(C, name="fortran_cuda_malloc")
+      import :: c_size_t, c_ptr
+      integer(c_size_t), value :: bytes
+      type(c_ptr) :: fortran_cuda_malloc
+    end function fortran_cuda_malloc
+
+    subroutine fortran_cuda_free(ptr) bind(C, name="fortran_cuda_free")
+      import :: c_ptr
+      type(c_ptr), value :: ptr
+    end subroutine fortran_cuda_free
+
+    subroutine fortran_cuda_memcpy_h2d(dst, src, bytes) bind(C, name="fortran_cuda_memcpy_h2d")
+      import :: c_size_t, c_ptr
+      type(c_ptr), value :: dst
+      type(c_ptr), value :: src
+      integer(c_size_t), value :: bytes
+    end subroutine fortran_cuda_memcpy_h2d
+
+    subroutine fortran_cuda_memcpy_d2h(dst, src, bytes) bind(C, name="fortran_cuda_memcpy_d2h")
+      import :: c_size_t, c_ptr
+      type(c_ptr), value :: dst
+      type(c_ptr), value :: src
+      integer(c_size_t), value :: bytes
+    end subroutine fortran_cuda_memcpy_d2h
+  end interface
+
   integer(c_intptr_t) :: ng(3) = [131, 123, 127]![21,32,25]!
-  real(RP), dimension(:,:,:), allocatable :: Phi, RHS
+  real(RP), dimension(:,:,:), allocatable, target :: Phi, RHS
   real(RP) :: dx,dy,dz, Ls(3)
   integer i,j,k
   real(RP) :: R,x,y,z
@@ -1077,14 +1104,16 @@ program testpoisson_MPI
   
   if (master) write(*,*) "2D Periodic"
 
-  call compute2D([(PoisSolver_Periodic, i=1,4)])
+  call compute2D([(PoisSolver_Periodic, i=1,4)], .false.)
+  call compute2D([(PoisSolver_Periodic, i=1,4)], .true.)
   
 
   call MPI_Barrier(glob_comm,ie)
   
   if (master) write(*,*) "1D Periodic"
 
-  call compute1D([(PoisSolver_Periodic, i=1,2)])
+  call compute1D([(PoisSolver_Periodic, i=1,2)], .false.)
+  call compute1D([(PoisSolver_Periodic, i=1,2)], .true.)
 
   
   
@@ -1098,28 +1127,32 @@ program testpoisson_MPI
   
   if (master) write(*,*) "3D PNsNs"
 
-  call compute3d([(PoisSolver_Periodic, i=1,2),(PoisSolver_NeumannStag, i=3,6)])
+  call compute3d([(PoisSolver_Periodic, i=1,2),(PoisSolver_NeumannStag, i=3,6)], .false.)
+  call compute3d([(PoisSolver_Periodic, i=1,2),(PoisSolver_NeumannStag, i=3,6)], .true.)
 
 
   call MPI_Barrier(glob_comm,ie)
   
   if (master) write(*,*) "3D PPNs"
 
-  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_NeumannStag, i=5,6)])
+  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_NeumannStag, i=5,6)], .false.)
+  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_NeumannStag, i=5,6)], .true.)
 
 
   call MPI_Barrier(glob_comm,ie)
   
   if (master) write(*,*) "3D staggered Dirichlet"
 
-  call compute3D([(PoisSolver_DirichletStag, i=1,6)])
+  call compute3D([(PoisSolver_DirichletStag, i=1,6)], .false.)
+  call compute3D([(PoisSolver_DirichletStag, i=1,6)], .true.)
 
 
   call MPI_Barrier(glob_comm,ie)
   
   if (master) write(*,*) "3D staggered Neumann:"
 
-  call compute3D([(PoisSolver_NeumannStag, i=1,6)])
+  call compute3D([(PoisSolver_NeumannStag, i=1,6)], .false.)
+  call compute3D([(PoisSolver_NeumannStag, i=1,6)], .true.)
 
 
   call MPI_Barrier(glob_comm,ie)
@@ -1127,7 +1160,8 @@ program testpoisson_MPI
   if (master) write(*,*) "3D Dirichlet"
   
   dx = Ls(1)/(ng(1)+1); dy = Ls(2)/(ng(2)+1); dz = Ls(3)/(ng(3)+1)
-  call compute3D([(PoisSolver_Dirichlet, i=1,6)])
+  call compute3D([(PoisSolver_Dirichlet, i=1,6)], .false.)
+  call compute3D([(PoisSolver_Dirichlet, i=1,6)], .true.)
   dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3))
 
 
@@ -1150,7 +1184,8 @@ program testpoisson_MPI
   call MPI_AllReduce(MPI_IN_PLACE, S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
   RHS = RHS - S/product(ng-1)
   dx = Ls(1)/(ng(1)-1); dy = Ls(2)/(ng(2)-1); dz = Ls(3)/(ng(3)-1)
-  call compute3D([(PoisSolver_Neumann, i=1,6)])
+  call compute3D([(PoisSolver_Neumann, i=1,6)], .false.)
+  call compute3D([(PoisSolver_Neumann, i=1,6)], .true.)
   dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3))
   call MPI_AllReduce(sum(RHS), S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
   RHS = RHS - S / product(ng)
@@ -1160,7 +1195,8 @@ program testpoisson_MPI
   
   if (master) write(*,*) "3D Periodic"
 
-  call compute3D([(PoisSolver_Periodic, i=1,6)])
+  call compute3D([(PoisSolver_Periodic, i=1,6)], .false.)
+  call compute3D([(PoisSolver_Periodic, i=1,6)], .true.)
  
  
   call MPI_Barrier(glob_comm,ie)
@@ -1168,7 +1204,8 @@ program testpoisson_MPI
   if (master) write(*,*) "3D PPD"
 
   dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3)+1)
-  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_Dirichlet, i=5,6)])
+  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_Dirichlet, i=5,6)], .false.)
+  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_Dirichlet, i=5,6)], .true.)
   dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3))
  
  
@@ -1176,7 +1213,8 @@ program testpoisson_MPI
   
   if (master) write(*,*) "3D PPDN"
 
-  call compute3d([(PoisSolver_Periodic, i=1,4),PoisSolver_Dirichlet,PoisSolver_Neumann])
+  call compute3d([(PoisSolver_Periodic, i=1,4),PoisSolver_Dirichlet,PoisSolver_Neumann], .false.)
+  call compute3d([(PoisSolver_Periodic, i=1,4),PoisSolver_Dirichlet,PoisSolver_Neumann], .true.)
 
 
   call MPI_Barrier(glob_comm,ie)
@@ -1196,7 +1234,8 @@ program testpoisson_MPI
   call MPI_AllReduce(MPI_IN_PLACE, S, 1, MPI_RP, MPI_SUM, glob_comm, ie)
   RHS = RHS - S/product(ng-[0,0,1])
   dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3)-1)
-  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_Neumann, i=5,6)])
+  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_Neumann, i=5,6)], .false.)
+  call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_Neumann, i=5,6)], .true.)
   dx = Ls(1)/(ng(1)); dy = Ls(2)/(ng(2)); dz = Ls(3)/(ng(3))
  
  
@@ -1209,8 +1248,13 @@ program testpoisson_MPI
   
 contains
 
-  subroutine compute3D(BCs)
+  subroutine compute3D(BCs, use_gpu)
     integer, intent(in) :: BCs(6)
+    logical, intent(in), optional :: use_gpu
+    logical :: gpu
+    type(c_ptr) :: d_phi_ptr, d_rhs_ptr
+    real(rp), pointer :: d_phi(:,:,:), d_rhs(:,:,:)
+    integer(c_size_t) :: bytes_phi, bytes_rhs
     
     Phi(1:nx,1:ny,1:nz) = RHS
 
@@ -1228,7 +1272,25 @@ contains
     do i=1,2
       call system_clock(count=t1)
 
-      call poisson_solver_execute(Solver3D,Phi,RHS)
+      gpu = .false.
+      if (present(use_gpu)) gpu = use_gpu
+      if (gpu) then
+          bytes_phi = size(Phi, kind=c_size_t) * c_sizeof(Phi(0,0,0))
+          bytes_rhs = size(RHS, kind=c_size_t) * c_sizeof(RHS(1,1,1))
+          d_phi_ptr = fortran_cuda_malloc(bytes_phi)
+          d_rhs_ptr = fortran_cuda_malloc(bytes_rhs)
+          call fortran_cuda_memcpy_h2d(d_rhs_ptr, c_loc(RHS(1,1,1)), bytes_rhs)
+          call c_f_pointer(d_phi_ptr, d_phi, shape(Phi))
+          call c_f_pointer(d_rhs_ptr, d_rhs, shape(RHS))
+
+          call poisson_solver_execute_gpu(Solver3D, d_phi, d_rhs)
+
+          call fortran_cuda_memcpy_d2h(c_loc(Phi(0,0,0)), d_phi_ptr, bytes_phi)
+          call fortran_cuda_free(d_phi_ptr)
+          call fortran_cuda_free(d_rhs_ptr)
+      else
+          call poisson_solver_execute(Solver3D,Phi,RHS)
+      end if
 
       call system_clock(count=t2)
       if (master) write(*,*) "solver cpu time", real(t2-t1)/real(trate)
@@ -1245,17 +1307,30 @@ contains
     if (master) then
       write (*,*) "R2:",R
       if (R < int(ng(1), int64) * int(ng(2), int64) * int(ng(3), int64) * 100 * epsilon(1._rp)) then
-        write(*,*) "OK"
+        if (gpu) then
+          write(*,*) "GPU API OK"
+        else
+          write(*,*) "CPU API OK"
+        end if
       else
-        write(*,*) "FAIL"
+        if (gpu) then
+          write(*,*) "GPU API FAIL"
+        else
+          write(*,*) "CPU API FAIL"
+        end if
       end if
       write(*,*) "--------"
     end if
   end subroutine
 
   
-  subroutine compute2D(BCs)
+  subroutine compute2D(BCs, use_gpu)
     integer, intent(in) :: BCs(4)
+    logical, intent(in), optional :: use_gpu
+    logical :: gpu
+    type(c_ptr) :: d_phi_ptr, d_rhs_ptr
+    real(rp), pointer :: d_phi(:,:), d_rhs(:,:)
+    integer(c_size_t) :: bytes_phi, bytes_rhs
     integer :: sub_comm, ie
     integer :: n
     
@@ -1279,7 +1354,25 @@ contains
     do i=1,1
       call system_clock(count=t1)
 
-      call poisson_solver_execute(Solver2D,Phi(:,:,i),RHS(:,:,i))
+      gpu = .false.
+      if (present(use_gpu)) gpu = use_gpu
+      if (gpu) then
+          bytes_phi = size(Phi(:,:,i), kind=c_size_t) * c_sizeof(Phi(0,0,i))
+          bytes_rhs = size(RHS(:,:,i), kind=c_size_t) * c_sizeof(RHS(1,1,i))
+          d_phi_ptr = fortran_cuda_malloc(bytes_phi)
+          d_rhs_ptr = fortran_cuda_malloc(bytes_rhs)
+          call fortran_cuda_memcpy_h2d(d_rhs_ptr, c_loc(RHS(1,1,i)), bytes_rhs)
+          call c_f_pointer(d_phi_ptr, d_phi, shape(Phi(:,:,i)))
+          call c_f_pointer(d_rhs_ptr, d_rhs, shape(RHS(:,:,i)))
+
+          call poisson_solver_execute_gpu(Solver2D, d_phi, d_rhs)
+
+          call fortran_cuda_memcpy_d2h(c_loc(Phi(0,0,i)), d_phi_ptr, bytes_phi)
+          call fortran_cuda_free(d_phi_ptr)
+          call fortran_cuda_free(d_rhs_ptr)
+      else
+          call poisson_solver_execute(Solver2D,Phi(:,:,i),RHS(:,:,i))
+      end if
 
       call system_clock(count=t2)
       if (master) write(*,*) "solver cpu time", real(t2-t1)/real(trate)
@@ -1296,17 +1389,33 @@ contains
     if (master) then
       write (*,*) "R2:",R
       if (R < int(ng(1), int64) * int(ng(2), int64) * 100 * epsilon(1._rp)) then
-        write(*,*) "OK"
+        if (gpu) then
+          write(*,*) "GPU API OK"
+        else
+          write(*,*) "CPU API OK"
+        end if
       else
-        write(*,*) "FAIL"
+        if (gpu) then
+          write(*,*) "GPU API FAIL"
+        else
+          write(*,*) "CPU API FAIL"
+        end if
       end if
       write(*,*) "--------"
     end if
   end subroutine
 
   
-  subroutine compute1D(BCs)
+  subroutine compute1D(BCs, use_gpu)
     integer, intent(in) :: BCs(2)
+    logical, intent(in), optional :: use_gpu
+    logical :: gpu
+    type(c_ptr) :: d_phi_ptr, d_rhs_ptr
+    real(rp), pointer :: d_phi(:), d_rhs(:)
+    integer(c_size_t) :: bytes_phi, bytes_rhs
+    ! We need tmp arrays to make phi and rhs slices contiguous
+    ! before calling CUDA memcpy
+    real(rp), allocatable, target :: tmp_phi1d(:), tmp_rhs1d(:)
     integer :: sub_comm = -1, ie
     
     call MPI_Cart_sub(cart_comm, [.false., .true.], sub_comm, ie)
@@ -1329,7 +1438,31 @@ contains
     do i=1,1
       call system_clock(count=t1)
 
-      call poisson_solver_execute(Solver1D,Phi(1,:,i),RHS(1,:,i))
+      gpu = .false.
+      if (present(use_gpu)) gpu = use_gpu
+      if (gpu) then
+          allocate(tmp_phi1d, source=Phi(1,:,i))
+          allocate(tmp_rhs1d, source=RHS(1,:,i))
+
+          bytes_phi = size(tmp_phi1d, kind=c_size_t) * c_sizeof(tmp_phi1d(1))
+          bytes_rhs = size(tmp_rhs1d, kind=c_size_t) * c_sizeof(tmp_rhs1d(1))
+          d_phi_ptr = fortran_cuda_malloc(bytes_phi)
+          d_rhs_ptr = fortran_cuda_malloc(bytes_rhs)
+          call fortran_cuda_memcpy_h2d(d_rhs_ptr, c_loc(tmp_rhs1d(1)), bytes_rhs)
+          call c_f_pointer(d_phi_ptr, d_phi, shape(tmp_phi1d))
+          call c_f_pointer(d_rhs_ptr, d_rhs, shape(tmp_rhs1d))
+
+          call poisson_solver_execute_gpu(Solver1D, d_phi, d_rhs)
+
+          call fortran_cuda_memcpy_d2h(c_loc(tmp_phi1d(1)), d_phi_ptr, bytes_phi)
+          call fortran_cuda_free(d_phi_ptr)
+          call fortran_cuda_free(d_rhs_ptr)
+
+          Phi(1,:,i) = tmp_phi1d
+          deallocate(tmp_phi1d, tmp_rhs1d)
+      else
+          call poisson_solver_execute(Solver1D,Phi(1,:,i),RHS(1,:,i))
+      end if
 
       call system_clock(count=t2)
       if (master) write(*,*) "solver cpu time", real(t2-t1)/real(trate)
@@ -1346,9 +1479,17 @@ contains
     if (master) then
       write (*,*) "R2:",R
       if (R < int(ng(2), int64) * 100 * epsilon(1._rp)) then
-        write(*,*) "OK"
+        if (gpu) then
+          write(*,*) "GPU API OK"
+        else
+          write(*,*) "CPU API OK"
+        end if
       else
-        write(*,*) "FAIL"
+        if (gpu) then
+          write(*,*) "GPU API FAIL"
+        else
+          write(*,*) "CPU API FAIL"
+        end if
       end if
       write(*,*) "--------"
     end if
