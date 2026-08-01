@@ -16,9 +16,9 @@ module Globals
   real(rp), parameter :: Lx = 2*pi, Ly = Lx*1.1_rp, Lz = Lx/1.1_rp
   integer :: nx = 21, ny = 32, nz = 25
   real(rp) :: dx,dy,dz
-  real(rp), dimension(:,:,:), allocatable :: Phi3D, RHS3D
-  real(rp), dimension(:,:), allocatable :: Phi2D, RHS2D
-  real(rp), dimension(:), allocatable :: Phi1D, RHS1D
+  real(rp), dimension(:,:,:), allocatable, target :: Phi3D, RHS3D
+  real(rp), dimension(:,:), allocatable, target :: Phi2D, RHS2D
+  real(rp), dimension(:), allocatable, target :: Phi1D, RHS1D
 
   real(rp), dimension(:), allocatable :: z(:), z_u(:)
 end module
@@ -167,6 +167,33 @@ module Tests
   
   implicit none
   
+  interface
+    function fortran_cuda_malloc(bytes) bind(C, name="fortran_cuda_malloc")
+      import :: c_size_t, c_ptr
+      integer(c_size_t), value :: bytes
+      type(c_ptr) :: fortran_cuda_malloc
+    end function fortran_cuda_malloc
+
+    subroutine fortran_cuda_free(ptr) bind(C, name="fortran_cuda_free")
+      import :: c_ptr
+      type(c_ptr), value :: ptr
+    end subroutine fortran_cuda_free
+
+    subroutine fortran_cuda_memcpy_h2d(dst, src, bytes) bind(C, name="fortran_cuda_memcpy_h2d")
+      import :: c_size_t, c_ptr
+      type(c_ptr), value :: dst
+      type(c_ptr), value :: src
+      integer(c_size_t), value :: bytes
+    end subroutine fortran_cuda_memcpy_h2d
+
+    subroutine fortran_cuda_memcpy_d2h(dst, src, bytes) bind(C, name="fortran_cuda_memcpy_d2h")
+      import :: c_size_t, c_ptr
+      type(c_ptr), value :: dst
+      type(c_ptr), value :: src
+      integer(c_size_t), value :: bytes
+    end subroutine fortran_cuda_memcpy_d2h
+  end interface
+
   character(20), parameter :: char_BCs(0:4) = ["Periodic            ", &
                                                "Dirichlet regular   ", &
                                                "Neumann regular     ", &
@@ -194,28 +221,63 @@ contains
     integer, intent(in) :: BCs(6)
     real(rp) :: R
     
-    call RunFD2_3D(BCs)
+    call RunFD2_3D(BCs, .false.)
     
     call Res3D(Phi3D, RHS3D, &
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), z, z_u, &
                BCs, R)
     if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 1000 * epsilon(1._rp)) then
-      write(*,*) "FD2 OK", R
+      write(*,*) "FD2 CPU API OK", R
     else
-      write(*,*) "FD2 FAIL"
-      write(*,*) "FD2 residuum:",R
+      write(*,*) "FD2 CPU API FAIL"
+      write(*,*) "FD2 CPU API residuum:",R
+    end if
+    call RunFD2_3D(BCs, .true.)
+
+    call Res3D(Phi3D, RHS3D, &
+               dx**(-2), dx**(-2), dy**(-2), dy**(-2), z, z_u, &
+               BCs, R)
+
+    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 100 * epsilon(1._rp)) then
+      write(*,*) "FD2 GPU API OK", R
+    else
+      write(*,*) "FD2 GPU API FAIL"
+      write(*,*) "FD2 GPU API residuum:",R
     end if
   end subroutine
   
-  subroutine RunFD2_3D(BCs)
+  subroutine RunFD2_3D(BCs, use_gpu)
     type(PoissonSolver) :: Solver
     integer, intent(in) :: BCs(6)
+    logical, intent(in), optional :: use_gpu
+    logical :: gpu
+    type(c_ptr) :: d_phi_ptr, d_rhs_ptr
+    real(rp), pointer :: d_phi(:,:,:), d_rhs(:,:,:)
+    integer(c_size_t) :: bytes_phi, bytes_rhs
   
     ! Pass lengths [Lx, Ly] as expected by the 2D xy-slice logic
     call poisson_solver_nonuniform_z_new(Solver, [nx,ny,nz], [Lx,Ly], z(1:nz), z_u(0:nz), BCs, PoisSolver_FiniteDifference2)
 
     ! The wrapper natively infers ngs_phi and ngs_rhs using shape(Phi3D) and shape(RHS3D)
-    call poisson_solver_nonuniform_z_execute(Solver, Phi3D, RHS3D)
+    gpu = .false.
+    if (present(use_gpu)) gpu = use_gpu
+    if (gpu) then
+        bytes_phi = size(Phi3D, kind=c_size_t) * c_sizeof(Phi3D(0,0,0))
+        bytes_rhs = size(RHS3D, kind=c_size_t) * c_sizeof(RHS3D(1,1,1))
+        d_phi_ptr = fortran_cuda_malloc(bytes_phi)
+        d_rhs_ptr = fortran_cuda_malloc(bytes_rhs)
+        call fortran_cuda_memcpy_h2d(d_rhs_ptr, c_loc(RHS3D(1,1,1)), bytes_rhs)
+        call c_f_pointer(d_phi_ptr, d_phi, shape(Phi3D))
+        call c_f_pointer(d_rhs_ptr, d_rhs, shape(RHS3D))
+
+        call poisson_solver_nonuniform_z_execute_gpu(Solver, d_phi, d_rhs)
+
+        call fortran_cuda_memcpy_d2h(c_loc(Phi3D(0,0,0)), d_phi_ptr, bytes_phi)
+        call fortran_cuda_free(d_phi_ptr)
+        call fortran_cuda_free(d_rhs_ptr)
+    else
+        call poisson_solver_nonuniform_z_execute(Solver, Phi3D, RHS3D)
+    end if
 
     call poisson_solver_nonuniform_z_finalize(Solver)
 

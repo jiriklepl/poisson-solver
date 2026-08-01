@@ -114,7 +114,7 @@ foreach(f_test_src IN LISTS FORTRAN_TEST_SRCS)
     set(test_target "fortran-${base_name}")
 
     # By default, only the lib is built
-    add_executable(${test_target} EXCLUDE_FROM_ALL ${f_test_src})
+    add_executable(${test_target} EXCLUDE_FROM_ALL ${f_test_src} ../include/cuda_fortran_helpers.cpp)
 
     target_include_directories(${test_target} PRIVATE
         ${CMAKE_Fortran_MODULE_DIRECTORY})

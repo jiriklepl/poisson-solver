@@ -15,9 +15,9 @@ module Globals
   real(rp), parameter :: Lx = 2*pi, Ly = Lx*1.1, Lz = Lx/1.1
   integer :: nx = 21, ny = 32, nz = 25
   real(rp) :: dx,dy,dz
-  real(rp), dimension(:,:,:), allocatable :: Phi3D, RHS3D
-  real(rp), dimension(:,:), allocatable :: Phi2D, RHS2D
-  real(rp), dimension(:), allocatable :: Phi1D, RHS1D
+  real(rp), dimension(:,:,:), allocatable, target :: Phi3D, RHS3D
+  real(rp), dimension(:,:), allocatable, target :: Phi2D, RHS2D
+  real(rp), dimension(:), allocatable, target :: Phi1D, RHS1D
 
 end module
 
@@ -703,6 +703,33 @@ module Tests
   
   implicit none
   
+  interface
+    function fortran_cuda_malloc(bytes) bind(C, name="fortran_cuda_malloc")
+      import :: c_size_t, c_ptr
+      integer(c_size_t), value :: bytes
+      type(c_ptr) :: fortran_cuda_malloc
+    end function fortran_cuda_malloc
+
+    subroutine fortran_cuda_free(ptr) bind(C, name="fortran_cuda_free")
+      import :: c_ptr
+      type(c_ptr), value :: ptr
+    end subroutine fortran_cuda_free
+
+    subroutine fortran_cuda_memcpy_h2d(dst, src, bytes) bind(C, name="fortran_cuda_memcpy_h2d")
+      import :: c_size_t, c_ptr
+      type(c_ptr), value :: dst
+      type(c_ptr), value :: src
+      integer(c_size_t), value :: bytes
+    end subroutine fortran_cuda_memcpy_h2d
+
+    subroutine fortran_cuda_memcpy_d2h(dst, src, bytes) bind(C, name="fortran_cuda_memcpy_d2h")
+      import :: c_size_t, c_ptr
+      type(c_ptr), value :: dst
+      type(c_ptr), value :: src
+      integer(c_size_t), value :: bytes
+    end subroutine fortran_cuda_memcpy_d2h
+  end interface
+
   character(20), parameter :: char_BCs(0:4) = ["Periodic            ", &
                                              "Dirichlet regular   ", &
                                              "Neumann regular     ", &
@@ -742,25 +769,58 @@ contains
       end subroutine
     end interface
     
-    call RunSpectral1D(BCs)
+    call RunSpectral1D(BCs, .false.)
     
     call test_proc(Phi1D, R)
     
     if (R < nx * 100 * epsilon(1._rp)) then
-      write(*,*) "Spectral OK"
+      write(*,*) "Spectral CPU API OK"
     else
-      write(*,*) "Spectral FAIL"
-      write(*,*) "Spectral residuum:",R
+      write(*,*) "Spectral CPU API FAIL"
+      write(*,*) "Spectral CPU API residuum:",R
+    end if
+    call RunSpectral1D(BCs, .true.)
+
+    call test_proc(Phi1D, R)
+
+    if (R < nx * 100 * epsilon(1._rp)) then
+      write(*,*) "Spectral GPU API OK"
+    else
+      write(*,*) "Spectral GPU API FAIL"
+      write(*,*) "Spectral GPU API residuum:",R
     end if
   end subroutine
   
-  subroutine RunSpectral1D(BCs)
+  subroutine RunSpectral1D(BCs, use_gpu)
     type(PoissonSolver) :: Solver
     integer, intent(in) :: BCs(2)
+    logical, intent(in), optional :: use_gpu
+    logical :: gpu
+    type(c_ptr) :: d_phi_ptr, d_rhs_ptr
+    real(rp), pointer :: d_phi(:), d_rhs(:)
+    integer(c_size_t) :: bytes_phi, bytes_rhs
     
     call poisson_solver_new(Solver, 1, [nx], [Lx], BCs, approx=PoisSolver_Spectral)
 
-    call poisson_solver_execute(Solver, Phi1D, RHS1D)
+    gpu = .false.
+    if (present(use_gpu)) gpu = use_gpu
+    if (gpu) then
+        bytes_phi = size(Phi1D, kind=c_size_t) * c_sizeof(Phi1D(0))
+        bytes_rhs = size(RHS1D, kind=c_size_t) * c_sizeof(RHS1D(1))
+        d_phi_ptr = fortran_cuda_malloc(bytes_phi)
+        d_rhs_ptr = fortran_cuda_malloc(bytes_rhs)
+        call fortran_cuda_memcpy_h2d(d_rhs_ptr, c_loc(RHS1D(1)), bytes_rhs)
+        call c_f_pointer(d_phi_ptr, d_phi, shape(Phi1D))
+        call c_f_pointer(d_rhs_ptr, d_rhs, shape(RHS1D))
+
+        call poisson_solver_execute_gpu(Solver, d_phi, d_rhs)
+
+        call fortran_cuda_memcpy_d2h(c_loc(Phi1D(0)), d_phi_ptr, bytes_phi)
+        call fortran_cuda_free(d_phi_ptr)
+        call fortran_cuda_free(d_rhs_ptr)
+    else
+        call poisson_solver_execute(Solver, Phi1D, RHS1D)
+    end if
 
     call poisson_solver_finalize(Solver)
   end subroutine
@@ -770,27 +830,62 @@ contains
     integer, intent(in) :: BCs(2)
     real(rp) :: R
     
-    call RunFD2_1D(BCs)
+    call RunFD2_1D(BCs, .false.)
     
     call Res1D(Phi1D, RHS1D, &
                dx**(-2), dx**(-2), &
                BCs, R)
     
     if (R < nx * 100 * epsilon(1._rp)) then
-      write(*,*) "FD2 OK", R
+      write(*,*) "FD2 CPU API OK", R
     else
-      write(*,*) "FD2 FAIL"
-      write(*,*) "FD2 residuum:",R
+      write(*,*) "FD2 CPU API FAIL"
+      write(*,*) "FD2 CPU API residuum:",R
+    end if
+    call RunFD2_1D(BCs, .true.)
+
+    call Res1D(Phi1D, RHS1D, &
+               dx**(-2), dx**(-2), &
+               BCs, R)
+
+    if (R < nx * 100 * epsilon(1._rp)) then
+      write(*,*) "FD2 GPU API OK", R
+    else
+      write(*,*) "FD2 GPU API FAIL"
+      write(*,*) "FD2 GPU API residuum:",R
     end if
   end subroutine
   
-  subroutine RunFD2_1D(BCs)
+  subroutine RunFD2_1D(BCs, use_gpu)
     type(PoissonSolver) :: Solver
     integer, intent(in) :: BCs(2)
+    logical, intent(in), optional :: use_gpu
+    logical :: gpu
+    type(c_ptr) :: d_phi_ptr, d_rhs_ptr
+    real(rp), pointer :: d_phi(:), d_rhs(:)
+    integer(c_size_t) :: bytes_phi, bytes_rhs
     
     call poisson_solver_new(Solver, 1, [nx], [Lx], BCs, approx=PoisSolver_FiniteDifference2)
 
-    call poisson_solver_execute(Solver, Phi1D, RHS1D)
+    gpu = .false.
+    if (present(use_gpu)) gpu = use_gpu
+    if (gpu) then
+        bytes_phi = size(Phi1D, kind=c_size_t) * c_sizeof(Phi1D(0))
+        bytes_rhs = size(RHS1D, kind=c_size_t) * c_sizeof(RHS1D(1))
+        d_phi_ptr = fortran_cuda_malloc(bytes_phi)
+        d_rhs_ptr = fortran_cuda_malloc(bytes_rhs)
+        call fortran_cuda_memcpy_h2d(d_rhs_ptr, c_loc(RHS1D(1)), bytes_rhs)
+        call c_f_pointer(d_phi_ptr, d_phi, shape(Phi1D))
+        call c_f_pointer(d_rhs_ptr, d_rhs, shape(RHS1D))
+
+        call poisson_solver_execute_gpu(Solver, d_phi, d_rhs)
+
+        call fortran_cuda_memcpy_d2h(c_loc(Phi1D(0)), d_phi_ptr, bytes_phi)
+        call fortran_cuda_free(d_phi_ptr)
+        call fortran_cuda_free(d_rhs_ptr)
+    else
+        call poisson_solver_execute(Solver, Phi1D, RHS1D)
+    end if
 
     call poisson_solver_finalize(Solver)
   end subroutine
@@ -834,25 +929,58 @@ contains
       end subroutine
     end interface
     
-    call RunSpectral2D(BCs)
+    call RunSpectral2D(BCs, .false.)
     
     call test_proc(Phi2D, R)
     
     if (R < int(nx, int64) * int(ny, int64) * 100 * epsilon(1._rp)) then
-      write(*,*) "Spectral OK"
+      write(*,*) "Spectral CPU API OK"
     else
-      write(*,*) "Spectral FAIL"
-      write(*,*) "Spectral residuum:",R
+      write(*,*) "Spectral CPU API FAIL"
+      write(*,*) "Spectral CPU API residuum:",R
+    end if
+    call RunSpectral2D(BCs, .true.)
+
+    call test_proc(Phi2D, R)
+
+    if (R < int(nx, int64) * int(ny, int64) * 100 * epsilon(1._rp)) then
+      write(*,*) "Spectral GPU API OK"
+    else
+      write(*,*) "Spectral GPU API FAIL"
+      write(*,*) "Spectral GPU API residuum:",R
     end if
   end subroutine
   
-  subroutine RunSpectral2D(BCs)
+  subroutine RunSpectral2D(BCs, use_gpu)
     type(PoissonSolver) :: Solver
     integer, intent(in) :: BCs(4)
+    logical, intent(in), optional :: use_gpu
+    logical :: gpu
+    type(c_ptr) :: d_phi_ptr, d_rhs_ptr
+    real(rp), pointer :: d_phi(:,:), d_rhs(:,:)
+    integer(c_size_t) :: bytes_phi, bytes_rhs
     
     call poisson_solver_new(Solver, 2, [nx,ny], [Lx,Ly], BCs, approx=PoisSolver_Spectral)
 
-    call poisson_solver_execute(Solver, Phi2D, RHS2D)
+    gpu = .false.
+    if (present(use_gpu)) gpu = use_gpu
+    if (gpu) then
+        bytes_phi = size(Phi2D, kind=c_size_t) * c_sizeof(Phi2D(0,0))
+        bytes_rhs = size(RHS2D, kind=c_size_t) * c_sizeof(RHS2D(1,1))
+        d_phi_ptr = fortran_cuda_malloc(bytes_phi)
+        d_rhs_ptr = fortran_cuda_malloc(bytes_rhs)
+        call fortran_cuda_memcpy_h2d(d_rhs_ptr, c_loc(RHS2D(1,1)), bytes_rhs)
+        call c_f_pointer(d_phi_ptr, d_phi, shape(Phi2D))
+        call c_f_pointer(d_rhs_ptr, d_rhs, shape(RHS2D))
+
+        call poisson_solver_execute_gpu(Solver, d_phi, d_rhs)
+
+        call fortran_cuda_memcpy_d2h(c_loc(Phi2D(0,0)), d_phi_ptr, bytes_phi)
+        call fortran_cuda_free(d_phi_ptr)
+        call fortran_cuda_free(d_rhs_ptr)
+    else
+        call poisson_solver_execute(Solver, Phi2D, RHS2D)
+    end if
 
     call poisson_solver_finalize(Solver)
   end subroutine
@@ -862,26 +990,61 @@ contains
     integer, intent(in) :: BCs(4)
     real(rp) :: R
     
-    call RunFD2_2D(BCs)
+    call RunFD2_2D(BCs, .false.)
     
     call Res2D(Phi2D, RHS2D, &
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), &
                BCs, R)
     if (R < int(nx, int64) * int(ny, int64) * 100 * epsilon(1._rp)) then
-      write(*,*) "FD2 OK", R
+      write(*,*) "FD2 CPU API OK", R
     else
-      write(*,*) "FD2 FAIL"
-      write(*,*) "FD2 residuum:",R
+      write(*,*) "FD2 CPU API FAIL"
+      write(*,*) "FD2 CPU API residuum:",R
+    end if
+    call RunFD2_2D(BCs, .true.)
+
+    call Res2D(Phi2D, RHS2D, &
+               dx**(-2), dx**(-2), dy**(-2), dy**(-2), &
+               BCs, R)
+
+    if (R < int(nx, int64) * int(ny, int64) * 100 * epsilon(1._rp)) then
+      write(*,*) "FD2 GPU API OK", R
+    else
+      write(*,*) "FD2 GPU API FAIL"
+      write(*,*) "FD2 GPU API residuum:",R
     end if
   end subroutine
   
-  subroutine RunFD2_2D(BCs)
+  subroutine RunFD2_2D(BCs, use_gpu)
     type(PoissonSolver) :: Solver
     integer, intent(in) :: BCs(4)
+    logical, intent(in), optional :: use_gpu
+    logical :: gpu
+    type(c_ptr) :: d_phi_ptr, d_rhs_ptr
+    real(rp), pointer :: d_phi(:,:), d_rhs(:,:)
+    integer(c_size_t) :: bytes_phi, bytes_rhs
     
     call poisson_solver_new(Solver, 2, [nx,ny], [Lx,Ly], BCs, approx=PoisSolver_FiniteDifference2)
 
-    call poisson_solver_execute(Solver, Phi2D, RHS2D)
+    gpu = .false.
+    if (present(use_gpu)) gpu = use_gpu
+    if (gpu) then
+        bytes_phi = size(Phi2D, kind=c_size_t) * c_sizeof(Phi2D(0,0))
+        bytes_rhs = size(RHS2D, kind=c_size_t) * c_sizeof(RHS2D(1,1))
+        d_phi_ptr = fortran_cuda_malloc(bytes_phi)
+        d_rhs_ptr = fortran_cuda_malloc(bytes_rhs)
+        call fortran_cuda_memcpy_h2d(d_rhs_ptr, c_loc(RHS2D(1,1)), bytes_rhs)
+        call c_f_pointer(d_phi_ptr, d_phi, shape(Phi2D))
+        call c_f_pointer(d_rhs_ptr, d_rhs, shape(RHS2D))
+
+        call poisson_solver_execute_gpu(Solver, d_phi, d_rhs)
+
+        call fortran_cuda_memcpy_d2h(c_loc(Phi2D(0,0)), d_phi_ptr, bytes_phi)
+        call fortran_cuda_free(d_phi_ptr)
+        call fortran_cuda_free(d_rhs_ptr)
+    else
+        call poisson_solver_execute(Solver, Phi2D, RHS2D)
+    end if
 
     call poisson_solver_finalize(Solver)
   end subroutine
@@ -922,25 +1085,58 @@ contains
       end subroutine
     end interface
     
-    call RunSpectral3D(BCs)
+    call RunSpectral3D(BCs, .false.)
     
     call test_proc(Phi3D, R)
     
     if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 100 * epsilon(1._rp)) then
-      write(*,*) "Spectral OK"
+      write(*,*) "Spectral CPU API OK"
     else
-      write(*,*) "Spectral FAIL"
-      write(*,*) "Spectral residuum:",R
+      write(*,*) "Spectral CPU API FAIL"
+      write(*,*) "Spectral CPU API residuum:",R
+    end if
+    call RunSpectral3D(BCs, .true.)
+
+    call test_proc(Phi3D, R)
+
+    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 100 * epsilon(1._rp)) then
+      write(*,*) "Spectral GPU API OK"
+    else
+      write(*,*) "Spectral GPU API FAIL"
+      write(*,*) "Spectral GPU API residuum:",R
     end if
   end subroutine
   
-  subroutine RunSpectral3D(BCs)
+  subroutine RunSpectral3D(BCs, use_gpu)
     type(PoissonSolver) :: Solver
     integer, intent(in) :: BCs(6)
+    logical, intent(in), optional :: use_gpu
+    logical :: gpu
+    type(c_ptr) :: d_phi_ptr, d_rhs_ptr
+    real(rp), pointer :: d_phi(:,:,:), d_rhs(:,:,:)
+    integer(c_size_t) :: bytes_phi, bytes_rhs
     
     call poisson_solver_new(Solver, 3, [nx,ny,nz], [Lx,Ly,Lz], BCs, approx=PoisSolver_Spectral)
 
-    call poisson_solver_execute(Solver, Phi3D, RHS3D)
+    gpu = .false.
+    if (present(use_gpu)) gpu = use_gpu
+    if (gpu) then
+        bytes_phi = size(Phi3D, kind=c_size_t) * c_sizeof(Phi3D(0,0,0))
+        bytes_rhs = size(RHS3D, kind=c_size_t) * c_sizeof(RHS3D(1,1,1))
+        d_phi_ptr = fortran_cuda_malloc(bytes_phi)
+        d_rhs_ptr = fortran_cuda_malloc(bytes_rhs)
+        call fortran_cuda_memcpy_h2d(d_rhs_ptr, c_loc(RHS3D(1,1,1)), bytes_rhs)
+        call c_f_pointer(d_phi_ptr, d_phi, shape(Phi3D))
+        call c_f_pointer(d_rhs_ptr, d_rhs, shape(RHS3D))
+
+        call poisson_solver_execute_gpu(Solver, d_phi, d_rhs)
+
+        call fortran_cuda_memcpy_d2h(c_loc(Phi3D(0,0,0)), d_phi_ptr, bytes_phi)
+        call fortran_cuda_free(d_phi_ptr)
+        call fortran_cuda_free(d_rhs_ptr)
+    else
+        call poisson_solver_execute(Solver, Phi3D, RHS3D)
+    end if
 
     call poisson_solver_finalize(Solver)
   end subroutine
@@ -950,27 +1146,62 @@ contains
     integer, intent(in) :: BCs(6)
     real(rp) :: R
 
-    call RunFD2_3D(BCs)
+    call RunFD2_3D(BCs, .false.)
    
     call Res3D(Phi3D, RHS3D, &
                dx**(-2), dx**(-2), dy**(-2), dy**(-2), dz**(-2), dz**(-2), &
                BCs, R)
     if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 100 * epsilon(1._rp)) then
-      write(*,*) "FD2 OK", R
+      write(*,*) "FD2 CPU API OK", R
     else
-      write(*,*) "FD2 FAIL"
-      write(*,*) "FD2 residuum:",R
+      write(*,*) "FD2 CPU API FAIL"
+      write(*,*) "FD2 CPU API residuum:",R
+    end if
+    call RunFD2_3D(BCs, .true.)
+
+    call Res3D(Phi3D, RHS3D, &
+               dx**(-2), dx**(-2), dy**(-2), dy**(-2), dz**(-2), dz**(-2), &
+               BCs, R)
+
+    if (R < int(nx, int64) * int(ny, int64) * int(nz, int64) * 100 * epsilon(1._rp)) then
+      write(*,*) "FD2 GPU API OK", R
+    else
+      write(*,*) "FD2 GPU API FAIL"
+      write(*,*) "FD2 GPU API residuum:",R
     end if
   end subroutine
   
-  subroutine RunFD2_3D(BCs)
+  subroutine RunFD2_3D(BCs, use_gpu)
     type(PoissonSolver) :: Solver
     integer, intent(in) :: BCs(6)
+    logical, intent(in), optional :: use_gpu
+    logical :: gpu
+    type(c_ptr) :: d_phi_ptr, d_rhs_ptr
+    real(rp), pointer :: d_phi(:,:,:), d_rhs(:,:,:)
+    integer(c_size_t) :: bytes_phi, bytes_rhs
     
     call poisson_solver_new(Solver, 3, [nx,ny,nz], [Lx,Ly,Lz], BCs, &
                               approx=PoisSolver_FiniteDifference2)
 
-    call poisson_solver_execute(Solver, Phi3D, RHS3D)
+    gpu = .false.
+    if (present(use_gpu)) gpu = use_gpu
+    if (gpu) then
+        bytes_phi = size(Phi3D, kind=c_size_t) * c_sizeof(Phi3D(0,0,0))
+        bytes_rhs = size(RHS3D, kind=c_size_t) * c_sizeof(RHS3D(1,1,1))
+        d_phi_ptr = fortran_cuda_malloc(bytes_phi)
+        d_rhs_ptr = fortran_cuda_malloc(bytes_rhs)
+        call fortran_cuda_memcpy_h2d(d_rhs_ptr, c_loc(RHS3D(1,1,1)), bytes_rhs)
+        call c_f_pointer(d_phi_ptr, d_phi, shape(Phi3D))
+        call c_f_pointer(d_rhs_ptr, d_rhs, shape(RHS3D))
+
+        call poisson_solver_execute_gpu(Solver, d_phi, d_rhs)
+
+        call fortran_cuda_memcpy_d2h(c_loc(Phi3D(0,0,0)), d_phi_ptr, bytes_phi)
+        call fortran_cuda_free(d_phi_ptr)
+        call fortran_cuda_free(d_rhs_ptr)
+    else
+        call poisson_solver_execute(Solver, Phi3D, RHS3D)
+    end if
 
     call poisson_solver_finalize(Solver)
   end subroutine
