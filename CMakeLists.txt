@@ -112,3 +112,39 @@ string(APPEND CLANGD_CONFIG "
 ")
 
 file(WRITE "${CMAKE_SOURCE_DIR}/.clangd" "${CLANGD_CONFIG}")
+
+# === Doxygen Documentation ===
+find_package(Doxygen)
+if (DOXYGEN_FOUND)
+    set(DOXYGEN_PROJECT_NAME "poisson-solver")
+    set(DOXYGEN_EXTRACT_ALL YES)
+    set(DOXYGEN_EXTRACT_PRIVATE YES)
+    set(DOXYGEN_EXTRACT_STATIC YES)
+    set(DOXYGEN_RECURSIVE YES)
+    set(DOXYGEN_GENERATE_LATEX NO)
+    set(DOXYGEN_USE_MATHJAX YES)
+    set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/docs)
+
+    if (USE_MPI)
+        set(DOXYGEN_PREDEFINED "USE_MPI")
+    endif()
+
+    # Make docs prettier
+    FetchContent_Declare(
+        doxygen_awesome_css
+        GIT_REPOSITORY https://github.com/jothepro/doxygen-awesome-css.git
+        GIT_TAG v2.3.4
+    )
+    FetchContent_MakeAvailable(doxygen_awesome_css)
+
+    set(DOXYGEN_GENERATE_TREEVIEW YES)
+    set(DOXYGEN_HTML_EXTRA_STYLESHEET
+        "${doxygen_awesome_css_SOURCE_DIR}/doxygen-awesome.css"
+        "${doxygen_awesome_css_SOURCE_DIR}/doxygen-awesome-sidebar-only.css"
+    )
+
+    doxygen_add_docs(doc
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+endif()
