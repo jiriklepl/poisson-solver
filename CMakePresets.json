@@ -9,8 +9,8 @@
     {
       "name": "base-shared",
       "hidden": true,
+      "$comment": "PoisFFT builds shared libs by default, so do we",
       "cacheVariables": {
-        "$comment": "PoisFFT builds shared libs by default, so do we",
         "BUILD_SHARED_LIBS": "ON",
         "BUILD_FORTRAN": "ON"
       }
