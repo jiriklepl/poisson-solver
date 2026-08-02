@@ -10,7 +10,6 @@
 #include <cstddef>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <iostream>
 #include <memory>
 #include <sstream>
 #include <stdexcept>

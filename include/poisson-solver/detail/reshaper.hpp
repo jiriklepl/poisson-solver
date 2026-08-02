@@ -255,8 +255,8 @@ public:
     }
 
     auto ToPencils(std::size_t dimension) -> ReshapePipeline & override {
-        // TODO - Currently pretty much unused because we preserve
-        // the original order. This probably runs slower in case
+        // TODO - Currently unused because we preserve
+        // the original order. This maybe runs slower in case
         // the FFT is in non-contiguous dimension but idk.
         // Later get rid of this or make it work with reversing the order.
         // auto pencil_order = GetOrder(sl.isolated_dim_idx);
@@ -352,9 +352,9 @@ public:
         : rp_{std::move(rp)} {
         AssignReshapes(rp_.decompositions_);
 
-        // TODO - Max possible sizeof is used here
-        // But in the future it would be cool to allocate
-        // only the amount we need
+        // TODO - std::complex<double> is the largest possible type
+        // we can receive, so this is definitely enough but in some
+        // cases this much is not needed (std::complex<float>, double, float).
         workspace_ = MakeCudaUnique<std::byte>(MaxWorkspaceSize(reshapes_) *
                                                sizeof(std::complex<double>));
     };
