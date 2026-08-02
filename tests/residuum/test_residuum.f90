@@ -1,3 +1,8 @@
+! Originally from PoisFFT by Vladimir Fuka.
+! Modified by Matous Zatloukal.
+! Changes: Swapped PoisFFT API calls with poisson-solver API calls
+! for testing purposes and added poisson-solver GPU API tests.
+
 module Kinds
   use iso_c_binding
   use iso_fortran_env
