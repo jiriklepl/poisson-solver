@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 10,
   "cmakeMinimumRequired": {
     "major": 4,
     "minor": 0,
@@ -10,7 +10,9 @@
       "name": "base-shared",
       "hidden": true,
       "cacheVariables": {
-        "BUILD_SHARED_LIBS": "ON"
+        "$comment": "PoisFFT builds shared libs by default, so do we",
+        "BUILD_SHARED_LIBS": "ON",
+        "BUILD_FORTRAN": "ON"
       }
     },
     {

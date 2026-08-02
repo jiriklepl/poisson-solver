@@ -1,13 +1,16 @@
-set(LIB_SRC
+set(LIB_SRC_CXX
     c_binding.cpp
     detail/c_binding_for_fortran.cpp
-    fortran_binding.f90
     detail/runners/common.cu
     detail/runners/common_real.cu
     detail/runners/common_cmplx.cu
     detail/runners/nonuniform_z.cu
     mpi_utils.cpp
 )
+set(FORTRAN_BINDING
+    fortran_binding.f90
+)
+
 
 # Debug files shall have a `_debug` suffix
 set(CMAKE_DEBUG_POSTFIX "_debug")
@@ -18,10 +21,11 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
 # Output SHARED libraries here
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
 
-# Note that `<SHARED|STATIC>` can be specified
-# by using `-DBUILD_SHARED_LIBS=<Yes|No>`.
-# The original PoisFFT outputted a shared lib.
-add_library(poisson-solver ${LIB_SRC})
+add_library(poisson-solver ${LIB_SRC_CXX})
+
+if (BUILD_FORTRAN)
+    target_sources(poisson-solver PRIVATE ${FORTRAN_BINDING})
+endif()
 
 # The `BUILD_INTERFACE` evals to true when target 
 # linking againts this lib is part of the same CMake build tree
@@ -36,9 +40,13 @@ if (USE_MPI)
     target_link_libraries(poisson-solver PUBLIC
         Heffte
         MPI::MPI_CXX
-        MPI::MPI_Fortran
     )
+    if (BUILD_FORTRAN)
+        target_link_libraries(poisson-solver PUBLIC
+            MPI::MPI_Fortran
+        )
+    endif()
 
     # Defines `USE_MPI`, therefore code can do `#ifdef USE_MPI`
-    target_compile_definitions(poisson-solver PUBLIC USE_MPI)
+    target_compile_definitions(poisson-solver PRIVATE USE_MPI)
 endif()

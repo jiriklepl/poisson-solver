@@ -18,15 +18,23 @@ else()
     set(CMAKE_CUDA_ARCHITECTURES 70 80 90 100)
 endif()
 
-# All Fortran `.mod` files shall be placed into into a separate dir.
-set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
+
+option(BUILD_FORTRAN "Build Fortran binding" ON)
+
+if (BUILD_FORTRAN)
+    # All Fortran `.mod` files shall be placed into into a separate dir.
+    set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
+endif()
 
 find_package(CUDAToolkit REQUIRED)
 
 option(USE_MPI "Build distributed version" OFF)
 if (USE_MPI)
-    # `COMPONENTS` finds only the CXX and Fortran APIs
-    find_package(MPI REQUIRED COMPONENTS CXX Fortran)
+    # `COMPONENTS` finds only the CXX and (maybe) Fortran APIs
+    find_package(MPI REQUIRED COMPONENTS CXX)
+    if (BUILD_FORTRAN)
+        find_package(MPI REQUIRED COMPONENTS Fortran)
+    endif()
 
     FetchContent_Declare(
         heffte
