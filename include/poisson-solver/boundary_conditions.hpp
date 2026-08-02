@@ -14,7 +14,7 @@
 
 namespace poisson_solver {
 // === Enums ===
-enum class BoundaryCondition : std::uint8_t {
+enum class BoundaryCondition {
     Periodic,
     Dirichlet,
     Neumann,

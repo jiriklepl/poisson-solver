@@ -117,7 +117,6 @@ auto MakeCudaShared(std::size_t size) -> CudaSharedPtr<T> {
     return CudaSharedPtr<T>(ptr, CudaFreeDeleter{});
 }
 
-// 
 /**
  * @brief Transfers the centered active grid between a padded buffer and an active buffer.
  */

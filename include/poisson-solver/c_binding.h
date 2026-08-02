@@ -21,7 +21,7 @@ typedef struct PoissonSolver {
     size_t nx, ny, nz;
 } PoissonSolver;
 
-typedef enum : uint8_t {
+typedef enum {
     Periodic,
     Dirichlet,
     Neumann,
@@ -29,7 +29,7 @@ typedef enum : uint8_t {
     NeumannStag
 } BoundaryCondition;
 
-typedef enum : uint8_t { Spectral = 0, FD2 = 2, FD4 = 4 } Approximation;
+typedef enum { Spectral = 0, FD2 = 2, FD4 = 4 } Approximation;
 
 // === Uniform Solvers ===
 /**
