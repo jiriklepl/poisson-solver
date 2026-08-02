@@ -27,9 +27,10 @@ This creates a library inside the `build/lib/` directory (the debug library has 
 If Fortran binding is built, the `.mod` files are in `build/modules/`.
 
 ## Other Targets
+### Tests
 Apart from the default `poisson-solver` library target, there is also `tests` target for development and (maybe) illustratory purposes.
 
-### Acknowledgments
+#### Acknowledgments
 The Fortran tests are adapted from the [PoisFFT](https://github.com/LadaF/PoisFFT) library.
 They have been modified to use the `poisson-solver` API and perform additional tests.
 When using this library for your research please cite the `PoisFFT` article.
@@ -40,10 +41,16 @@ available online: http://dx.doi.org/10.1016/j.amc.2015.03.011
 
 preprint: http://arxiv.org/abs/1409.8116
 
-### How to Run Tests
+#### How to Run Tests
 Navigate to the `build/` directory and run `ctest -V`.
 The type of tests performed depend on the chosen build type (local or distributed).
 Beware that the tests can take several minutes to finish and in case of local tests won't output anything for roughly half of their runtime (`doctest` doesn't output unless a test fails).
+
+### Docs
+Next target is `doc` which can be used to generate the documentation for the current configuration.
+There are differences in documentation for configurations with `USE_MPI ON` vs those with `USE_MPI OFF`.
+
+The documentation will be in `build/docs/html/`.
 
 ## How to Use
 TODO - How to use the built library.
