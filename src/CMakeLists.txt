@@ -41,11 +41,6 @@ if (USE_MPI)
         Heffte
         MPI::MPI_CXX
     )
-    if (BUILD_FORTRAN)
-        target_link_libraries(poisson-solver PUBLIC
-            MPI::MPI_Fortran
-        )
-    endif()
 
     # Defines `USE_MPI`, therefore code can do `#ifdef USE_MPI`
     target_compile_definitions(poisson-solver PRIVATE USE_MPI)

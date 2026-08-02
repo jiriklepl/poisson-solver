@@ -125,6 +125,11 @@ foreach(f_test_src IN LISTS FORTRAN_TEST_SRCS)
         common_flags
         poisson-solver
     )
+    if (BUILD_FORTRAN AND USE_MPI)
+        target_link_libraries(poisson-solver PUBLIC
+            MPI::MPI_Fortran
+        )
+    endif()
 
     # Register test with ctest
     if (USE_MPI)
