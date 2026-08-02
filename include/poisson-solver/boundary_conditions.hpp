@@ -4,8 +4,8 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <string>
 #include <cstdint>
+#include <string>
 
 /**
  * @file
@@ -35,7 +35,9 @@ using BC = BoundaryCondition;
 
 template <std::size_t Dim>
 using BCs = std::array<BCPair, Dim>;
+}  // namespace poisson_solver
 
+namespace poisson_solver::detail {
 // === Functions ===
 constexpr auto IsPeriodic(BCPair bcp) -> bool {
     return bcp.first == BC::Periodic && bcp.second == BC::Periodic;
@@ -120,6 +122,6 @@ constexpr auto ToString(BC bc) -> std::string {
     }
     return "WE SHOULD NEVER GET HERE!";
 }
-}  // namespace poisson_solver
+}  // namespace poisson_solver::detail
 
 #endif  // BOUNDARY_CONDITIONS_HPP
