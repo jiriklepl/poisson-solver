@@ -54,7 +54,7 @@ set(DISTRIBUTED_TEST_LAUNCH
 
 # == C/C++ Residuum Tests ==
 if (USE_MPI)
-    #TODO - Add sources for CXX MPI tests
+    # TODO - Add sources for CXX MPI tests
     set(CXX_TEST_SRC "")
 else()
     set(CXX_TEST_SRC
@@ -65,7 +65,7 @@ else()
 endif()
 
 # TODO - Remove "if" statement when the CXX_TEST_SRC is
-# guaranteed to be always populated (i.e., when MPI tests are rdy)
+# guaranteed to be always populated (i.e., when CXX MPI tests are rdy)
 if (CXX_TEST_SRC)
     # By default, only the lib is built
     add_executable(residuum-tests EXCLUDE_FROM_ALL ${CXX_TEST_SRC})
@@ -90,6 +90,7 @@ if (CXX_TEST_SRC)
     )
 
     # TODO - MPI test launching via srun is unhandled here
+    # Add when CXX MPI tests are present
 endif()
 
 # == Fortran Residuum Tests ==

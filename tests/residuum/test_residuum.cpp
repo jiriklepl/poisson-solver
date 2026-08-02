@@ -231,7 +231,7 @@ void RunTestConfigs(std::span<const TestConfig<T, Dim>> configs,
             std::vector<T> local_rhs(rhs.begin(), rhs.end());
             tc.rhs_adjust(local_rhs);
 
-            // TODO: Test for Spectral approx
+            // Spectral approx tested only in Fortran tests
 
             SUBCASE("Approximation: FD2") {
                 using ps::FiniteDifference2Approximation;
@@ -259,8 +259,6 @@ void RunTestConfigs(std::span<const TestConfig<T, Dim>> configs,
                                 FD2,
                                 calc_max_residuum);
             }
-
-            // TODO: Test for FD4
         }
     }
 }
