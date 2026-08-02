@@ -348,47 +348,11 @@ private:
     }
 
     void SolveNsPP() {
-        // TODO: Same body as PPNs.
-        // Only is change in `fft_plan_` construction
+        // Same body as PPNs.
+        // Only is change is in `fft_plan` construction
         // and `reshaper` configuration
         // but this doesn't concern this function.
-        using detail::runners::DivideByDenoms;
-        using detail::runners::common_cmplx::Init;
-        using detail::runners::common_cmplx::Normalize;
-
-        auto new_layout = core_.reshaper->ReshapeReal(
-            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
-        FFTPolicy::Forward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
-        Init(core_.cu_cmplx_workspace1.get(),
-             core_.cu_real_workspace2.get(),
-             new_layout.ns,
-             core_.ComputeCUDAGridSize(new_layout.ns),
-             core_.cu_block_size);
-
-        new_layout = core_.reshaper->ReshapeCmplx(
-            core_.cu_cmplx_workspace2.get(), core_.cu_cmplx_workspace1.get());
-        FFTPolicy::Forward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
-        DivideByDenoms(core_.cu_cmplx_workspace2.get(),
-                       new_layout.ns,
-                       new_layout.offs,
-                       core_.cu_denom_observers,
-                       core_.ComputeCUDAGridSize(new_layout.ns),
-                       core_.cu_block_size,
-                       true);
-        FFTPolicy::Backward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
-
-        new_layout = core_.reshaper->ReshapeCmplx(
-            core_.cu_cmplx_workspace1.get(), core_.cu_cmplx_workspace2.get());
-        Normalize(core_.cu_real_workspace2.get(),
-                  core_.cu_cmplx_workspace1.get(),
-                  new_layout.ns,
-                  core_.norm_factor,
-                  core_.ComputeCUDAGridSize(new_layout.ns),
-                  core_.cu_block_size);
-        FFTPolicy::Backward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
-
-        core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                    core_.cu_real_workspace2.get());
+        SolvePPNs();
     }
 
     void SolvePNsNs() {
@@ -432,47 +396,11 @@ private:
     }
 
     void SolvePNsP() {
-        // TODO: Same body as PPNs.
-        // Only is change in `fft_plan_` construction
+        // Same body as PPNs.
+        // Only is change is in `fft_plan` construction
         // and `reshaper` configuration
         // but this doesn't concern this function.
-        using detail::runners::DivideByDenoms;
-        using detail::runners::common_cmplx::Init;
-        using detail::runners::common_cmplx::Normalize;
-
-        auto new_layout = core_.reshaper->ReshapeReal(
-            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
-        FFTPolicy::Forward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
-        Init(core_.cu_cmplx_workspace1.get(),
-             core_.cu_real_workspace2.get(),
-             new_layout.ns,
-             core_.ComputeCUDAGridSize(new_layout.ns),
-             core_.cu_block_size);
-
-        new_layout = core_.reshaper->ReshapeCmplx(
-            core_.cu_cmplx_workspace2.get(), core_.cu_cmplx_workspace1.get());
-        FFTPolicy::Forward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
-        DivideByDenoms(core_.cu_cmplx_workspace2.get(),
-                       new_layout.ns,
-                       new_layout.offs,
-                       core_.cu_denom_observers,
-                       core_.ComputeCUDAGridSize(new_layout.ns),
-                       core_.cu_block_size,
-                       true);
-        FFTPolicy::Backward2D(core_.cu_cmplx_workspace2.get(), core_.fft_plan);
-
-        new_layout = core_.reshaper->ReshapeCmplx(
-            core_.cu_cmplx_workspace1.get(), core_.cu_cmplx_workspace2.get());
-        Normalize(core_.cu_real_workspace2.get(),
-                  core_.cu_cmplx_workspace1.get(),
-                  new_layout.ns,
-                  core_.norm_factor,
-                  core_.ComputeCUDAGridSize(new_layout.ns),
-                  core_.cu_block_size);
-        FFTPolicy::Backward1D(core_.cu_real_workspace2.get(), core_.fft_plan);
-
-        core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                    core_.cu_real_workspace2.get());
+        SolvePPNs();
     }
 
     void SolveDDP() {
@@ -547,39 +475,11 @@ private:
     }
 
     void Solve1Real2Real() {
-        // TODO: Same body as 2Real1Real.
-        // Only is change in `fft_plan_` construction
+        // Same body as 2Real1Real.
+        // Only is change is in `fft_plan` construction
         // and `reshaper` configuration
         // but this doesn't concern this function.
-        using detail::runners::DivideByDenoms;
-        using detail::runners::common_real::Normalize;
-
-        auto new_layout = core_.reshaper->ReshapeReal(
-            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
-        FFTPolicy::Forward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
-
-        new_layout = core_.reshaper->ReshapeReal(
-            core_.cu_real_workspace1.get(), core_.cu_real_workspace2.get());
-        FFTPolicy::Forward1D(core_.cu_real_workspace1.get(), core_.fft_plan);
-        DivideByDenoms(core_.cu_real_workspace1.get(),
-                       new_layout.ns,
-                       new_layout.offs,
-                       core_.cu_denom_observers,
-                       core_.ComputeCUDAGridSize(new_layout.ns),
-                       core_.cu_block_size);
-        FFTPolicy::Backward1D(core_.cu_real_workspace1.get(), core_.fft_plan);
-
-        new_layout = core_.reshaper->ReshapeReal(
-            core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
-        Normalize(core_.cu_real_workspace2.get(),
-                  new_layout.ns,
-                  core_.norm_factor,
-                  core_.ComputeCUDAGridSize(new_layout.ns),
-                  core_.cu_block_size);
-        FFTPolicy::Backward2D(core_.cu_real_workspace2.get(), core_.fft_plan);
-
-        core_.reshaper->ReshapeReal(core_.cu_real_workspace1.get(),
-                                    core_.cu_real_workspace2.get());
+        Solve2Real1Real();
     }
 };
 
