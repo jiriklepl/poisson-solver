@@ -33,7 +33,7 @@ template <std::floating_point T, std::size_t FFTDim>
     requires(FFTDim <= 3 && FFTDim >= 1)
 /**
  * struct ISolverPlan - Holds the behavior and configuration of
- * the solver that is dependant on BCs.
+ * the solver that is dependent on BCs.
  *
  * Also performs verification of BC combinations during instantiation.
  * Doesn't manage any buffers.
@@ -315,7 +315,7 @@ public:
     SolveMethod solve_method{};
 
     /**
-     * @note All three BCs are required to verify their correctness for 
+     * @note All three BCs are required to verify their correctness for
      * nonuniform Z solver.
      */
     explicit NonuniformZSolverPlan(BCs<3> bcs)

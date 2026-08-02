@@ -164,7 +164,7 @@ private:
      * @brief Master constructor.
      * Initializes everything common for local and distributed solver.
      *
-     * @note: \p backend should be initialized by the
+     * @note \p backend should be initialized by the
      * calling ctor and passed here.
      */
     SolverCore(SolverBackend &&backend,
