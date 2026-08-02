@@ -29,8 +29,6 @@ namespace poisson_solver::detail {
 
 // === Structs ===
 
-template <std::floating_point T, std::size_t FFTDim>
-    requires(FFTDim <= 3 && FFTDim >= 1)
 /**
  * struct ISolverPlan - Holds the behavior and configuration of
  * the solver that is dependent on BCs.
@@ -41,6 +39,8 @@ template <std::floating_point T, std::size_t FFTDim>
  * @tparam T Float type
  * @tparam FFTDim Number of grid dimensions transformed via FFT.
  */
+template <std::floating_point T, std::size_t FFTDim>
+    requires(FFTDim <= 3 && FFTDim >= 1)
 struct ISolverPlan {
 public:
     using AxisStrategies =
