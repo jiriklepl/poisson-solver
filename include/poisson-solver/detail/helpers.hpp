@@ -30,7 +30,20 @@ struct CudaFreeDeleter {
     }
 };
 
-// This type helps to decide the complex type based on the real type
+/**
+ * struct LocalGridInfo - Stores information about local grid.
+ * This includes its size and its offset from the origin.
+ */
+template <std::size_t Dim>
+struct LocalGridInfo {
+    GridSizes<Dim> ns{};
+    GridOffsets<Dim> offs{};
+};
+
+/**
+ * struct CuComplexTraitImpl - Helper that maps the real type to
+ * CUDA complex type.
+ */
 template <std::floating_point T>
 struct CuComplexTraitImpl;
 
@@ -82,8 +95,10 @@ constexpr auto FlatIndex(MultidimIdx<Dim> midx,
     return idx;
 }
 
-// Creates a unique pointer to memory such that it can hold `size` elements of
-// type `T`
+/**
+ * @brief Creates a unique pointer to memory
+ * such that it can hold \p size elements of type \p T.
+ */
 template <typename T>
 auto MakeCudaUnique(std::size_t size) -> CudaUniquePtr<T> {
     T *ptr;
@@ -91,6 +106,10 @@ auto MakeCudaUnique(std::size_t size) -> CudaUniquePtr<T> {
     return CudaUniquePtr<T>(ptr);
 }
 
+/**
+ * @brief Creates a shared pointer to memory
+ * such that it can hold \p size elements of type \p T.
+ */
 template <typename T>
 auto MakeCudaShared(std::size_t size) -> CudaSharedPtr<T> {
     T *ptr;
@@ -98,7 +117,10 @@ auto MakeCudaShared(std::size_t size) -> CudaSharedPtr<T> {
     return CudaSharedPtr<T>(ptr, CudaFreeDeleter{});
 }
 
-// Transfers the centered active grid between a padded buffer and an active buffer.
+// 
+/**
+ * @brief Transfers the centered active grid between a padded buffer and an active buffer.
+ */
 template <typename T, std::size_t Dim>
 void MemcpyActiveGrid(T *padded_ptr,
                       T *active_ptr,
@@ -162,6 +184,9 @@ void MemcpyActiveGrid(T *padded_ptr,
 }
 
 #ifdef USE_MPI
+/**
+ * @brief Map from \p ns and \p offs to heffte::box3d<>.
+ */
 template <std::size_t Dim>
 auto GetGridBox(GridSizes<Dim> ns, GridOffsets<Dim> offs) {
     auto begin_x = offs[0];

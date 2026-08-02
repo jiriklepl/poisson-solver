@@ -29,12 +29,18 @@ namespace poisson_solver::detail {
 
 // === Structs ===
 
-// Holds the behaviour and configuration
-// of the solver that is _dependant_ on BCs.
-// Also performs verification of BC combination.
-// Doesn't manage any buffers.
 template <std::floating_point T, std::size_t FFTDim>
     requires(FFTDim <= 3 && FFTDim >= 1)
+/**
+ * struct ISolverPlan - Holds the behavior and configuration of
+ * the solver that is dependant on BCs.
+ *
+ * Also performs verification of BC combinations during instantiation.
+ * Doesn't manage any buffers.
+ *
+ * @tparam T Float type
+ * @tparam FFTDim Number of grid dimensions transformed via FFT.
+ */
 struct ISolverPlan {
 public:
     using AxisStrategies =
@@ -44,7 +50,7 @@ public:
     VariantLayout fft_layout{};
     bool requires_cmplx_wspace{true};
 
-    // The derived classes will append to this as a part of their ctors.
+    // The derived classes will append to this as part of their ctors.
     std::vector<ReshapeType> reshape_types{};
 
 protected:
@@ -137,9 +143,10 @@ public:
     }
 
 private:
-    // Tries to construct the object in the case
-    // all BCs are identical as this behavior is
-    // shared among all dimensions.
+    /**
+     * @brief Tries to construct the object in case all BCs are identical
+     * (this behavior is shared among all solver dimensionalities).
+     */
     auto TryConstructFromFullBCs(BCs<FFTDim> bcs) -> bool {
         using std::ranges::all_of;
         using enum FFTTransformType;
@@ -171,10 +178,6 @@ private:
         return true;
     }
 
-    /**
-     * @warning `TryConstructFromFullBCs` should be called first and only in
-     * case of its failure should we call this function.
-     */
     void ConstructFromNonFullBCs1D(BCs<1> bcs) {
         using enum FFTTransformType;
 
@@ -281,7 +284,12 @@ private:
         }
     }
 
-    // Fallback option if all BCs are not identical.
+    /**
+     * @brief Fallback option if all BCs are not identical.
+     *
+     * @warning `TryConstructFromFullBCs` should be called first and only in
+     * case of its failure should we call this function.
+     */
     void ConstructFromNonFullBCs(BCs<FFTDim> bcs) {
         if constexpr (FFTDim == 1) {
             ConstructFromNonFullBCs1D(bcs);
@@ -307,7 +315,7 @@ public:
     SolveMethod solve_method{};
 
     /**
-     * @note All three BCs are required to check their correctness for
+     * @note All three BCs are required to verify their correctness for 
      * nonuniform Z solver.
      */
     explicit NonuniformZSolverPlan(BCs<3> bcs)

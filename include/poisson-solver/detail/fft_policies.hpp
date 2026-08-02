@@ -28,6 +28,17 @@
 #include <utility>
 #endif  // USE_MPI
 
+/**
+ * @file
+ * @brief Classes providing API for forward and backward FFTs.
+ *
+ * Furthermore, there is API for forward and backward
+ * FFTs only in specific dimensions (this is required in some solvers).
+ *
+ * The FFTPolicy is an alias of the current FFT policy based on the
+ * use of USE_MPI.
+ */
+
 namespace poisson_solver::detail {
 // === Enums ===
 enum class FFTTransformType {
@@ -69,15 +80,26 @@ struct VkFFTApplicationDeleter {
     }
 };
 
+/**
+ * struct VkFFTHandle - Is configured to perform one type of transformation.
+ */
 struct VkFFTHandle {
     VkFFTConfiguration config{};
     std::unique_ptr<VkFFTApplication, VkFFTApplicationDeleter> app{};
 };
 
+/**
+ * struct VkFFTFullHandle - Full solvers require only one transform of the
+ * whole (at most 3D) domain.
+ */
 struct VkFFTFullHandle {
     VkFFTHandle handle{};
 };
 
+/**
+ * struct VkFFTSplitHandle - Split solvers perform two different
+ * transformations.
+ */
 struct VkFFTSplitHandle {
     VkFFTHandle handle_1d{};
     VkFFTHandle handle_2d{};
@@ -129,6 +151,12 @@ inline void VkFFTCheck(VkFFTResult res,
     ::poisson_solver::detail::VkFFTCheck(res, __LINE__, __FILE__, #res)
 
 // === Classes ===
+/**
+ * struct VkFFTPolicy - Local FFT policy (transformations on local grids only).
+ *
+ * @tparam T Float type.
+ * @tparam Dim Number of grid dimensions transformed via the FFT.
+ */
 template <std::floating_point T, std::size_t Dim>
 struct VkFFTPolicy {
 public:
@@ -356,8 +384,10 @@ private:
         return h;
     }
 
-    // Maps values of the `FFTTransformType` enum
-    // to the `int` values used by VkFFT.
+    /**
+     * @brief Maps values of the FFTTransformType enum
+     * to the int values used by VkFFT.
+     */
     static auto GetVkFFTTransformType(FFTTransformType t)
         -> VkFFTTypeToPerform {
         using enum FFTTransformType;
@@ -392,6 +422,7 @@ private:
 // === Structs ===
 // We have to use the type erasure idiom with heFFTe to
 // transform the compile-time tags into run-time virtual calls.
+
 template <std::floating_point T>
 class IMpiFftHandle {
 public:
@@ -447,6 +478,30 @@ protected:
         }
     }
 
+    /**
+     * @brief Transforms FFTTransformType into a different entity
+     * via the provided mapping in \p as_what
+     * and exposes an instance of that entity
+     * in the supplied \p callable.
+     *
+     * This allows us to call `decltype(instance)` and effectively
+     * map run-time enum values into types.
+     *
+     * @param as_what Mapping function taking one FFTTransformType param
+     * that produces the desired entity.
+     * @param fft_type The FFT type to transform into a different entity.
+     * @param callable Callable object taking one templated param.
+     *
+     * Usage example:
+     * @code{.cpp}
+     * WithFFTTypeAs(AsWorkspace, run_time_fft_type, [](auto instance){
+     *     using WorkspaceType = decltype(instance);
+     *     // Use the WorkspaceType... e.g., for casting a received void*
+     * });
+     * @endcode
+     *
+     * @see AsWorkspace()
+     */
     template <typename AsWhat, typename F>
     static constexpr auto WithFFTTypeAs(AsWhat &&as_what,
                                         FFTTransformType fft_type,
@@ -463,6 +518,13 @@ protected:
     }
 };
 
+/**
+ * @brief Special handle for 1D FFTs in distributed code.
+ * 
+ * This normally doesn't make sense as at least one dimension
+ * is always continuous in a distributed solver
+ * but PoisFFT implements it and so do we.
+ */
 template <std::floating_point T>
 class MpiFft1DHandle : public IMpiFftHandle<T> {
 public:
@@ -598,6 +660,13 @@ private:
     CudaUniquePtr<std::byte> workspace_{};
 };
 
+/**
+ * struct MpiFftFullHandle - Handle for full solvers.
+ *
+ * Uses HeFFTe to perform FFTs on the whole grid.
+ *
+ * @tparam TransformTag HeFFTe backend transform tag.
+ */
 template <std::floating_point T, typename TransformTag>
 struct MpiFftFullHandle : public IMpiFftHandle<T> {
 public:
@@ -632,6 +701,12 @@ private:
     CudaUniquePtr<Workspace> workspace_{};
 };
 
+/**
+ * struct MpiFftSplitHandle - Handle for split layouts.
+ *
+ * Uses VkFFT to perform local FFTs along the split dimensions.
+ * Requires a coordinated interleaving of reshapes in between the FFTs.
+ */
 template <std::floating_point T>
 struct MpiFftSplitHandle : public IMpiFftHandle<T> {
 public:
@@ -645,6 +720,11 @@ public:
                       MPI_Comm cart_comm)
         // Wspace size computed in the ctor body
         : sl_{sl} {
+
+        // After a reshape the size of the resulting pencil or slab can
+        // (and most likely will) differ from the local grid size
+        // of the original grid and we therefore need to initialize
+        // the plans with sizes of the reshaped grids.
         fft_plan_1d_ = LocalFFTPolicy::Init(pencil_sizes, sl);
         fft_plan_2d_ = LocalFFTPolicy::Init(slab_sizes, sl);
     }
@@ -702,15 +782,10 @@ public:
     }
 
 private:
-    // After a reshape the size of the resulting pencil or slab can
-    // (and most likely will) differ from the local grid size
-    // of the original pencil and we therefore need to initialize
-    // the plans with sizes of the reshaped grids.
-    //
     // Only 1D methods should be called on the 1D plan
-    // (same applies for 2D methods on 2D plan) because for the remaining
+    // (same applies for 2D methods on 2D plan) because in the remaining
     // two dimensions (for the 1D plan, it's one for the 2D plan)
-    // the grid will not be completely local in those dimensions.
+    // the grid will not be completely local.
     LocalFFTPlan fft_plan_1d_{};
     LocalFFTPlan fft_plan_2d_{};
 

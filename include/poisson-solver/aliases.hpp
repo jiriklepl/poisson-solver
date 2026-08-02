@@ -4,7 +4,10 @@
 #include <array>
 #include <cstddef>
 
-// Publicly exposed aliases.
+/**
+ * @file
+ * @brief Aliases utilized in the library C++ API.
+ */
 
 namespace poisson_solver {
 template <std::size_t Dim>

@@ -22,7 +22,6 @@ void DivideByDenoms(Workspace *workspace,
 }
 
 // === Explicit Instantiations ===
-
 #define INSTANTIATE_DIVISION_REAL(TYPE, DIM)                       \
     template void DivideByDenoms<TYPE, DIM, TYPE>(                 \
         TYPE * workspace, /* NOLINT(bugprone-macro-parentheses) */ \

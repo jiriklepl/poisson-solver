@@ -19,7 +19,11 @@
 #include <mpi.h>
 #include <vector>
 #endif  // USE_MPI
-
+/**
+ * @file
+ * @brief Reshapers provide a simple interface for exchanging parts of
+ * a distributed grid.
+ */
 // TODO - Docs (for the whole file as well as for individual classes/fctions)
 // Mention the guarantee that reshape to pencils and slabs will be there
 // exactly once.
@@ -28,26 +32,61 @@ namespace poisson_solver::detail {
 // === Enums ===
 enum class ReshapeType { ToPencils, ToSlabs };
 
-// === Structs ===
-template <std::size_t Dim>
-struct Layout {
-    GridSizes<Dim> ns{};
-    GridOffsets<Dim> offs{};
-};
-
 // === Interfaces ===
+/**
+ * @brief Performs reshapes from the reshape pipeline he was
+ * constructed from.
+ *
+ * Specifically, the reshape calls first follow the reshapes from the pipeline
+ * and then reshape back into the original grid.
+ * If our pipeline was OriginalGrid, ToPencils, ToSlabs, the reshape calls
+ * would perform: OriginalGrid->Pencils, Pencils->Slabs, Slabs->Pencils,
+ * Pencils->OriginalGrid (and then looped back into OriginalGrid->Pencils, ...).
+ *
+ * Each ReshapeReal() or ReshapeCmplx() call performs the next reshape from
+ * the pipeline and returns the LocalGridInfo of the new local grid.
+ * These methods differ only in the grid element types. The user is
+ * responsible for calling the correct method on his grid (i.e., calling
+ * ReshapeReal() on a complex grid will likely crash).
+ */
 template <std::floating_point T, std::size_t Dim>
 class IReshaper {
 public:
     virtual ~IReshaper() = default;
-    virtual auto ReshapeReal(T *dest, const T *src) -> Layout<Dim> = 0;
+
+    /**
+     * @param dest Device pointer where the reshaped grid shall be.
+     * @param src Device pointer where the original grid is.
+     */
+    virtual auto ReshapeReal(T *dest, const T *src) -> LocalGridInfo<Dim> = 0;
+
+    /**
+     * @param dest Device pointer where the reshaped grid shall be.
+     * @param src Device pointer where the original grid is.
+     */
     virtual auto ReshapeCmplx(CuComplexTrait<T> *dest,
-                              const CuComplexTrait<T> *src) -> Layout<Dim> = 0;
+                              const CuComplexTrait<T> *src) -> LocalGridInfo<Dim> = 0;
     virtual auto MaxLocalElements() const -> std::size_t = 0;
-    virtual auto PencilLayout() const -> Layout<Dim> = 0;
-    virtual auto SlabLayout() const -> Layout<Dim> = 0;
+
+    /**
+     * @brief Returns the local grid layout of
+     * the grid when reshaped into pencils.
+     */
+    virtual auto PencilLayout() const -> LocalGridInfo<Dim> = 0;
+
+    /**
+     * @brief Returns the local grid layout of
+     * the grid when reshaped into slabs.
+     */
+    virtual auto SlabLayout() const -> LocalGridInfo<Dim> = 0;
 };
 
+/**
+ * The user first builds a pipeline and specified the order of reshapes
+ * from the original grid into pencils (for 1D FFTs) and slabs (for 2D FFTs).
+ * There must be exactly one reshape to pencils and one to slabs.
+ * By calling Build(), an appropriate reshaper is returned.
+ */
 template <std::floating_point T, std::size_t Dim>
 class IReshapePipeline {
 public:
@@ -79,6 +118,10 @@ private:
 public:
     friend class DummyReshaper<T, Dim>;
 
+    /**
+     * @brief Publicly exposed private ctor.
+     * Only callable from inside of this class using ConstructorKey.
+     */
     DummyReshapePipeline(ConstructorKey /*unused*/,
                          GridSizes<Dim> ns,
                          GridOffsets<Dim> offs)
@@ -127,7 +170,7 @@ public:
           offs_{std::move(rp.offs_)} {};
 
     auto ReshapeReal([[maybe_unused]] T *dest,
-                     [[maybe_unused]] const T *src) -> Layout<Dim> override {
+                     [[maybe_unused]] const T *src) -> LocalGridInfo<Dim> override {
         // nop if aliased
         if (src != dest) {
             CUCH(cudaMemcpy(dest,
@@ -140,7 +183,7 @@ public:
 
     auto ReshapeCmplx([[maybe_unused]] CuComplexTrait<T> *dest,
                       [[maybe_unused]] const CuComplexTrait<T> *src)
-        -> Layout<Dim> override {
+        -> LocalGridInfo<Dim> override {
         // nop if aliased
         if (src != dest) {
             CUCH(cudaMemcpy(dest,
@@ -156,12 +199,12 @@ public:
             ns_.begin(), ns_.end(), std::size_t{1}, std::multiplies<>());
     }
 
-    auto PencilLayout() const -> Layout<Dim> override {
-        return Layout<Dim>{};
+    auto PencilLayout() const -> LocalGridInfo<Dim> override {
+        return LocalGridInfo<Dim>{};
     }
 
-    auto SlabLayout() const -> Layout<Dim> override {
-        return Layout<Dim>{};
+    auto SlabLayout() const -> LocalGridInfo<Dim> override {
+        return LocalGridInfo<Dim>{};
     }
 
 private:
@@ -359,7 +402,7 @@ public:
                                                sizeof(std::complex<double>));
     };
 
-    auto ReshapeReal(T *dest, const T *src) -> Layout<3> override {
+    auto ReshapeReal(T *dest, const T *src) -> LocalGridInfo<3> override {
         ApplyReshape(dest, src);
 
         auto &my_new_box =
@@ -373,11 +416,11 @@ public:
         GridOffsets<3> new_offs = {static_cast<std::size_t>(my_new_box.low[0]),
                                    static_cast<std::size_t>(my_new_box.low[1]),
                                    static_cast<std::size_t>(my_new_box.low[2])};
-        return Layout{new_ns, new_offs};
+        return LocalGridInfo{new_ns, new_offs};
     }
 
     auto ReshapeCmplx(CuComplexTrait<T> *dest,
-                      const CuComplexTrait<T> *src) -> Layout<3> override {
+                      const CuComplexTrait<T> *src) -> LocalGridInfo<3> override {
         ApplyReshape(dest, src);
 
         auto &my_new_box =
@@ -391,7 +434,7 @@ public:
         GridOffsets<3> new_offs = {static_cast<std::size_t>(my_new_box.low[0]),
                                    static_cast<std::size_t>(my_new_box.low[1]),
                                    static_cast<std::size_t>(my_new_box.low[2])};
-        return Layout{new_ns, new_offs};
+        return LocalGridInfo{new_ns, new_offs};
     }
 
     auto MaxLocalElements() const -> std::size_t override {
@@ -405,11 +448,11 @@ public:
         return max;
     }
 
-    auto PencilLayout() const -> Layout<3> override {
+    auto PencilLayout() const -> LocalGridInfo<3> override {
         return {rp_.pencil_sizes_, rp_.pencil_offs_};
     }
 
-    auto SlabLayout() const -> Layout<3> override {
+    auto SlabLayout() const -> LocalGridInfo<3> override {
         return {rp_.slab_sizes_, rp_.slab_offs_};
     }
 

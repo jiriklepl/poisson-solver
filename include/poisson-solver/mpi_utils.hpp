@@ -3,6 +3,7 @@
 #ifdef USE_MPI
 
 #include "poisson-solver/aliases.hpp"
+#include "poisson-solver/detail/helpers.hpp"
 
 #include <array>
 #include <cstddef>
@@ -12,16 +13,6 @@ namespace poisson_solver::mpi_utils {
 // === Aliases ===
 template <std::size_t Dim>
 using ProcsPerDim = std::array<int, Dim>;
-
-// === Structs ===
-/**
- * struct LocalGridInfo - Stores information about local grid.
- * This includes its size and its offset from the origin.
- */
-struct LocalGridInfo {
-    GridSizes<3> ns{};
-    GridOffsets<3> offs{};
-};
 
 // === Functions ===
 /**
@@ -51,7 +42,7 @@ auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps_yz) -> MPI_Comm;
  * @param cart_comm Communicator created via a call to InitMPIGrid.
  * @return Information about the local grid.
  */
-auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo;
+auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo<3>;
 }  // namespace poisson_solver::mpi_utils
 
 #endif  // USE_MPI

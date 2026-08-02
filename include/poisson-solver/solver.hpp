@@ -51,6 +51,10 @@ public:
                          std::span<const T> rhs,
                          GridSizes<Dim> ngs_phi,
                          GridSizes<Dim> ngs_rhs) = 0;
+    /**
+     * @brief Same as Execute() but expects device pointers
+     * in \p d_phi and \p d_rhs.
+     */
     virtual void ExecuteGPU(std::span<T> d_phi,
                             std::span<const T> d_rhs,
                             GridSizes<Dim> ngs_phi,

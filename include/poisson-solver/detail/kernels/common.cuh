@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cuComplex.h>
 #include <cuda_runtime.h>
+#include <utility>
 #include <type_traits>
 
 namespace poisson_solver::detail::kernels {
@@ -90,11 +91,14 @@ __device__ auto GetStrides() -> std::array<std::size_t, Dim> {
     }
 }
 
-// Applies the function `f` to indices in `Dim` nested loops.
-// Each dimensions has:
-// 1. A starting index in `starts`.
-// 2. Size in `ns`.
-// 3. A stride (in cast there are too few threads overall) in `strides`.
+/**
+ * @brief Applies the function \p f to indices in \p Dim nested loops.
+ *
+ * Each dimensions has:
+ * 1. A starting index in \p starts,
+ * 2. size in \p ns and
+ * 3. a stride (in cast there are too few threads overall) in \p strides.
+ */
 template <std::size_t Dim, std::size_t CurDim, typename Func>
 __device__ void ApplyStrideLoopImpl(MultidimIdx<Dim> &midx,
                                     std::array<std::size_t, Dim> starts,
@@ -111,14 +115,16 @@ __device__ void ApplyStrideLoopImpl(MultidimIdx<Dim> &midx,
     }
 }
 
-// Applies the function `f` to indices in `Dim` nested loops where each
-// dimension has the size according to `ns`.
+/**
+ * @brief Applies the function \p f to indices in \p Dim nested loops where each
+ * dimension has the size according to \p ns.
+ */
 template <std::size_t Dim, typename Func>
-__device__ void ApplyStrideLoop(GridSizes<Dim> ns, Func f) {
+__device__ void ApplyStrideLoop(GridSizes<Dim> ns, Func &&f) {
     MultidimIdx<Dim> midx{};
     auto starts = GetIdxs<Dim>();
     auto strides = GetStrides<Dim>();
-    ApplyStrideLoopImpl<Dim, Dim - 1>(midx, starts, ns, strides, f);
+    ApplyStrideLoopImpl<Dim, Dim - 1>(midx, starts, ns, strides, std::forward<Func>(f));
 }
 
 template <std::floating_point T, std::size_t Dim>

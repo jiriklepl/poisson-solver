@@ -76,15 +76,12 @@ public:
     // === Workspaces ===
     // We need two of each to account for out-of-place
     // reshaping in distributed solvers.
-    // We "ping-pong" between the two (i.e., use wspace1, reshape into
+    // We ping-pong between the two (i.e., use wspace1, reshape into
     // wspace2, use wspace2, etc.).
-
-    // Only some solvers need complex workspace.
+    // For more info about workspace allocation see AllocDeviceWorkspaces()
+    // and also solver_plan.hpp.
     CudaSharedPtrCmplxT cu_cmplx_workspace1{};
     CudaSharedPtrCmplxT cu_cmplx_workspace2{};
-
-    // This is always used - either straight for computation
-    // or to initialize complex workspace from it.
     CudaSharedPtrT cu_real_workspace1{};
     CudaSharedPtrT cu_real_workspace2{};
 
@@ -167,7 +164,7 @@ private:
      * @brief Master constructor.
      * Initializes everything common for local and distributed solver.
      *
-     * @note: \p fft_plan and \p rp should be initialized by the
+     * @note: \p backend should be initialized by the
      * calling ctor and passed here.
      */
     SolverCore(SolverBackend &&backend,
@@ -198,13 +195,14 @@ private:
 
     static auto BuildLocalBackend(
         GridSizes<Dim> ns, const ISolverPlan<T, FFTDim> &sp) -> SolverBackend {
+        // Local solver has all the data and doesn't need any reshaping.
         return {BuildReshaper(DummyReshapePipeline<T, Dim>::From(ns), sp),
                 CoreFFTPolicy::Init(ns, sp.fft_layout)};
     }
 
 #ifdef USE_MPI
     /**
-     * @brief The reshaper has to be built before the fft_plan because
+     * @note The reshaper has to be built before the fft_plan because
      * the fft_plan uses it (in a distributed solver core).
      * However, the fft_plan construction happens in the local/distributed ctor
      * and so we have to build the reshaper alongside it in this method.
@@ -256,6 +254,8 @@ private:
         std::size_t pencil_dir{};
         std::array<std::size_t, 2> slab_dirs{};
 
+        // pencil_dir and slab_dirs are left zero-initialized
+        // for FullLayout as that utilizes DummyReshaper
         std::visit(
             Overloaded{[&](FullLayout fl) { /* nop */ },
                        [&](SplitLayout sl) {
@@ -385,7 +385,7 @@ private:
     }
 
     /**
-     * @note Device `denom` buffers have to be already allocated.
+     * @warning `cu_denoms` buffers have to be already allocated.
      */
     void CopyDenomsToDevice(const HostDenoms &denoms, GridSizes<Dim> gns) {
         for (std::size_t d = 0; d < FFTDim; ++d) {
@@ -397,7 +397,7 @@ private:
     }
 
     /**
-     * @note Device `denom` buffers have to be already allocated.
+     * @warning `cu_denoms` buffers have to be already allocated.
      */
     auto CreateDenomObservers() -> DenomConstPtrs {
         DenomConstPtrs observers{};

@@ -4,9 +4,13 @@
 #include <concepts>
 #include <cstddef>
 
-// This file groups together certain calculations that are based on boundary
-// conditions of an axis. Valid boundary conditions on an axis are explicitly
-// enumerated in the `ISolverPlan::GetAxisStrategy` function.
+/**
+ * @file
+ *
+ * This file groups together certain computations based on boundary
+ * conditions of ONE axis. Valid boundary conditions on an axis are explicitly
+ * enumerated in the `ISolverPlan::GetAxisStrategy` function.
+ */
 
 namespace poisson_solver::detail::axis_strategy_internals {
 /**

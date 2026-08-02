@@ -9,9 +9,6 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 
-// Functionality shared among all real solvers (e.g. full dirichlet, full
-// neumann)
-
 namespace poisson_solver::detail::kernels::common_real {
 template <std::floating_point T, std::size_t Dim>
 __global__ void Normalize(T *real_workspace, GridSizes<Dim> ns, T norm_factor) {

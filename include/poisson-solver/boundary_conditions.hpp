@@ -5,10 +5,16 @@
 #include <cassert>
 #include <cstddef>
 #include <string>
+#include <cstdint>
+
+/**
+ * @file
+ * @brief Definition of boundary conditions and related helper functions.
+ */
 
 namespace poisson_solver {
 // === Enums ===
-enum class BoundaryCondition {
+enum class BoundaryCondition : std::uint8_t {
     Periodic,
     Dirichlet,
     Neumann,
