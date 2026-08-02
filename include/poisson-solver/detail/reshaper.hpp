@@ -58,27 +58,27 @@ public:
      * @param dest Device pointer where the reshaped grid shall be.
      * @param src Device pointer where the original grid is.
      */
-    virtual auto ReshapeReal(T *dest, const T *src) -> LocalGridInfo<Dim> = 0;
+    virtual auto ReshapeReal(T *dest, const T *src) -> mpi_utils::LocalGridInfo<Dim> = 0;
 
     /**
      * @param dest Device pointer where the reshaped grid shall be.
      * @param src Device pointer where the original grid is.
      */
     virtual auto ReshapeCmplx(CuComplexTrait<T> *dest,
-                              const CuComplexTrait<T> *src) -> LocalGridInfo<Dim> = 0;
+                              const CuComplexTrait<T> *src) -> mpi_utils::LocalGridInfo<Dim> = 0;
     virtual auto MaxLocalElements() const -> std::size_t = 0;
 
     /**
      * @brief Returns the local grid layout of
      * the grid when reshaped into pencils.
      */
-    virtual auto PencilLayout() const -> LocalGridInfo<Dim> = 0;
+    virtual auto PencilLayout() const -> mpi_utils::LocalGridInfo<Dim> = 0;
 
     /**
      * @brief Returns the local grid layout of
      * the grid when reshaped into slabs.
      */
-    virtual auto SlabLayout() const -> LocalGridInfo<Dim> = 0;
+    virtual auto SlabLayout() const -> mpi_utils::LocalGridInfo<Dim> = 0;
 };
 
 /**
@@ -170,7 +170,7 @@ public:
           offs_{std::move(rp.offs_)} {};
 
     auto ReshapeReal([[maybe_unused]] T *dest,
-                     [[maybe_unused]] const T *src) -> LocalGridInfo<Dim> override {
+                     [[maybe_unused]] const T *src) -> mpi_utils::LocalGridInfo<Dim> override {
         // nop if aliased
         if (src != dest) {
             CUCH(cudaMemcpy(dest,
@@ -183,7 +183,7 @@ public:
 
     auto ReshapeCmplx([[maybe_unused]] CuComplexTrait<T> *dest,
                       [[maybe_unused]] const CuComplexTrait<T> *src)
-        -> LocalGridInfo<Dim> override {
+        -> mpi_utils::LocalGridInfo<Dim> override {
         // nop if aliased
         if (src != dest) {
             CUCH(cudaMemcpy(dest,
@@ -199,12 +199,12 @@ public:
             ns_.begin(), ns_.end(), std::size_t{1}, std::multiplies<>());
     }
 
-    auto PencilLayout() const -> LocalGridInfo<Dim> override {
-        return LocalGridInfo<Dim>{};
+    auto PencilLayout() const -> mpi_utils::LocalGridInfo<Dim> override {
+        return mpi_utils::LocalGridInfo<Dim>{};
     }
 
-    auto SlabLayout() const -> LocalGridInfo<Dim> override {
-        return LocalGridInfo<Dim>{};
+    auto SlabLayout() const -> mpi_utils::LocalGridInfo<Dim> override {
+        return mpi_utils::LocalGridInfo<Dim>{};
     }
 
 private:
@@ -402,7 +402,7 @@ public:
                                                sizeof(std::complex<double>));
     };
 
-    auto ReshapeReal(T *dest, const T *src) -> LocalGridInfo<3> override {
+    auto ReshapeReal(T *dest, const T *src) -> mpi_utils::LocalGridInfo<3> override {
         ApplyReshape(dest, src);
 
         auto &my_new_box =
@@ -416,11 +416,11 @@ public:
         GridOffsets<3> new_offs = {static_cast<std::size_t>(my_new_box.low[0]),
                                    static_cast<std::size_t>(my_new_box.low[1]),
                                    static_cast<std::size_t>(my_new_box.low[2])};
-        return LocalGridInfo{new_ns, new_offs};
+        return mpi_utils::LocalGridInfo{new_ns, new_offs};
     }
 
     auto ReshapeCmplx(CuComplexTrait<T> *dest,
-                      const CuComplexTrait<T> *src) -> LocalGridInfo<3> override {
+                      const CuComplexTrait<T> *src) -> mpi_utils::LocalGridInfo<3> override {
         ApplyReshape(dest, src);
 
         auto &my_new_box =
@@ -434,7 +434,7 @@ public:
         GridOffsets<3> new_offs = {static_cast<std::size_t>(my_new_box.low[0]),
                                    static_cast<std::size_t>(my_new_box.low[1]),
                                    static_cast<std::size_t>(my_new_box.low[2])};
-        return LocalGridInfo{new_ns, new_offs};
+        return mpi_utils::LocalGridInfo{new_ns, new_offs};
     }
 
     auto MaxLocalElements() const -> std::size_t override {
@@ -448,11 +448,11 @@ public:
         return max;
     }
 
-    auto PencilLayout() const -> LocalGridInfo<3> override {
+    auto PencilLayout() const -> mpi_utils::LocalGridInfo<3> override {
         return {rp_.pencil_sizes_, rp_.pencil_offs_};
     }
 
-    auto SlabLayout() const -> LocalGridInfo<3> override {
+    auto SlabLayout() const -> mpi_utils::LocalGridInfo<3> override {
         return {rp_.slab_sizes_, rp_.slab_offs_};
     }
 

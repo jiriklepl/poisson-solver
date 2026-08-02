@@ -14,6 +14,17 @@ namespace poisson_solver::mpi_utils {
 template <std::size_t Dim>
 using ProcsPerDim = std::array<int, Dim>;
 
+// === Structs ===
+/**
+ * struct LocalGridInfo - Stores information about local grid.
+ * This includes its size and its offset from the origin.
+ */
+template <std::size_t Dim>
+struct LocalGridInfo {
+    GridSizes<Dim> ns{};
+    GridOffsets<Dim> offs{};
+};
+
 // === Functions ===
 /**
  * @brief Retrieves process grid of the communicator.

@@ -13,8 +13,8 @@
 
 namespace poisson_solver::mpi_utils {
 auto ConvertToLocalGridInfo(const heffte::box3d<> &box)
-    -> LocalGridInfo {
-    LocalGridInfo lgi{};
+    -> LocalGridInfo<3> {
+    LocalGridInfo<3> lgi{};
 
     for (std::size_t d{0}; d < 3; ++d) {
         lgi.ns[d] = box.size[d];
@@ -71,7 +71,7 @@ auto GetMyBox(MPI_Comm comm,
     return boxes[rank];
 }
 
-auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo {
+auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo<3> {
     auto nps = GetProcGrid(cart_comm);
 
     heffte::box3d<> world = {{0, 0, 0},

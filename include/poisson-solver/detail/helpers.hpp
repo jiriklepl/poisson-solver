@@ -31,16 +31,6 @@ struct CudaFreeDeleter {
 };
 
 /**
- * struct LocalGridInfo - Stores information about local grid.
- * This includes its size and its offset from the origin.
- */
-template <std::size_t Dim>
-struct LocalGridInfo {
-    GridSizes<Dim> ns{};
-    GridOffsets<Dim> offs{};
-};
-
-/**
  * struct CuComplexTraitImpl - Helper that maps the real type to
  * CUDA complex type.
  */
