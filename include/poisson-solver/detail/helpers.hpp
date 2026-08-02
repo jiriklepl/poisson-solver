@@ -48,6 +48,9 @@ struct CuComplexTraitImpl<double> {
 template <typename T>
 using CudaUniquePtr = std::unique_ptr<T, CudaFreeDeleter>;
 
+template <typename T>
+using CudaSharedPtr = std::shared_ptr<T>;
+
 template <std::floating_point T>
 using CuComplexTrait = typename CuComplexTraitImpl<T>::Type;
 
@@ -86,6 +89,13 @@ auto MakeCudaUnique(std::size_t size) -> CudaUniquePtr<T> {
     T *ptr;
     CUCH(cudaMalloc(&ptr, size * sizeof(T)));
     return CudaUniquePtr<T>(ptr);
+}
+
+template <typename T>
+auto MakeCudaShared(std::size_t size) -> CudaSharedPtr<T> {
+    T *ptr;
+    CUCH(cudaMalloc(&ptr, size * sizeof(T)));
+    return CudaSharedPtr<T>(ptr, CudaFreeDeleter{});
 }
 
 // Transfers the centered active grid between a padded buffer and an active buffer.

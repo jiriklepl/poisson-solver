@@ -42,6 +42,7 @@ public:
 
     AxisStrategies axis_strategies{};
     VariantLayout fft_layout{};
+    bool requires_cmplx_wspace{true};
 
     // The derived classes will append to this as a part of their ctors.
     std::vector<ReshapeType> reshape_types{};
@@ -151,15 +152,19 @@ private:
         } else if (all_of(bcs, IsDirichlet)) {
             solve_method = &Solver<T, FFTDim>::SolveFullDirichlet;
             layout.forward_type = DST1;
+            this->requires_cmplx_wspace = false;
         } else if (all_of(bcs, IsDirichletStag)) {
             solve_method = &Solver<T, FFTDim>::SolveFullDirichlet;
             layout.forward_type = DST2;
+            this->requires_cmplx_wspace = false;
         } else if (all_of(bcs, IsNeumann)) {
             solve_method = &Solver<T, FFTDim>::SolveFullNeumann;
             layout.forward_type = DCT1;
+            this->requires_cmplx_wspace = false;
         } else if (all_of(bcs, IsNeumannStag)) {
             solve_method = &Solver<T, FFTDim>::SolveFullNeumann;
             layout.forward_type = DCT2;
+            this->requires_cmplx_wspace = false;
         } else {
             return false;
         }
@@ -180,8 +185,10 @@ private:
         // as the warning above this function states, that shouldn't happen
         layout.forward_type = this->GetAxisFFTType(bcp);
 
-        // In all non-throwing cases the solve method is full dirichlet.
+        // In all non-throwing cases the solve method is full dirichlet
+        // and we don't need a complex wspace
         solve_method = &Solver<T, FFTDim>::SolveFullDirichlet;
+        this->requires_cmplx_wspace = false;
     }
 
     void ConstructFromNonFullBCs3D(BCs<3> bcs) {
@@ -257,6 +264,7 @@ private:
             layout.isolated_dim_idx = 2;
             this->reshape_types.emplace_back(ToSlabs);
             this->reshape_types.emplace_back(ToPencils);
+            this->requires_cmplx_wspace = false;
 
         } else if (none_of(bcs, IsPeriodic) && (bcy == bcz) && (bcx != bcy) &&
                    any_of(bcs, HasDirichletOrStag)) {
@@ -266,6 +274,7 @@ private:
             layout.isolated_dim_idx = 0;
             this->reshape_types.emplace_back(ToSlabs);
             this->reshape_types.emplace_back(ToPencils);
+            this->requires_cmplx_wspace = false;
 
         } else {
             throw std::invalid_argument("Invalid combination of 3D BCs.");
@@ -317,6 +326,7 @@ public:
         if (all_of(bcs, IsNeumann) || all_of(bcs, IsNeumannStag)) {
             solve_method = &NonuniformZSolver<T>::SolveFullNeumann;
             layout.forward_type_2d = this->GetAxisFFTType(bcx);
+            this->requires_cmplx_wspace = false;
         } else if (IsPeriodic(bcx) && IsPeriodic(bcy) && IsNeumannOrStag(bcz)) {
             solve_method = &NonuniformZSolver<T>::SolvePPNs;
             layout.forward_type_2d = Complex;

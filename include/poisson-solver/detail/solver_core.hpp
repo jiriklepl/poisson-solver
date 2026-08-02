@@ -44,9 +44,9 @@ struct SolverCore {
 public:
     using HostOneAxisDenoms = std::vector<T>;
     using HostDenoms = std::array<HostOneAxisDenoms, FFTDim>;
-    using CudaUniquePtrT = detail::CudaUniquePtr<T>;
-    using CudaUniquePtrCmplxT =
-        detail::CudaUniquePtr<detail::CuComplexTrait<T>>;
+    using CudaUniquePtrT = CudaUniquePtr<T>;
+    using CudaSharedPtrT = CudaSharedPtr<T>;
+    using CudaSharedPtrCmplxT = CudaSharedPtr<CuComplexTrait<T>>;
     using DenomConstPtrs = detail::DenomConstPtrs<T, FFTDim>;
 
     // FFT needs to know the dimensionality of the whole grid.
@@ -80,13 +80,13 @@ public:
     // wspace2, use wspace2, etc.).
 
     // Only some solvers need complex workspace.
-    CudaUniquePtrCmplxT cu_cmplx_workspace1{};
-    CudaUniquePtrCmplxT cu_cmplx_workspace2{};
+    CudaSharedPtrCmplxT cu_cmplx_workspace1{};
+    CudaSharedPtrCmplxT cu_cmplx_workspace2{};
 
     // This is always used - either straight for computation
     // or to initialize complex workspace from it.
-    CudaUniquePtrT cu_real_workspace1{};
-    CudaUniquePtrT cu_real_workspace2{};
+    CudaSharedPtrT cu_real_workspace1{};
+    CudaSharedPtrT cu_real_workspace2{};
 
     // === Device Settings ===
     dim3 cu_block_size;
@@ -185,7 +185,9 @@ private:
           reshaper(std::move(backend.reshaper)),
           norm_factor(ComputeNormFactor(gns, sp)),
           cu_block_size(cuda_block_size) {
-        AllocDeviceBuffers(gns);
+        AllocDeviceBuffers(gns,
+                           sp.requires_cmplx_wspace,
+                           std::holds_alternative<FullLayout>(sp.fft_layout));
 
         // Denoms are constant for the solver lifetime.
         // They can be copied just once, here.
@@ -293,22 +295,47 @@ private:
         return static_cast<T>(factor);
     }
 
-    void AllocDeviceWorkspaces() {
-        using detail::CuComplexTrait;
-        using detail::MakeCudaUnique;
+    void AllocDeviceWorkspaces(bool requires_cmplx_wspace, bool layout_full) {
+        // Workspace Allocation Table
+        // rcw : requires_cmplx_wspace
+        // lf  : layout_full
+        // rw1 : cu_real_workspace1,  rw2 : cu_real_workspace2
+        // cw1 : cu_cmplx_workspace1, cw2 : cu_cmplx_workspace2
 
-        // TODO - No cmplx wspace is required for the following solvers:
-        // Uniform - FullDirichlet, FullNeumann, 2Real1Real, 1Real2Real and
-        // NonuniformZ - FullNeumann.
-        // For those allocate only real.
-        // TODO - If we aren't using SplitLayout then the pointers should
-        // be aliased so that no copying takes place.
-        cu_cmplx_workspace1 =
-            MakeCudaUnique<CuComplexTrait<T>>(reshaper->MaxLocalElements());
-        cu_cmplx_workspace2 =
-            MakeCudaUnique<CuComplexTrait<T>>(reshaper->MaxLocalElements());
-        cu_real_workspace1 = MakeCudaUnique<T>(reshaper->MaxLocalElements());
-        cu_real_workspace2 = MakeCudaUnique<T>(reshaper->MaxLocalElements());
+        // aloc : fresh allocation
+        //  -   : unallocated
+
+        // +---------+------+------+------+------+
+        // | rcw, lf | rw1  | rw2  | cw1  | cw2  |
+        // +---------+------+------+------+------+
+        // |   0, 0  | aloc | aloc |  -   |  -   |
+        // |   0, 1  | aloc | rw1  |  -   | cw1  |
+        // |   1, 0  | aloc | aloc | aloc | aloc |
+        // |   1, 1  | aloc | rw1  | aloc | cw1  |
+        // +---------+------+------+------+------+
+
+        using detail::CuComplexTrait;
+        using detail::MakeCudaShared;
+
+        cu_real_workspace1 = MakeCudaShared<T>(reshaper->MaxLocalElements());
+
+        if (requires_cmplx_wspace) {
+            cu_cmplx_workspace1 =
+                MakeCudaShared<CuComplexTrait<T>>(reshaper->MaxLocalElements());
+        }
+
+        if (layout_full) {
+            cu_real_workspace2 = cu_real_workspace1;
+            cu_cmplx_workspace2 = cu_cmplx_workspace1;
+        } else {
+            cu_real_workspace2 =
+                MakeCudaShared<T>(reshaper->MaxLocalElements());
+
+            if (requires_cmplx_wspace) {
+                cu_cmplx_workspace2 = MakeCudaShared<CuComplexTrait<T>>(
+                    reshaper->MaxLocalElements());
+            }
+        }
     }
 
     void AllocDeviceDenoms(GridSizes<Dim> gns) {
@@ -318,8 +345,10 @@ private:
         }
     }
 
-    void AllocDeviceBuffers(GridSizes<Dim> gns) {
-        AllocDeviceWorkspaces();
+    void AllocDeviceBuffers(GridSizes<Dim> gns,
+                            bool requires_cmplx_wspace,
+                            bool layout_full) {
+        AllocDeviceWorkspaces(requires_cmplx_wspace, layout_full);
         AllocDeviceDenoms(gns);
     }
 
