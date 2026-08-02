@@ -18,11 +18,17 @@
 #include <mpi.h>
 #endif  // USE_MPI
 
-// Here is the mapping between the C interface and C++ implementation.
+/**
+ * @file
+ * @brief Maps the C API to C++ API.
+ */
 
 namespace ps = poisson_solver;
 
 namespace {
+/**
+ * @brief Map C approximation to C++ approximation.
+ */
 template <std::floating_point T>
 auto GetApprox(Approximation approx) -> std::unique_ptr<ps::IApproximation<T>> {
     switch (approx) {
@@ -38,6 +44,12 @@ auto GetApprox(Approximation approx) -> std::unique_ptr<ps::IApproximation<T>> {
     }
 }
 
+/**
+ * @brief Map array of ints into GridSizes<Dim>
+ *
+ * @tparam Dim Array size.
+ * @param ns The array.
+ */
 template <std::size_t Dim>
 auto ToGridSizes(const int *ns) -> ps::GridSizes<Dim> {
     ps::GridSizes<Dim> gs{};
@@ -47,6 +59,9 @@ auto ToGridSizes(const int *ns) -> ps::GridSizes<Dim> {
     return gs;
 }
 
+/**
+ * @brief Map C boundary condition into C++ boundary condition.
+ */
 auto ToCxxBC(BoundaryCondition c_bc) -> ps::BoundaryCondition {
     using CxxBC = ps::BoundaryCondition;
 
@@ -73,11 +88,13 @@ auto ToCxxBC(BoundaryCondition c_bc) -> ps::BoundaryCondition {
     }
 }
 
+/**
+ * @brief Map two C boundary conditions into a C++ BCPair.
+ */
 auto ToCxxBCPair(BoundaryCondition c_bc1, BoundaryCondition c_bc2)
     -> ps::BCPair {
     return ps::BCPair{ToCxxBC(c_bc1), ToCxxBC(c_bc2)};
 }
-
 }  // namespace
 
 #define DEFINE_EXECUTE(DIM)                                          \
@@ -183,8 +200,8 @@ void PoissonSolver1DNew(PoissonSolver *solver_out,
                         const double lens[1],
                         const BoundaryCondition bcs[2],
                         const ps::IApproximation<double> &approx,
-                        const int *gns,
-                        const int *offs,
+                        const int gns[1],
+                        const int offs[1],
                         const void *mpi_comm) {
     ps::BCPair bcp = ToCxxBCPair(bcs[0], bcs[1]);
 
@@ -215,8 +232,8 @@ void PoissonSolver2DNew(PoissonSolver *solver_out,
                         const double lens[2],
                         const BoundaryCondition bcs[4],
                         const ps::IApproximation<double> &approx,
-                        const int *gns,
-                        const int *offs,
+                        const int gns[2],
+                        const int offs[2],
                         const void *mpi_comm) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
@@ -251,8 +268,8 @@ void PoissonSolver3DNew(PoissonSolver *solver_out,
                         const double lens[3],
                         const BoundaryCondition bcs[6],
                         const ps::IApproximation<double> &approx,
-                        const int *gns,
-                        const int *offs,
+                        const int gns[3],
+                        const int offs[3],
                         const void *mpi_comm) {
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);

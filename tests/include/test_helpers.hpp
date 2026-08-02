@@ -271,7 +271,6 @@ auto ResiduumBelowThreshold(T residuum,
 }
 
 // == Correctors ==
-
 /**
  * @brief Makes a corrector that does no-op.
  */

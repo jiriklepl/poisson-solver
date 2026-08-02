@@ -29,7 +29,7 @@ template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 /**
  * @brief Abstract solver class for both uniform and nonuniform solvers.
- * Its childer are solvers of the equation \f$ \delta \phi = b \f$.
+ * Its childer are solvers of the equation \f$ \Delta \phi = b \f$.
  *
  * @tparam T Floating point type (only `float` and `double` supported).
  * @tparam Dim Number of grid dimensions.
@@ -37,6 +37,16 @@ template <std::floating_point T, std::size_t Dim>
 class ISolver {
 public:
     virtual ~ISolver() = default;
+    /**
+     * @brief Solves the equation \f$ \Delta \phi = b \f$.
+     *
+     * @param[out] phi
+     * @param[in] rhs
+     * @param[in] ngs_phi Number of ghost cells (on one side)
+     * \p phi has in each dimension.
+     * @param[in] ngs_rhs Number of ghost cells (on one side)
+     * \p rhs has in each dimension.
+     */
     virtual void Execute(std::span<T> phi,
                          std::span<const T> rhs,
                          GridSizes<Dim> ngs_phi,
@@ -78,8 +88,8 @@ public:
      * @param approx Desired approximation function. @see approximations.hpp
      * @param cuda_block_size Optional CUDA block size used in every kernel.
      *
-     * @note The solver assumes that the first index is the fastest changing,
-     * second is middle and third is slowest.
+     * @note The solver assumes that the first index is the fastest changing
+     * and the last is the slowest.
      */
     Solver(GridSizes<Dim> ns,
            std::array<T, Dim> lens,
@@ -105,6 +115,9 @@ public:
      * @param comm The MPI communicator.
      * @param approx Desired approximation function. @see approximations.hpp
      * @param cuda_block_size Optional CUDA block size used in every kernel.
+     *
+     * @note The solver assumes that the first index is the fastest changing
+     * and the last is the slowest.
      */
     Solver(GridSizes<Dim> ns,
            std::array<T, Dim> lens,
@@ -125,16 +138,6 @@ public:
                 solver_plan_) {}
 #endif  // USE_MPI
 
-    /**
-     * @brief Solves the equation \f$ \delta \phi = b \f$.
-     *
-     * @param[out] phi
-     * @param[in] rhs
-     * @param[in] ngs_phi Number of ghost cells (on one side)
-     * \p phi has in each dimension.
-     * @param[in] ngs_rhs Number of ghost cells (on one side)
-     * \p rhs has in each dimension.
-     */
     void Execute(std::span<T> phi,
                  std::span<const T> rhs,
                  GridSizes<Dim> ngs_phi,
@@ -492,19 +495,23 @@ template <std::floating_point T>
 class NonuniformZSolver : public ISolver<T, 3> {
 public:
     /**
-     * @brief Constructs a poisson solver with nonuniform Z axis.
+     * @brief Constructs a local poisson solver with nonuniform Z axis.
      *
      * @param ns Sizes of the grid in each dimension (without ghost cells).
      * @param lens Real lengths of the grid in each dimension.
-     * @param bcs Boundary conditions for each axis in the order {{west, east},
-     * {south, north}, {bottom, top}}.
      * @param z Coordinates representing the cell centers along the Z-axis.
      * Must contain at least `ns[2]` elements.
      * @param z_u Coordinates representing the cell faces along the Z-axis.
      * Must contain at least `ns[2] + 1` elements.
+     * @param bcs Boundary conditions for each axis in the order {{west, east},
+     * {south, north}, {bottom, top}}.
+     * For more information @see boundary_conditions.hpp.
      * @param approx Desired approximation function. @see approximations.hpp
      * @param cuda_block_size Optional CUDA block size used in every kernel.
      * The `z` component will be unused (always set to 1).
+     *
+     * @note The solver assumes that the first index is the fastest changing
+     * second is middle and third is slowest.
      */
     NonuniformZSolver(
         GridSizes<3> ns,
@@ -520,6 +527,29 @@ public:
     }
 
 #ifdef USE_MPI
+    /**
+     * @brief Constructs a distributed poisson solver with nonuniform Z axis.
+     *
+     * @param ns Sizes of the grid in each dimension (without ghost cells).
+     * @param lens Real lengths of the grid in each dimension.
+     * @param z Coordinates representing the cell centers along the Z-axis.
+     * Must contain at least `ns[2]` elements.
+     * @param z_u Coordinates representing the cell faces along the Z-axis.
+     * Must contain at least `ns[2] + 1` elements.
+     * @param bcs Boundary conditions for each axis in the order {{west, east},
+     * {south, north}, {bottom, top}}.
+     * For more information @see boundary_conditions.hpp.
+     * @param gns Global sizes of the grid in each dimension (without ghost
+     * cells).
+     * @param offs Offset of local data.
+     * @param comm The MPI communicator.
+     * @param approx Desired approximation function. @see approximations.hpp
+     * @param cuda_block_size Optional CUDA block size used in every kernel.
+     * The `z` component will be unused (always set to 1).
+     *
+     * @note The solver assumes that the first index is the fastest changing
+     * second is middle and third is slowest.
+     */
     NonuniformZSolver(
         GridSizes<3> ns,
         std::array<T, 2> lens,

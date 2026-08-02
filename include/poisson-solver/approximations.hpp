@@ -4,6 +4,11 @@
 #include <cmath>
 #include <concepts>
 
+/**
+ * @file
+ * @brief Contains all the approximation types supported by PoisFFT.
+ */
+
 namespace poisson_solver {
 template <std::floating_point T>
 class IApproximation {
