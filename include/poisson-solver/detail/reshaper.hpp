@@ -3,6 +3,7 @@
 
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/helpers.hpp"
+#include "poisson-solver/mpi_utils.hpp"
 
 #include <concepts>
 #include <cstddef>
@@ -13,7 +14,6 @@
 
 #ifdef USE_MPI
 #include "poisson-solver/detail/cuch.hpp"
-#include "poisson-solver/mpi_utils.hpp"
 
 #include <complex>
 #include <mpi.h>

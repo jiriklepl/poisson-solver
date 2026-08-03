@@ -1,13 +1,10 @@
 #ifndef MPI_UTILS_HPP
 #define MPI_UTILS_HPP
-#ifdef USE_MPI
-
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 
 #include <array>
 #include <cstddef>
-#include <mpi.h>
 
 namespace poisson_solver::mpi_utils {
 // === Aliases ===
@@ -24,6 +21,12 @@ struct LocalGridInfo {
     GridSizes<Dim> ns{};
     GridOffsets<Dim> offs{};
 };
+}  // namespace poisson_solver::mpi_utils
+
+#ifdef USE_MPI
+#include <mpi.h>
+
+namespace poisson_solver::mpi_utils {
 
 // === Functions ===
 /**
