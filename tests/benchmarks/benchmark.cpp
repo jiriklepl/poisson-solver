@@ -1,6 +1,6 @@
-#include "test_helpers.hpp"
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/solver.hpp"
+#include "test_helpers.hpp"
 
 #include <chrono>
 #include <concepts>
@@ -8,6 +8,7 @@
 #include <cuda_runtime.h>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <numbers>
 #include <random>
 #include <span>
@@ -19,17 +20,51 @@
 using namespace poisson_solver;
 
 inline auto ParseBC(const std::string &str) -> BC {
-    if (str == "P") return BC::Periodic;
-    if (str == "D") return BC::Dirichlet;
-    if (str == "N") return BC::Neumann;
-    if (str == "DS") return BC::DirichletStag;
-    if (str == "NS") return BC::NeumannStag;
+    if (str == "P")
+        return BC::Periodic;
+    if (str == "D")
+        return BC::Dirichlet;
+    if (str == "N")
+        return BC::Neumann;
+    if (str == "DS")
+        return BC::DirichletStag;
+    if (str == "NS")
+        return BC::NeumannStag;
     throw std::runtime_error("Unknown BC: " + str);
+}
+
+template <std::floating_point T, std::size_t Dim>
+auto InstantiateSolver(bool use_nonuniform_z,
+                       tests::SolverConfig<T, Dim> &&cfg,
+                       unsigned seed) -> std::unique_ptr<ISolver<T, Dim>> {
+    std::unique_ptr<ISolver<T, Dim>> solver_ptr;
+    if constexpr (Dim == 3) {
+        if (use_nonuniform_z) {
+            std::vector<T> z;
+            std::vector<T> z_u;
+            tests::InitializeZs<T>(cfg.ns[2], cfg.lens[2], z, z_u, seed);
+            std::vector<T> z_internal(z.begin() + 1, z.end() - 1);
+            std::array<T, 2> lens_xy{cfg.lens[0], cfg.lens[1]};
+            solver_ptr = std::make_unique<NonuniformZSolver<T>>(
+                cfg.ns, lens_xy, z_internal, z_u, cfg.bcs);
+        } else {
+            solver_ptr =
+                std::make_unique<Solver<T, Dim>>(cfg.ns, cfg.lens, cfg.bcs);
+        }
+    } else {
+        if (use_nonuniform_z) {
+            throw std::runtime_error("nonuniform-z solver must have dim == 3");
+        }
+        solver_ptr =
+            std::make_unique<Solver<T, Dim>>(cfg.ns, cfg.lens, cfg.bcs);
+    }
+    return solver_ptr;
 }
 
 template <std::floating_point T, std::size_t Dim>
 void RunBenchmarks(std::size_t dim,
                    bool use_gpu,
+                   bool use_nonuniform_z,
                    std::size_t measurement_iters,
                    std::size_t grid_size,
                    std::size_t grid_size_end,
@@ -76,10 +111,13 @@ void RunBenchmarks(std::size_t dim,
             total_elements *= size;
         }
 
+        auto solver_ptr = InstantiateSolver<T, Dim>(
+            use_nonuniform_z,
+            {ns, lens, bcs, GridSizes<Dim>{}, GridSizes<Dim>{}},
+            seed);
+
         std::vector<T> h_phi(total_elements);
         std::vector<T> h_rhs(total_elements);
-
-        Solver<T, Dim> solver(ns, lens, bcs);
 
         for (std::size_t iter = 0; iter < measurement_iters; ++iter) {
             std::cout << "    Iteration " << iter << "\n";
@@ -94,27 +132,35 @@ void RunBenchmarks(std::size_t dim,
                            cudaMemcpyHostToDevice);
 
                 auto start = std::chrono::high_resolution_clock::now();
-                times = solver.ExecuteGPU(
+                times = solver_ptr->ExecuteGPU(
                     std::span<T>{d_phi, total_elements},
                     std::span<const T>{d_rhs, total_elements},
                     GridSizes<Dim>{},
                     GridSizes<Dim>{});
                 auto end = std::chrono::high_resolution_clock::now();
-                outside_time_ms = std::chrono::duration<double, std::milli>(end - start).count();
+                outside_time_ms =
+                    std::chrono::duration<double, std::milli>(end - start)
+                        .count();
             } else {
                 auto start = std::chrono::high_resolution_clock::now();
-                times = solver.Execute(h_phi, h_rhs, GridSizes<Dim>{}, GridSizes<Dim>{});
+                times = solver_ptr->Execute(
+                    h_phi, h_rhs, GridSizes<Dim>{}, GridSizes<Dim>{});
                 auto end = std::chrono::high_resolution_clock::now();
-                outside_time_ms = std::chrono::duration<double, std::milli>(end - start).count();
+                outside_time_ms =
+                    std::chrono::duration<double, std::milli>(end - start)
+                        .count();
             }
 
+            std::string solver_type =
+                use_nonuniform_z ? "nonuniform_z" : "uniform";
             out_file << Dim << "," << (sizeof(T) == 4 ? "float" : "double")
-                     << "," << (use_gpu ? "GPU" : "CPU") << ","
+                     << "," << solver_type << "," << (use_gpu ? "GPU" : "CPU")
+                     << ","
                      << "\"" << bc_name << "\"," << size << ","
                      << times.copy_time_ms << "," << times.reshape_time_ms
-                     << "," << times.fft_time_ms << ","
-                     << times.kernel_time_ms << ","
-                     << outside_time_ms << "," << times.SumTimes() << "\n";
+                     << "," << times.fft_time_ms << "," << times.kernel_time_ms
+                     << "," << outside_time_ms << "," << times.SumTimes()
+                     << "\n";
         }
     }
     if (use_gpu) {
@@ -138,9 +184,10 @@ void RunBenchmarks(std::size_t dim, Args &&...args) {
 }
 
 auto main(int argc, char *argv[]) -> int {
-    if (argc < 9) {
+    if (argc < 10) {
         std::cerr << "Usage: " << argv[0]
-                  << " float_precision solver_dim use_gpu measurement_iters "
+                  << " float_precision solver_dim use_gpu use_nonuniform_z "
+                     "measurement_iters "
                      "grid_side_size_begin grid_side_size_end "
                      "grid_side_size_step out_file BC_1 BC_2 ...\n";
         return 1;
@@ -150,20 +197,24 @@ auto main(int argc, char *argv[]) -> int {
     std::string use_gpu_str = argv[3];
     bool use_gpu =
         (use_gpu_str == "true" || use_gpu_str == "1" || use_gpu_str == "yes");
-    std::size_t measurement_iters = std::atoll(argv[4]);
-    std::size_t grid_size = std::atoll(argv[5]);
-    std::size_t grid_size_end = std::atoll(argv[6]);
-    std::size_t grid_size_step = std::atoll(argv[7]);
-    std::string out_filename = argv[8];
+    std::string use_nonuniform_z_str = argv[4];
+    bool use_nonuniform_z =
+        (use_nonuniform_z_str == "true" || use_nonuniform_z_str == "1" ||
+         use_nonuniform_z_str == "yes");
+    std::size_t measurement_iters = std::atoll(argv[5]);
+    std::size_t grid_size = std::atoll(argv[6]);
+    std::size_t grid_size_end = std::atoll(argv[7]);
+    std::size_t grid_size_step = std::atoll(argv[8]);
+    std::string out_filename = argv[9];
 
-    if (static_cast<std::size_t>(argc) != 9 + 2 * dim) {
+    if (static_cast<std::size_t>(argc) != 10 + 2 * dim) {
         std::cerr << "Error: Expected " << 2 * dim
                   << " BC arguments for dimension " << dim << "\n";
         return 1;
     }
 
     std::vector<BC> parsed_bcs;
-    for (int i = 9; i < argc; ++i) {
+    for (int i = 10; i < argc; ++i) {
         parsed_bcs.push_back(ParseBC(argv[i]));
     }
 
@@ -173,7 +224,9 @@ auto main(int argc, char *argv[]) -> int {
         return 1;
     }
 
-    out_file << "dim,precision,api,bc_name,grid_size,copy_time_ms,reshape_time_ms,fft_time_ms,kernel_time_ms,outside_time_ms,sum_time_ms\n";
+    out_file << "dim,precision,solver_type,api,bc_name,grid_size,copy_time_ms,"
+                "reshape_time_ms,fft_time_ms,kernel_time_ms,outside_time_ms,"
+                "sum_time_ms\n";
 
     std::random_device dev;
     unsigned seed = dev();
@@ -181,6 +234,7 @@ auto main(int argc, char *argv[]) -> int {
     if (float_precision == "float") {
         RunBenchmarks<float>(dim,
                              use_gpu,
+                             use_nonuniform_z,
                              measurement_iters,
                              grid_size,
                              grid_size_end,
@@ -191,6 +245,7 @@ auto main(int argc, char *argv[]) -> int {
     } else if (float_precision == "double") {
         RunBenchmarks<double>(dim,
                               use_gpu,
+                              use_nonuniform_z,
                               measurement_iters,
                               grid_size,
                               grid_size_end,

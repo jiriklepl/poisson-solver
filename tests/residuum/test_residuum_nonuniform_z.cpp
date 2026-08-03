@@ -30,38 +30,7 @@ using pst::TestConfig;
 constexpr BC P = BC::Periodic;
 constexpr BC NS = BC::NeumannStag;
 
-template <std::floating_point T>
-void InitializeZs(std::size_t nz,
-                  T len_z,
-                  std::vector<T> &z,
-                  std::vector<T> &z_u,
-                  unsigned seed) {
-    std::mt19937 rng(seed);
-    std::uniform_real_distribution<T> dist(static_cast<T>(-0.25),
-                                           static_cast<T>(0.25));
 
-    z_u.resize(nz + 1);
-    for (std::size_t i = 0; i <= nz; ++i) {
-        z_u[i] = (len_z / static_cast<T>(nz)) * static_cast<T>(i);
-    }
-
-    for (std::size_t i = 1; i < nz; ++i) {
-        T p = dist(rng);
-        T min_dist = std::min(std::abs(z_u[i + 1] - z_u[i]),
-                              std::abs(z_u[i] - z_u[i - 1]));
-        z_u[i] += min_dist * p;
-    }
-
-    T z_u_ghost_bottom = z_u[0] - (z_u[1] - z_u[0]);
-    T z_u_ghost_top = z_u[nz] + (z_u[nz] - z_u[nz - 1]);
-
-    z.resize(nz + 2);
-    z[0] = (z_u[0] + z_u_ghost_bottom) / static_cast<T>(2.0);
-    for (std::size_t i = 1; i <= nz; ++i) {
-        z[i] = (z_u[i] + z_u[i - 1]) / static_cast<T>(2.0);
-    }
-    z[nz + 1] = (z_u_ghost_top + z_u[nz]) / static_cast<T>(2.0);
-}
 
 template <std::floating_point T>
 void InitializeNonuniformZ(std::span<T> phi,
@@ -479,7 +448,7 @@ TEST_CASE_TEMPLATE("Poisson Solver Non-uniform Z Residuum Suite",
         std::vector<T> z_u;
         std::vector<T> z;
 
-        InitializeZs<T>(nz, lenz, z, z_u, seed);
+        pst::InitializeZs<T>(nz, lenz, z, z_u, seed);
         InitializeNonuniformZ<T>(phi, rhs, ns, dx, dy, z_u, lens, seed);
 
         std::vector<TestConfig<T, 3>> configs = {
