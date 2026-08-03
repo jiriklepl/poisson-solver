@@ -187,7 +187,7 @@ public:
     auto Name() const -> std::string {
         std::string name;
         for (std::size_t i{0}; const auto &bcp : bcs) {
-            name += ToString(bcp.first) + " | " + ToString(bcp.second);
+            name += psd::ToString(bcp.first) + " | " + psd::ToString(bcp.second);
             if (i < Dim - 1) {
                 name += " | ";
             }
