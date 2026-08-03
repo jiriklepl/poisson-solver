@@ -2,6 +2,7 @@
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/solver.hpp"
 
+#include <chrono>
 #include <concepts>
 #include <cstddef>
 #include <cuda_runtime.h>
@@ -85,19 +86,26 @@ void RunBenchmarks(std::size_t dim,
             tests::Initialize<T>(h_phi, h_rhs, seed + iter);
 
             ExecutionTimes times{};
+            double outside_time_ms = 0.0;
             if (use_gpu) {
                 cudaMemcpy(d_rhs,
                            h_rhs.data(),
                            total_elements * sizeof(T),
                            cudaMemcpyHostToDevice);
 
+                auto start = std::chrono::high_resolution_clock::now();
                 times = solver.ExecuteGPU(
                     std::span<T>{d_phi, total_elements},
                     std::span<const T>{d_rhs, total_elements},
                     GridSizes<Dim>{},
                     GridSizes<Dim>{});
+                auto end = std::chrono::high_resolution_clock::now();
+                outside_time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             } else {
+                auto start = std::chrono::high_resolution_clock::now();
                 times = solver.Execute(h_phi, h_rhs, GridSizes<Dim>{}, GridSizes<Dim>{});
+                auto end = std::chrono::high_resolution_clock::now();
+                outside_time_ms = std::chrono::duration<double, std::milli>(end - start).count();
             }
 
             out_file << Dim << "," << (sizeof(T) == 4 ? "float" : "double")
@@ -105,7 +113,8 @@ void RunBenchmarks(std::size_t dim,
                      << "\"" << bc_name << "\"," << size << ","
                      << times.copy_time_ms << "," << times.reshape_time_ms
                      << "," << times.fft_time_ms << ","
-                     << times.kernel_time_ms << "\n";
+                     << times.kernel_time_ms << ","
+                     << outside_time_ms << "," << times.SumTimes() << "\n";
         }
     }
     if (use_gpu) {
@@ -158,11 +167,13 @@ auto main(int argc, char *argv[]) -> int {
         parsed_bcs.push_back(ParseBC(argv[i]));
     }
 
-    std::ofstream out_file{out_filename, std::ios::app};
+    std::ofstream out_file{out_filename, std::ios::trunc};
     if (!out_file.is_open()) {
         std::cerr << "Cannot open file \"" << out_filename << "\"" << "\n";
         return 1;
     }
+
+    out_file << "dim,precision,api,bc_name,grid_size,copy_time_ms,reshape_time_ms,fft_time_ms,kernel_time_ms,outside_time_ms,sum_time_ms\n";
 
     std::random_device dev;
     unsigned seed = dev();
