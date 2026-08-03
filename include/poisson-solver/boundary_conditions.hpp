@@ -24,8 +24,8 @@ enum class BoundaryCondition {
 
 // === Structs ===
 struct BCPair {
-    const BoundaryCondition first{};
-    const BoundaryCondition second{};
+    BoundaryCondition first{};
+    BoundaryCondition second{};
 
     auto operator==(const BCPair &) const -> bool = default;
 };
