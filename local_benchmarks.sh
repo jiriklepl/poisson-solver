@@ -9,9 +9,9 @@ EXEC="${EXEC_DIR}/benchmarks"
 
 # Benchmark parameters
 ITERS=3
-GRID_START=64
-GRID_END=512
-GRID_STEP=64
+GRID_START=32
+GRID_END=256
+GRID_STEP=32
 
 BCS_1D=(
     "P P"
