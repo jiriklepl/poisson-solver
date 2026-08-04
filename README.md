@@ -52,6 +52,11 @@ There are differences in documentation for configurations with `USE_MPI ON` vs t
 
 The documentation will be in `build/docs/html/`.
 
+### Benchmarks
+The last target is `benchmarks`.
+After building the benchmarks, you can run them via `run_local_benchmarks.sh` from a cluster head node or directly from the worker node with `local_benchmarks.sh`.
+You can also execute a single solver benchmark by running the executable directly.
+
 ## How to Use
 
 The library supports C++, C and Fortran.
