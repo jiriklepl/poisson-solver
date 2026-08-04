@@ -94,6 +94,11 @@ for prec in "float" "double"; do
 
                     OUT_FILE="${RESULT_DIR}/poisson-solver_local_${prec}_dim${dim}_${gpu_str}_${nonunif_str}_${bc_name}.csv"
 
+                    if [ -f "$OUT_FILE" ]; then
+                        echo "Skipping $OUT_FILE (Already completed)"
+                        continue
+                    fi
+
                     echo "=========================================================="
                     echo "Running... Precision: $prec | Dim: $dim | GPU: $gpu_val | NonuniformZ: $nonunif_val | BCs: $bc_args"
 
