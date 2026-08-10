@@ -79,7 +79,7 @@ protected:
         float &accum;
         cudaEvent_t start, stop;
 
-        CUDAScopedTimer(float &acc)
+        explicit CUDAScopedTimer(float &acc)
             : accum(acc) {
             cudaEventCreate(&start);
             cudaEventCreate(&stop);
@@ -103,7 +103,7 @@ protected:
         float &accum;
         std::chrono::time_point<std::chrono::steady_clock> start;
 
-        HybridScopedTimer(float &acc)
+        explicit HybridScopedTimer(float &acc)
             : accum(acc) {
             cudaDeviceSynchronize();
             start = std::chrono::steady_clock::now();
