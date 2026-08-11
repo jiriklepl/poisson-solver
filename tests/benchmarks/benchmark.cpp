@@ -103,7 +103,7 @@ void RunBenchmarks(std::size_t dim,
 
     for (std::size_t size = grid_size; size <= grid_size_end;
          size += grid_size_step) {
-        std::cout << "Measuring grid size " << size << "\n";
+        std::cout << "Measuring grid size " << size << std::endl;
         GridSizes<Dim> ns;
         std::size_t total_elements = 1;
         for (std::size_t i = 0; i < Dim; ++i) {
@@ -120,7 +120,7 @@ void RunBenchmarks(std::size_t dim,
         std::vector<T> h_rhs(total_elements);
 
         for (std::size_t iter = 0; iter < measurement_iters; ++iter) {
-            std::cout << "    Iteration " << iter << "\n";
+            std::cout << "    Iteration " << iter << std::endl;
             tests::Initialize<T>(h_phi, h_rhs, seed + iter);
 
             ExecutionTimes times{};
@@ -160,7 +160,7 @@ void RunBenchmarks(std::size_t dim,
                      << times.copy_time_ms << "," << times.reshape_time_ms
                      << "," << times.fft_time_ms << "," << times.kernel_time_ms
                      << "," << outside_time_ms << "," << times.SumTimes()
-                     << "\n";
+                     << std::endl;
         }
     }
     if (use_gpu) {
@@ -209,7 +209,7 @@ auto main(int argc, char *argv[]) -> int {
 
     if (static_cast<std::size_t>(argc) != 10 + 2 * dim) {
         std::cerr << "Error: Expected " << 2 * dim
-                  << " BC arguments for dimension " << dim << "\n";
+                  << " BC arguments for dimension " << dim << std::endl;
         return 1;
     }
 
@@ -220,7 +220,7 @@ auto main(int argc, char *argv[]) -> int {
 
     std::ofstream out_file{out_filename, std::ios::trunc};
     if (!out_file.is_open()) {
-        std::cerr << "Cannot open file \"" << out_filename << "\"" << "\n";
+        std::cerr << "Cannot open file \"" << out_filename << "\"" << std::endl;
         return 1;
     }
 
