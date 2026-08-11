@@ -199,10 +199,10 @@ public:
                 solver_plan_) {}
 #endif  // USE_MPI
 
-    ExecutionTimes Execute(std::span<T> phi,
+    auto Execute(std::span<T> phi,
                            std::span<const T> rhs,
                            GridSizes<Dim> ngs_phi,
-                           GridSizes<Dim> ngs_rhs) override {
+                           GridSizes<Dim> ngs_rhs) -> ExecutionTimes override {
         this->current_times_ = ExecutionTimes{};
         float copy_time{0.0f};
         {
@@ -232,10 +232,10 @@ public:
         return this->current_times_;
     }
 
-    ExecutionTimes ExecuteGPU(std::span<T> d_phi,
+    auto ExecuteGPU(std::span<T> d_phi,
                               std::span<const T> d_rhs,
                               GridSizes<Dim> ngs_phi,
-                              GridSizes<Dim> ngs_rhs) override {
+                              GridSizes<Dim> ngs_rhs) -> ExecutionTimes override {
         this->current_times_ = ExecutionTimes{};
         float copy_time{0.0f};
         {
@@ -410,7 +410,7 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        poisson_solver::mpi_utils::LocalGridInfo<Dim> new_layout;
+        mpi_utils::LocalGridInfo<Dim> new_layout;
 
         {
             HybridScopedTimer t(this->current_times_.reshape_time_ms);
@@ -509,7 +509,7 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        poisson_solver::mpi_utils::LocalGridInfo<Dim> new_layout;
+        mpi_utils::LocalGridInfo<Dim> new_layout;
 
         {
             HybridScopedTimer t(this->current_times_.reshape_time_ms);
@@ -615,7 +615,7 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        poisson_solver::mpi_utils::LocalGridInfo<Dim> new_layout;
+        mpi_utils::LocalGridInfo<Dim> new_layout;
 
         {
             HybridScopedTimer t(this->current_times_.reshape_time_ms);
@@ -722,7 +722,7 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
-        poisson_solver::mpi_utils::LocalGridInfo<Dim> new_layout;
+        mpi_utils::LocalGridInfo<Dim> new_layout;
 
         {
             HybridScopedTimer t(this->current_times_.reshape_time_ms);
@@ -819,7 +819,7 @@ private:
         using detail::runners::DivideByDenoms;
         using detail::runners::common_real::Normalize;
 
-        poisson_solver::mpi_utils::LocalGridInfo<Dim> new_layout;
+        mpi_utils::LocalGridInfo<Dim> new_layout;
 
         {
             HybridScopedTimer t(this->current_times_.reshape_time_ms);
@@ -1195,7 +1195,7 @@ private:
         using detail::runners::common_cmplx::Normalize;
         using detail::runners::nonuniform_z::TridiagZ;
 
-        poisson_solver::mpi_utils::LocalGridInfo<3> new_layout;
+        mpi_utils::LocalGridInfo<3> new_layout;
 
         {
             HybridScopedTimer t(this->current_times_.reshape_time_ms);
@@ -1278,7 +1278,7 @@ private:
         using detail::runners::common_real::Normalize;
         using detail::runners::nonuniform_z::TridiagZ;
 
-        poisson_solver::mpi_utils::LocalGridInfo<3> new_layout;
+        mpi_utils::LocalGridInfo<3> new_layout;
 
         {
             HybridScopedTimer t(this->current_times_.reshape_time_ms);
