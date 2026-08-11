@@ -156,7 +156,7 @@ void RunBenchmarks(std::size_t dim,
             out_file << Dim << "," << (sizeof(T) == 4 ? "float" : "double")
                      << "," << solver_type << "," << (use_gpu ? "GPU" : "CPU")
                      << ","
-                     << "\"" << bc_name << "\"," << size << ","
+                     << "\"" << bc_name << "\"," << size << "," << iter << ","
                      << times.copy_time_ms << "," << times.reshape_time_ms
                      << "," << times.fft_time_ms << "," << times.kernel_time_ms
                      << "," << outside_time_ms << "," << times.SumTimes()
@@ -224,7 +224,7 @@ auto main(int argc, char *argv[]) -> int {
         return 1;
     }
 
-    out_file << "dim,precision,solver_type,api,bc_name,grid_size,copy_time_ms,"
+    out_file << "dim,precision,solver_type,api,bc_name,grid_size,iteration,copy_time_ms,"
                 "reshape_time_ms,fft_time_ms,kernel_time_ms,outside_time_ms,"
                 "sum_time_ms\n";
 
