@@ -131,21 +131,21 @@ void RunBenchmarks(std::size_t dim,
                            total_elements * sizeof(T),
                            cudaMemcpyHostToDevice);
 
-                auto start = std::chrono::high_resolution_clock::now();
+                auto start = std::chrono::steady_clock::now();
                 times = solver_ptr->ExecuteGPU(
                     std::span<T>{d_phi, total_elements},
                     std::span<const T>{d_rhs, total_elements},
                     GridSizes<Dim>{},
                     GridSizes<Dim>{});
-                auto end = std::chrono::high_resolution_clock::now();
+                auto end = std::chrono::steady_clock::now();
                 outside_time_ms =
                     std::chrono::duration<double, std::milli>(end - start)
                         .count();
             } else {
-                auto start = std::chrono::high_resolution_clock::now();
+                auto start = std::chrono::steady_clock::now();
                 times = solver_ptr->Execute(
                     h_phi, h_rhs, GridSizes<Dim>{}, GridSizes<Dim>{});
-                auto end = std::chrono::high_resolution_clock::now();
+                auto end = std::chrono::steady_clock::now();
                 outside_time_ms =
                     std::chrono::duration<double, std::milli>(end - start)
                         .count();
