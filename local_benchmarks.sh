@@ -8,10 +8,10 @@ RESULT_DIR="${EXEC_DIR}/results"
 EXEC="${EXEC_DIR}/benchmarks"
 
 # Benchmark parameters
-ITERS=3
-GRID_START=32
-GRID_END=256
-GRID_STEP=32
+ITERS=10
+GRID_START=64
+GRID_END=512
+GRID_STEP=64
 
 BCS_1D=(
     "P P"
