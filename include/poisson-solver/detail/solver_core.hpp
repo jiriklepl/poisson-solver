@@ -299,23 +299,34 @@ private:
         // Workspace Allocation Table
         // rcw : requires_cmplx_wspace
         // lf  : layout_full
+        // mpi : USE_MPI defined
         // rw1 : cu_real_workspace1,  rw2 : cu_real_workspace2
         // cw1 : cu_cmplx_workspace1, cw2 : cu_cmplx_workspace2
 
         // aloc : fresh allocation
         //  -   : unallocated
 
-        // +---------+------+------+------+------+
-        // | rcw, lf | rw1  | rw2  | cw1  | cw2  |
-        // +---------+------+------+------+------+
-        // |   0, 0  | aloc | aloc |  -   |  -   |
-        // |   0, 1  | aloc | rw1  |  -   | cw1  |
-        // |   1, 0  | aloc | aloc | aloc | aloc |
-        // |   1, 1  | aloc | rw1  | aloc | cw1  |
-        // +---------+------+------+------+------+
+        // +--------------+------+------+------+------+
+        // | rcw, lf, mpi | rw1  | rw2  | cw1  | cw2  |
+        // +--------------+------+------+------+------+
+        // |   0, 0, 0    | aloc | rw1  |  -   |  -   |
+        // |   0, 0, 1    | aloc | aloc |  -   |  -   |
+        // |   0, 1, 0    | aloc |  -   |  -   |  -   |
+        // |   0, 1, 1    | aloc |  -   |  -   |  -   |
+        // |   1, 0, 0    | aloc | rw1  | aloc | cw1  |
+        // |   1, 0, 1    | aloc | aloc | aloc | aloc |
+        // |   1, 1, 0    | aloc |  -   | aloc |  -   |
+        // |   1, 1, 1    | aloc |  -   | aloc |  -   |
+        // +--------------+------+------+------+------+
 
         using detail::CuComplexTrait;
         using detail::MakeCudaShared;
+
+#ifdef USE_MPI
+        auto use_mpi = true;
+#else
+        auto use_mpi = false;
+#endif // USE_MPI
 
         cu_real_workspace1 = MakeCudaShared<T>(reshaper->MaxLocalElements());
 
@@ -324,16 +335,17 @@ private:
                 MakeCudaShared<CuComplexTrait<T>>(reshaper->MaxLocalElements());
         }
 
-        if (layout_full) {
-            cu_real_workspace2 = cu_real_workspace1;
-            cu_cmplx_workspace2 = cu_cmplx_workspace1;
-        } else {
-            cu_real_workspace2 =
-                MakeCudaShared<T>(reshaper->MaxLocalElements());
-
-            if (requires_cmplx_wspace) {
-                cu_cmplx_workspace2 = MakeCudaShared<CuComplexTrait<T>>(
-                    reshaper->MaxLocalElements());
+        if (!layout_full) {
+            if (use_mpi) {
+                cu_real_workspace2 =
+                    MakeCudaShared<T>(reshaper->MaxLocalElements());
+                if (requires_cmplx_wspace) {
+                    cu_cmplx_workspace2 = MakeCudaShared<CuComplexTrait<T>>(
+                        reshaper->MaxLocalElements());
+                }
+            } else {
+                cu_real_workspace2 = cu_real_workspace1;
+                cu_cmplx_workspace2 = cu_cmplx_workspace1;
             }
         }
     }

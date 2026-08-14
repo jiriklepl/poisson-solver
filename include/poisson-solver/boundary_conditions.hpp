@@ -24,8 +24,8 @@ enum class BoundaryCondition {
 
 // === Structs ===
 struct BCPair {
-    const BoundaryCondition first{};
-    const BoundaryCondition second{};
+    BoundaryCondition first{};
+    BoundaryCondition second{};
 
     auto operator==(const BCPair &) const -> bool = default;
 };
@@ -108,15 +108,15 @@ constexpr auto ToString(BC bc) -> std::string {
     // so I'll leave it like this.
     switch (bc) {
         case BoundaryCondition::Periodic:
-            return "Periodic";
+            return "P";
         case BoundaryCondition::Dirichlet:
-            return "Dirichlet";
+            return "D";
         case BoundaryCondition::Neumann:
-            return "Neumann";
+            return "N";
         case BoundaryCondition::DirichletStag:
-            return "DirichletStag";
+            return "Ds";
         case BoundaryCondition::NeumannStag:
-            return "NeumannStag";
+            return "Ns";
         default:
             assert(false && "Should be unreachable");
     }
