@@ -10,6 +10,8 @@
 #include <random>
 #include <span>
 #include <stdexcept>
+#include <thread>
+#include <vector>
 
 namespace poisson_solver::tests {
 namespace psd = ::poisson_solver::detail;
@@ -187,7 +189,8 @@ public:
     auto Name() const -> std::string {
         std::string name;
         for (std::size_t i{0}; const auto &bcp : bcs) {
-            name += psd::ToString(bcp.first) + " | " + psd::ToString(bcp.second);
+            name +=
+                psd::ToString(bcp.first) + " | " + psd::ToString(bcp.second);
             if (i < Dim - 1) {
                 name += " | ";
             }
@@ -210,20 +213,57 @@ void Initialize(std::span<T> phi, std::span<T> rhs, unsigned seed) {
     assert(rhs.size() == phi.size());
 
     const std::size_t size = rhs.size();
-    std::mt19937 rng(seed);
-    std::uniform_real_distribution<T> dist(0.0, 1.0);
+    const unsigned int num_threads = std::thread::hardware_concurrency();
+    std::vector<std::thread> threads;
+    std::vector<T> partial_sums(num_threads, 0.0);
+
+    auto rng_fill_worker = [&](unsigned int t_id) {
+        std::size_t chunk = (size + num_threads - 1) / num_threads;
+        std::size_t start = t_id * chunk;
+        std::size_t end = std::min(start + chunk, size);
+
+        std::mt19937 rng(seed + t_id);
+        std::uniform_real_distribution<T> dist(0.0, 1.0);
+
+        T local_sum = 0.0;
+        for (std::size_t i = start; i < end; ++i) {
+            phi[i] = dist(rng);
+            T rhs_val = dist(rng);
+            rhs[i] = rhs_val;
+            local_sum += rhs_val;
+        }
+        partial_sums[t_id] = local_sum;
+    };
+
+    for (unsigned int i = 0; i < num_threads; ++i) {
+        threads.emplace_back(rng_fill_worker, i);
+    }
+    for (auto &t : threads) {
+        t.join();
+    }
+    threads.clear();
 
     T rhs_sum = 0.0;
-    for (std::size_t i = 0; i < size; ++i) {
-        phi[i] = dist(rng);
-        T rhs_val = dist(rng);
-        rhs[i] = rhs_val;
-        rhs_sum += rhs_val;
+    for (T s : partial_sums) {
+        rhs_sum += s;
     }
+    T avg = rhs_sum / static_cast<T>(size);
 
-    T avg = rhs_sum / (size);
-    for (std::size_t i = 0; i < size; ++i) {
-        rhs[i] -= avg;
+    auto avg_sub_worker = [&](unsigned int t_id) {
+        std::size_t chunk = (size + num_threads - 1) / num_threads;
+        std::size_t start = t_id * chunk;
+        std::size_t end = std::min(start + chunk, size);
+
+        for (std::size_t i = start; i < end; ++i) {
+            rhs[i] -= avg;
+        }
+    };
+
+    for (unsigned int i = 0; i < num_threads; ++i) {
+        threads.emplace_back(avg_sub_worker, i);
+    }
+    for (auto &t : threads) {
+        t.join();
     }
 }
 
