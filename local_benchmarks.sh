@@ -8,7 +8,7 @@ RESULT_DIR="${EXEC_DIR}/results"
 EXEC="${EXEC_DIR}/benchmarks"
 
 # Benchmark parameters
-ITERS=20
+ITERS=75
 GRID_START=64
 GRID_END=512
 GRID_STEP=64
