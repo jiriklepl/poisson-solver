@@ -22,12 +22,12 @@
 #include <variant>
 #include <vector>
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 #include "poisson-solver/detail/cuch.hpp"
 #include "poisson-solver/detail/mpi_check.hpp"
 
 #include <mpi.h>
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
 namespace poisson_solver::detail {
 /**
@@ -105,7 +105,7 @@ public:
                      cuda_block_size,
                      sp) {}
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     /**
      * @brief Constructs core for distributed solver.
      */
@@ -125,7 +125,7 @@ public:
                      approx,
                      cuda_block_size,
                      sp) {}
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     /**
      * @note The dimensionality of the result is determined by `FFTDim`.
@@ -200,7 +200,7 @@ private:
                 CoreFFTPolicy::Init(ns, sp.fft_layout)};
     }
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     /**
      * @note The reshaper has to be built before the fft_plan because
      * the fft_plan uses it (in a distributed solver core).
@@ -239,7 +239,7 @@ private:
         return {std::move(distributed_reshaper),
                 std::move(distributed_fft_plan)};
     }
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     static auto ComputeLocalGridSize(GridSizes<Dim> ns) -> std::size_t {
         return std::accumulate(
@@ -299,7 +299,7 @@ private:
         // Workspace Allocation Table
         // rcw : requires_cmplx_wspace
         // lf  : layout_full
-        // mpi : USE_MPI defined
+        // mpi : POISSON_SOLVER_USE_MPI defined
         // rw1 : cu_real_workspace1,  rw2 : cu_real_workspace2
         // cw1 : cu_cmplx_workspace1, cw2 : cu_cmplx_workspace2
 
@@ -322,11 +322,11 @@ private:
         using detail::CuComplexTrait;
         using detail::MakeCudaShared;
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
         auto use_mpi = true;
 #else
         auto use_mpi = false;
-#endif // USE_MPI
+#endif // POISSON_SOLVER_USE_MPI
 
         cu_real_workspace1 = MakeCudaShared<T>(reshaper->MaxLocalElements());
 

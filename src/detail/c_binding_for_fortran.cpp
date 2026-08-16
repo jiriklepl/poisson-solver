@@ -22,13 +22,13 @@ void PoissonSolverNewForFortran(PoissonSolver *solver_out,
                                 Approximation approx,
                                 const int *gns,
                                 const int *offs,
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
                                 const MPI_Fint *mpi_comm
 #else
                                 const void *mpi_comm
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 ) {
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     MPI_Comm c_comm;
     const void *c_comm_ptr = nullptr;
     if (mpi_comm) {
@@ -37,7 +37,7 @@ void PoissonSolverNewForFortran(PoissonSolver *solver_out,
     }
 #else
     const void *c_comm_ptr = mpi_comm;
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
     PoissonSolverNew(
         solver_out, dims, ns, lens, bcs, approx, gns, offs, c_comm_ptr);
 }
@@ -50,13 +50,13 @@ void PoissonSolverNewFloatForFortran(PoissonSolver *solver_out,
                                      Approximation approx,
                                      const int *gns,
                                      const int *offs,
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
                                      const MPI_Fint *mpi_comm
 #else
                                      const void *mpi_comm
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 ) {
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     MPI_Comm c_comm;
     const void *c_comm_ptr = nullptr;
     if (mpi_comm) {
@@ -65,7 +65,7 @@ void PoissonSolverNewFloatForFortran(PoissonSolver *solver_out,
     }
 #else
     const void *c_comm_ptr = mpi_comm;
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
     PoissonSolverNewFloat(
         solver_out, dims, ns, lens, bcs, approx, gns, offs, c_comm_ptr);
 }
@@ -79,13 +79,13 @@ void PoissonSolverNonuniformZNewForFortran(PoissonSolver *solver_out,
                                            Approximation approx,
                                            const int *gns,
                                            const int *offs,
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
                                            const MPI_Fint *mpi_comm
 #else
                                            const void *mpi_comm
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 ) {
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     MPI_Comm c_comm;
     const void *c_comm_ptr = nullptr;
     if (mpi_comm) {
@@ -94,7 +94,7 @@ void PoissonSolverNonuniformZNewForFortran(PoissonSolver *solver_out,
     }
 #else
     const void *c_comm_ptr = mpi_comm;
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
     PoissonSolverNonuniformZNew(
         solver_out, ns, lens, z, z_u, bcs, approx, gns, offs, c_comm_ptr);
 }
@@ -108,13 +108,13 @@ void PoissonSolverNonuniformZNewFloatForFortran(PoissonSolver *solver_out,
                                                 Approximation approx,
                                                 const int *gns,
                                                 const int *offs,
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
                                                 const MPI_Fint *mpi_comm
 #else
                                                 const void *mpi_comm
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 ) {
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     MPI_Comm c_comm;
     const void *c_comm_ptr = nullptr;
     if (mpi_comm) {
@@ -123,13 +123,13 @@ void PoissonSolverNonuniformZNewFloatForFortran(PoissonSolver *solver_out,
     }
 #else
     const void *c_comm_ptr = mpi_comm;
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
     PoissonSolverNonuniformZNewFloat(
         solver_out, ns, lens, z, z_u, bcs, approx, gns, offs, c_comm_ptr);
 }
 }
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 extern "C" {
 void PoissonSolverInitMPIGridForFortran(const MPI_Fint *comm_old,
                                         const int *nps,
@@ -148,4 +148,4 @@ void PoissonSolverGetLocalGridInfoForFortran(const int *gns,
     PoissonSolverGetLocalGridInfo(gns, c_cart_comm, ns, offs);
 }
 }
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI

@@ -20,9 +20,9 @@
 #include <span>
 #include <stdexcept>
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 #include <mpi.h>
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
 namespace poisson_solver {
 /**
@@ -103,7 +103,7 @@ public:
         : solver_plan_(bcs),
           core_(ns, lens, approx, cuda_block_size, solver_plan_) {}
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     /**
      * @brief Constructs a distributed poisson solver.
      *
@@ -140,7 +140,7 @@ public:
                 approx,
                 cuda_block_size,
                 solver_plan_) {}
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     void Execute(std::span<T> phi,
                  std::span<const T> rhs,
@@ -530,7 +530,7 @@ public:
         Init(z, z_u, ns);
     }
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     /**
      * @brief Constructs a distributed poisson solver with nonuniform Z axis.
      *
@@ -576,7 +576,7 @@ public:
                 solver_plan_) {
         Init(z, z_u, gns);
     }
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     void Execute(std::span<T> phi,
                  std::span<const T> rhs,

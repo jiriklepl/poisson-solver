@@ -28,11 +28,11 @@ inline auto AdjustNormFactorIfHeFFTeUsed(std::size_t norm_factor,
                                          [[maybe_unused]] std::size_t times,
                                          [[maybe_unused]] bool solver_full)
     -> std::size_t {
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     return solver_full ? norm_factor * times : norm_factor;
 #else
     return norm_factor;
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 }
 }  // namespace poisson_solver::detail::axis_strategy_internals
 

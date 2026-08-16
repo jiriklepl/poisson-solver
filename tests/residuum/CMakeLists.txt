@@ -53,7 +53,7 @@ set(DISTRIBUTED_TEST_LAUNCH
 )
 
 # == C/C++ Residuum Tests ==
-if (USE_MPI)
+if (POISSON_SOLVER_USE_MPI)
     # TODO - Add sources for CXX MPI tests
     set(CXX_TEST_SRC "")
 else()
@@ -94,7 +94,7 @@ if (CXX_TEST_SRC)
 endif()
 
 # == Fortran Residuum Tests ==
-if (USE_MPI)
+if (POISSON_SOLVER_USE_MPI)
     set(FORTRAN_TEST_SRCS
         test_residuum_mpi.f90
         test_residuum_mpi_nonuniform_z.f90
@@ -125,14 +125,14 @@ foreach(f_test_src IN LISTS FORTRAN_TEST_SRCS)
         common_flags
         poisson-solver
     )
-    if (BUILD_FORTRAN AND USE_MPI)
+    if (BUILD_FORTRAN AND POISSON_SOLVER_USE_MPI)
         target_link_libraries(poisson-solver PUBLIC
             MPI::MPI_Fortran
         )
     endif()
 
     # Register test with ctest
-    if (USE_MPI)
+    if (POISSON_SOLVER_USE_MPI)
         add_test(
             NAME ${test_target}
             COMMAND
@@ -161,7 +161,7 @@ endforeach()
 add_custom_target(tests)
 
 # TODO - When CXX MPI tests are rdy, keep only the else branch
-if (USE_MPI)
+if (POISSON_SOLVER_USE_MPI)
     add_dependencies(tests ${ALL_FORTRAN_TEST_TARGETS})
 else()
     add_dependencies(tests residuum-tests ${ALL_FORTRAN_TEST_TARGETS})

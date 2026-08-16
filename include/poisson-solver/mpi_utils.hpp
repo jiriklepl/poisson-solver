@@ -23,7 +23,7 @@ struct LocalGridInfo {
 };
 }  // namespace poisson_solver::mpi_utils
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 #include <mpi.h>
 
 namespace poisson_solver::mpi_utils {
@@ -59,5 +59,5 @@ auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps_yz) -> MPI_Comm;
 auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo<3>;
 }  // namespace poisson_solver::mpi_utils
 
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 #endif  // MPI_UTILS_HPP

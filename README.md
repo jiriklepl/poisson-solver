@@ -48,7 +48,7 @@ Beware that the tests can take several minutes to finish and in case of local te
 
 ### Docs
 Next target is `doc` which can be used to generate the documentation for the current configuration.
-There are differences in documentation for configurations with `USE_MPI ON` vs those with `USE_MPI OFF`.
+There are differences in documentation for configurations with `POISSON_SOLVER_USE_MPI ON` vs those with `POISSON_SOLVER_USE_MPI OFF`.
 
 The documentation will be in `build/docs/html/`.
 

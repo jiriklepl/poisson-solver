@@ -23,7 +23,7 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
-        "USE_MPI": "OFF"
+        "POISSON_SOLVER_USE_MPI": "OFF"
       }
     },
     {
@@ -34,7 +34,7 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
-        "USE_MPI": "ON"
+        "POISSON_SOLVER_USE_MPI": "ON"
       }
     },
     {
@@ -44,7 +44,7 @@
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "USE_MPI": "OFF"
+        "POISSON_SOLVER_USE_MPI": "OFF"
       }
     },
     {
@@ -54,7 +54,7 @@
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "USE_MPI": "ON"
+        "POISSON_SOLVER_USE_MPI": "ON"
       }
     }
   ]
