@@ -17,7 +17,7 @@
 #include <variant>
 #include <vkFFT.h>
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 #include "poisson-solver/detail/mpi_check.hpp"
 
 #include <algorithm>
@@ -26,7 +26,7 @@
 #include <heffte.h>
 #include <mpi.h>
 #include <utility>
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
 /**
  * @file
@@ -36,7 +36,7 @@
  * FFTs only in specific dimensions (this is required in some solvers).
  *
  * The FFTPolicy is an alias of the current FFT policy based on the
- * use of USE_MPI.
+ * use of POISSON_SOLVER_USE_MPI.
  */
 
 namespace poisson_solver::detail {
@@ -418,7 +418,7 @@ private:
     }
 };
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 // === Structs ===
 // We have to use the type erasure idiom with heFFTe to
 // transform the compile-time tags into run-time virtual calls.
@@ -957,7 +957,7 @@ using FFTPolicy = MpiFftPolicy<T, Dim>;
 template <std::floating_point T, std::size_t Dim>
 using FFTPolicy = VkFFTPolicy<T, Dim>;
 
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 }  // namespace poisson_solver::detail
 
 #endif  // FFT_POLICIES_HPP

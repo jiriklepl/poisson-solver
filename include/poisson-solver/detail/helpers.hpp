@@ -12,9 +12,9 @@
 #include <memory>
 #include <type_traits>
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 #include <heffte.h>
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
 namespace poisson_solver::detail {
 // === Structs ===
@@ -172,7 +172,7 @@ void MemcpyActiveGrid(T *padded_ptr,
     CUCH(cudaMemcpy3D(&params));
 }
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 /**
  * @brief Map from \p ns and \p offs to heffte::box3d<>.
  */
@@ -195,7 +195,7 @@ auto GetGridBox(GridSizes<Dim> ns, GridOffsets<Dim> offs) {
 
     return heffte::box3d<>{low, high};
 }
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 }  // namespace poisson_solver::detail
 
 #endif  // HELPERS_HPP

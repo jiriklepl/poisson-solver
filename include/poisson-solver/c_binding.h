@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 #include <mpi.h>
 #endif
 
@@ -50,7 +50,7 @@ typedef enum { Spectral = 0, FD2 = 2, FD4 = 4 } Approximation;
  * @note The solver assumes that the first index is the fastest changing
  * and the last is the slowest.
  *
- * @note \p gns, \p offs and \p mpi_comm are not used if USE_MPI is disabled.
+ * @note \p gns, \p offs and \p mpi_comm are not used if POISSON_SOLVER_USE_MPI is disabled.
  */
 void PoissonSolverNew(PoissonSolver *solver_out,
                       int dims,
@@ -159,7 +159,7 @@ void PoissonSolverFinalizeFloat(PoissonSolver *solver);
  * @note The solver assumes that the first index is the fastest changing
  * and the last is the slowest.
  *
- * @note \p gns, \p offs and \p mpi_comm are not used if USE_MPI is disabled.
+ * @note \p gns, \p offs and \p mpi_comm are not used if POISSON_SOLVER_USE_MPI is disabled.
  */
 void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
                                  const int ns[3],
@@ -238,7 +238,7 @@ void PoissonSolverNonuniformZExecuteGPUFloat(PoissonSolver *solver,
  */
 void PoissonSolverNonuniformZFinalizeFloat(PoissonSolver *solver);
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 /**
  * @brief Initializes MPI cartesian grid
  * with at most two axes of decomposition (the X axis is local).

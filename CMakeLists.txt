@@ -28,8 +28,8 @@ endif()
 
 find_package(CUDAToolkit REQUIRED)
 
-option(USE_MPI "Build distributed version" OFF)
-if (USE_MPI)
+option(POISSON_SOLVER_USE_MPI "Build distributed version" OFF)
+if (POISSON_SOLVER_USE_MPI)
     # `COMPONENTS` finds only the CXX and (maybe) Fortran APIs
     find_package(MPI REQUIRED COMPONENTS CXX)
     if (BUILD_FORTRAN)
@@ -125,8 +125,8 @@ if (DOXYGEN_FOUND)
     set(DOXYGEN_USE_MATHJAX YES)
     set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/docs)
 
-    if (USE_MPI)
-        set(DOXYGEN_PREDEFINED "USE_MPI")
+    if (POISSON_SOLVER_USE_MPI)
+        set(DOXYGEN_PREDEFINED "POISSON_SOLVER_USE_MPI")
     endif()
 
     # Make docs prettier

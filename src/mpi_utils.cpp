@@ -1,4 +1,4 @@
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 #include "poisson-solver/mpi_utils.hpp"
 
 #include "poisson-solver/detail/mpi_check.hpp"
@@ -87,4 +87,4 @@ auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo<3> 
 }
 }  // namespace poisson_solver::mpi_utils
 
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI

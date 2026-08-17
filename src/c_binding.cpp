@@ -14,9 +14,9 @@
 #include <stdexcept>
 #include <string>
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 #include <mpi.h>
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
 /**
  * @file
@@ -205,7 +205,7 @@ void PoissonSolver1DNew(PoissonSolver *solver_out,
                         const void *mpi_comm) {
     ps::BCPair bcp = ToCxxBCPair(bcs[0], bcs[1]);
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     ps::ISolver<double, 1> *solver_handle =
         new ps::Solver<double, 1>({static_cast<std::size_t>(ns[0])},
                                   {lens[0]},
@@ -217,7 +217,7 @@ void PoissonSolver1DNew(PoissonSolver *solver_out,
 #else
     ps::ISolver<double, 1> *solver_handle = new ps::Solver<double, 1>(
         {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -238,7 +238,7 @@ void PoissonSolver2DNew(PoissonSolver *solver_out,
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     ps::ISolver<double, 2> *solver_handle = new ps::Solver<double, 2>(
         {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
         {lens[0], lens[1]},
@@ -253,7 +253,7 @@ void PoissonSolver2DNew(PoissonSolver *solver_out,
         {lens[0], lens[1]},
         {bcp1, bcp2},
         approx);
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -275,7 +275,7 @@ void PoissonSolver3DNew(PoissonSolver *solver_out,
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     ps::ISolver<double, 3> *solver_handle =
         new ps::Solver<double, 3>({static_cast<std::size_t>(ns[0]),
                                    static_cast<std::size_t>(ns[1]),
@@ -298,7 +298,7 @@ void PoissonSolver3DNew(PoissonSolver *solver_out,
                                   {lens[0], lens[1], lens[2]},
                                   {bcp1, bcp2, bcp3},
                                   approx);
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -412,7 +412,7 @@ void PoissonSolver1DNewFloat(PoissonSolver *solver_out,
                              const void *mpi_comm) {
     ps::BCPair bcp = ToCxxBCPair(bcs[0], bcs[1]);
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     ps::ISolver<float, 1> *solver_handle =
         new ps::Solver<float, 1>({static_cast<std::size_t>(ns[0])},
                                  {lens[0]},
@@ -424,7 +424,7 @@ void PoissonSolver1DNewFloat(PoissonSolver *solver_out,
 #else
     ps::ISolver<float, 1> *solver_handle = new ps::Solver<float, 1>(
         {static_cast<std::size_t>(ns[0])}, {lens[0]}, {bcp}, approx);
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -445,7 +445,7 @@ void PoissonSolver2DNewFloat(PoissonSolver *solver_out,
     ps::BCPair bcp1 = ToCxxBCPair(bcs[0], bcs[1]);
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     ps::ISolver<float, 2> *solver_handle = new ps::Solver<float, 2>(
         {static_cast<std::size_t>(ns[0]), static_cast<std::size_t>(ns[1])},
         {lens[0], lens[1]},
@@ -460,7 +460,7 @@ void PoissonSolver2DNewFloat(PoissonSolver *solver_out,
         {lens[0], lens[1]},
         {bcp1, bcp2},
         approx);
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -482,7 +482,7 @@ void PoissonSolver3DNewFloat(PoissonSolver *solver_out,
     ps::BCPair bcp2 = ToCxxBCPair(bcs[2], bcs[3]);
     ps::BCPair bcp3 = ToCxxBCPair(bcs[4], bcs[5]);
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     ps::ISolver<float, 3> *solver_handle =
         new ps::Solver<float, 3>({static_cast<std::size_t>(ns[0]),
                                   static_cast<std::size_t>(ns[1]),
@@ -505,7 +505,7 @@ void PoissonSolver3DNewFloat(PoissonSolver *solver_out,
                                  {lens[0], lens[1], lens[2]},
                                  {bcp1, bcp2, bcp3},
                                  approx);
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -629,7 +629,7 @@ void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
 
     auto ps_approx = GetApprox<double>(approx);
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     ps::ISolver<double, 3> *solver_handle = new ps::NonuniformZSolver<double>(
         grid_sizes,
         {lens[0], lens[1]},
@@ -652,7 +652,7 @@ void PoissonSolverNonuniformZNew(PoissonSolver *solver_out,
                                           std::span{z_u, grid_sizes[2] + 1},
                                           {bcp1, bcp2, bcp3},
                                           *ps_approx);
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -721,7 +721,7 @@ void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
 
     auto ps_approx = GetApprox<float>(approx);
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
     ps::ISolver<float, 3> *solver_handle = new ps::NonuniformZSolver<float>(
         grid_sizes,
         {lens[0], lens[1]},
@@ -744,7 +744,7 @@ void PoissonSolverNonuniformZNewFloat(PoissonSolver *solver_out,
                                          std::span{z_u, grid_sizes[2] + 1},
                                          {bcp1, bcp2, bcp3},
                                          *ps_approx);
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
     *solver_out = {.handle = solver_handle,
                    .grid_size = solver_handle->GetTotalGridSize(),
@@ -793,7 +793,7 @@ void PoissonSolverNonuniformZFinalizeFloat(PoissonSolver *solver) {
 }
 }
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 void PoissonSolverInitMPIGrid(MPI_Comm comm_old,
                               const int *nps,
                               MPI_Comm *comm_out) {
@@ -818,4 +818,4 @@ void PoissonSolverGetLocalGridInfo(const int *gns,
         offs[i] = static_cast<int>(info.offs[i]);
     }
 }
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI

@@ -1,6 +1,8 @@
-set(BENCH_SRC
-    benchmark.cpp
-)
+if (POISSON_SOLVER_USE_MPI)
+    set(BENCH_SRC benchmark_mpi.cpp)
+else()
+    set(BENCH_SRC benchmark.cpp)
+endif()
 
 # By default, only the lib is built
 add_executable(benchmarks EXCLUDE_FROM_ALL ${BENCH_SRC})

@@ -1,8 +1,8 @@
 #include "poisson-solver/c_binding.h"
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 #include <mpi.h>
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,11 +15,11 @@ void PoissonSolverNewForFortran(PoissonSolver *solver_out,
                                 Approximation approx,
                                 const int *gns,
                                 const int *offs,
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
                                 const MPI_Fint *mpi_comm
 #else
                                 const void *mpi_comm
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 );
 
 void PoissonSolverNewFloatForFortran(PoissonSolver *solver_out,
@@ -30,11 +30,11 @@ void PoissonSolverNewFloatForFortran(PoissonSolver *solver_out,
                                      Approximation approx,
                                      const int *gns,
                                      const int *offs,
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
                                      const MPI_Fint *mpi_comm
 #else
                                      const void *mpi_comm
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 );
 
 void PoissonSolverNonuniformZNewForFortran(PoissonSolver *solver_out,
@@ -46,11 +46,11 @@ void PoissonSolverNonuniformZNewForFortran(PoissonSolver *solver_out,
                                            Approximation approx,
                                            const int *gns,
                                            const int *offs,
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
                                            const MPI_Fint *mpi_comm
 #else
                                            const void *mpi_comm
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 );
 
 void PoissonSolverNonuniformZNewFloatForFortran(PoissonSolver *solver_out,
@@ -62,14 +62,14 @@ void PoissonSolverNonuniformZNewFloatForFortran(PoissonSolver *solver_out,
                                                 Approximation approx,
                                                 const int *gns,
                                                 const int *offs,
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
                                                 const MPI_Fint *mpi_comm
 #else
                                                 const void *mpi_comm
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 );
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 void PoissonSolverInitMPIGridForFortran(const MPI_Fint *comm_old,
                                         const int *nps,
                                         MPI_Fint *comm_out);
@@ -78,7 +78,7 @@ void PoissonSolverGetLocalGridInfoForFortran(const int *gns,
                                              const MPI_Fint *cart_comm,
                                              int *ns,
                                              int *offs);
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 
 #ifdef __cplusplus
 }

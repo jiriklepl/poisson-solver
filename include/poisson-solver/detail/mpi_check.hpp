@@ -1,6 +1,6 @@
 #ifndef MPI_CHECK_HPP
 #define MPI_CHECK_HPP
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 
 #include <mpi.h>
 #include <source_location>
@@ -18,5 +18,5 @@ inline void MPICheck(int mpi_err_code, const std::source_location &loc) {
 
 #define MPI_CHECK(err_code) MPICheck(err_code, std::source_location::current())
 
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 #endif  // MPI_CHECK_HPP

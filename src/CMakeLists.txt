@@ -36,12 +36,12 @@ target_include_directories(poisson-solver PUBLIC
 
 target_link_libraries(poisson-solver PRIVATE common_flags)
 target_link_libraries(poisson-solver PUBLIC CUDA::cudart VkFFT)
-if (USE_MPI)
+if (POISSON_SOLVER_USE_MPI)
     target_link_libraries(poisson-solver PUBLIC
         Heffte
         MPI::MPI_CXX
     )
 
-    # Defines `USE_MPI`, therefore code can do `#ifdef USE_MPI`
-    target_compile_definitions(poisson-solver PRIVATE USE_MPI)
+    # Defines `POISSON_SOLVER_USE_MPI`, therefore code can do `#ifdef POISSON_SOLVER_USE_MPI`
+    target_compile_definitions(poisson-solver PUBLIC POISSON_SOLVER_USE_MPI)
 endif()

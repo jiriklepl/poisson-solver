@@ -12,13 +12,13 @@
 #include <numeric>
 #include <utility>
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 #include "poisson-solver/detail/cuch.hpp"
 
 #include <complex>
 #include <mpi.h>
 #include <vector>
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 /**
  * @file
  * @brief Reshapers provide a simple interface for exchanging parts of
@@ -212,7 +212,7 @@ private:
     GridOffsets<Dim> offs_{};
 };
 
-#ifdef USE_MPI
+#ifdef POISSON_SOLVER_USE_MPI
 // === Distributed Forward Declarations ===
 template <std::floating_point T>
 class Reshaper;
@@ -543,6 +543,6 @@ private:
         next_reshape_idx_ %= reshapes_.size();
     }
 };
-#endif  // USE_MPI
+#endif  // POISSON_SOLVER_USE_MPI
 }  // namespace poisson_solver::detail
 #endif  // RESHAPER_HPP
