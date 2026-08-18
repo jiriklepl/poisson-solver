@@ -43,6 +43,13 @@ public:
     GridSizes<Dim> ngs_rhs{};
 };
 
+template <std::floating_point T, std::size_t Dim>
+struct DistributedSolverConfig : public SolverConfig<T, Dim> {
+    public:
+        GridSizes<Dim> gns{};
+        GridOffsets<Dim> offs{};
+};
+
 /**
  * struct NonuniformZSolverConfig - Data for nonuniform Z solver construction.
  * Exists mainly to reduce the amount of function params.
@@ -341,6 +348,20 @@ auto ResiduumBelowThreshold(T residuum,
         fudge_factor * std::numeric_limits<T>::epsilon();
     bool success = residuum < max_residuum;
     return {.success = success, .max_residuum = max_residuum};
+}
+
+inline auto ParseBC(const std::string &str) -> BC {
+    if (str == "P")
+        return BC::Periodic;
+    if (str == "D")
+        return BC::Dirichlet;
+    if (str == "N")
+        return BC::Neumann;
+    if (str == "DS")
+        return BC::DirichletStag;
+    if (str == "NS")
+        return BC::NeumannStag;
+    throw std::runtime_error("Unknown BC: " + str);
 }
 
 // == Correctors ==

@@ -19,20 +19,6 @@
 
 using namespace poisson_solver;
 
-inline auto ParseBC(const std::string &str) -> BC {
-    if (str == "P")
-        return BC::Periodic;
-    if (str == "D")
-        return BC::Dirichlet;
-    if (str == "N")
-        return BC::Neumann;
-    if (str == "DS")
-        return BC::DirichletStag;
-    if (str == "NS")
-        return BC::NeumannStag;
-    throw std::runtime_error("Unknown BC: " + str);
-}
-
 template <std::floating_point T, std::size_t Dim>
 auto InstantiateSolver(bool use_nonuniform_z,
                        tests::SolverConfig<T, Dim> &&cfg,
