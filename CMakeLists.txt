@@ -1,8 +1,12 @@
 cmake_minimum_required(VERSION 4.0)
 project(PoissonSolver
     VERSION 0.1
-    LANGUAGES CXX CUDA Fortran
+    LANGUAGES CXX CUDA
 )
+
+if (BUILD_FORTRAN)
+    enable_language(Fortran)
+endif()
 
 enable_testing()
 
