@@ -87,6 +87,8 @@ public:
     auto ComputeNormalizationFactor(std::size_t gn,
                                     [[maybe_unused]] bool solver_full) const
         -> std::size_t override {
+        // HeFFTe is used in a modified version where
+        // adjusting this isn't required
         return 2 * (gn + 1);
     }
 };
@@ -106,8 +108,9 @@ public:
 
     auto ComputeNormalizationFactor(std::size_t gn, bool solver_full) const
         -> std::size_t override {
-        using axis_strategy_internals::AdjustNormFactorIfHeFFTeUsed;
-        return AdjustNormFactorIfHeFFTeUsed(2 * (gn - 1), 2, solver_full);
+        // HeFFTe is used in a modified version where
+        // adjusting this isn't required
+        return 2 * (gn - 1);
     }
 };
 
