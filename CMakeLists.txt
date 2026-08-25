@@ -43,7 +43,7 @@ if (POISSON_SOLVER_USE_MPI)
     FetchContent_Declare(
         heffte
         GIT_REPOSITORY https://github.com/mntjams/heffte
-        GIT_TAG 818288f295cedcc025187322dfd5d1bcc49b1fac
+        GIT_TAG 38f9b9b546561d2b2a172afc2168437ae7426889
     )
 
     # This variable is then read by HeFFTe's CMake.
