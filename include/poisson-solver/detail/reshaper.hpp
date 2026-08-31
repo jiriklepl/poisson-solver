@@ -475,6 +475,7 @@ private:
         reshapes_.resize(2 * (decomps.size() - 1));
 
         auto options = heffte::default_options<BackendTag>();
+        options.algorithm = heffte::reshape_algorithm::p2p_plined;
 
         for (std::size_t i{0}; i < decomps.size() - 1; ++i) {
             auto decomp_from = decomps[i];

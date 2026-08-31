@@ -818,4 +818,10 @@ void PoissonSolverGetLocalGridInfo(const int *gns,
         offs[i] = static_cast<int>(info.offs[i]);
     }
 }
+
+void PoissonSolverSelectLocalDevice(MPI_Comm comm, int *device_out) {
+    using poisson_solver::mpi_utils::SelectLocalDevice;
+
+    *device_out = SelectLocalDevice(comm);
+}
 #endif  // POISSON_SOLVER_USE_MPI

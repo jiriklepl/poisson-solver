@@ -983,6 +983,7 @@ program testpoisson_MPI
   real(c_double) ::  S,p
   integer :: seed_size
   integer :: ie = 0
+  integer :: local_device
   character(200) :: fname
 
   integer :: required, provided
@@ -1054,6 +1055,8 @@ program testpoisson_MPI
     end if
     call error_stop(25)
   end if
+
+  call poisson_solver_select_local_device(glob_comm, local_device)
 
   call poisson_solver_init_mpi_grid(glob_comm, npxyz(3:2:-1), cart_comm)
   

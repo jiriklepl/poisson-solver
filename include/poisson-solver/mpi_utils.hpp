@@ -57,6 +57,16 @@ auto InitMPIGrid(MPI_Comm comm_old, ProcsPerDim<2> nps_yz) -> MPI_Comm;
  * @return Information about the local grid.
  */
 auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo<3>;
+
+/**
+ * @brief Selects one CUDA device per rank based on this process's rank
+ * within its node, and makes it the active device via cudaSetDevice().
+ *
+ * @param comm A communicator containing (at least) all ranks that share
+ * this node.
+ * @return The CUDA device ordinal selected for this rank.
+ */
+auto SelectLocalDevice(MPI_Comm comm) -> int;
 }  // namespace poisson_solver::mpi_utils
 
 #endif  // POISSON_SOLVER_USE_MPI
