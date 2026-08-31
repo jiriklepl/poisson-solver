@@ -427,34 +427,33 @@ private:
         }
 
         {
+            HybridScopedTimer t(this->current_times_.reshape_time_ms);
+
+            new_layout = core_.reshaper->ReshapeReal(
+                core_.cu_real_workspace1.get(), core_.cu_real_workspace2.get());
+        }
+
+        {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
             Init(core_.cu_cmplx_workspace1.get(),
-                 core_.cu_real_workspace2.get(),
+                 core_.cu_real_workspace1.get(),
                  new_layout.ns,
                  core_.ComputeCUDAGridSize(new_layout.ns),
                  core_.cu_block_size);
         }
 
         {
-            HybridScopedTimer t(this->current_times_.reshape_time_ms);
-
-            new_layout =
-                core_.reshaper->ReshapeCmplx(core_.cu_cmplx_workspace2.get(),
-                                             core_.cu_cmplx_workspace1.get());
-        }
-
-        {
             HybridScopedTimer t(this->current_times_.fft_time_ms);
 
-            FFTPolicy::Forward2D(core_.cu_cmplx_workspace2.get(),
+            FFTPolicy::Forward2D(core_.cu_cmplx_workspace1.get(),
                                  core_.fft_plan);
         }
 
         {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
-            DivideByDenoms(core_.cu_cmplx_workspace2.get(),
+            DivideByDenoms(core_.cu_cmplx_workspace1.get(),
                            new_layout.ns,
                            new_layout.offs,
                            core_.cu_denom_observers,
@@ -466,27 +465,26 @@ private:
         {
             HybridScopedTimer t(this->current_times_.fft_time_ms);
 
-            FFTPolicy::Backward2D(core_.cu_cmplx_workspace2.get(),
+            FFTPolicy::Backward2D(core_.cu_cmplx_workspace1.get(),
                                   core_.fft_plan);
-        }
-
-        {
-            HybridScopedTimer t(this->current_times_.reshape_time_ms);
-
-            new_layout =
-                core_.reshaper->ReshapeCmplx(core_.cu_cmplx_workspace1.get(),
-                                             core_.cu_cmplx_workspace2.get());
         }
 
         {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
-            Normalize(core_.cu_real_workspace2.get(),
+            Normalize(core_.cu_real_workspace1.get(),
                       core_.cu_cmplx_workspace1.get(),
                       new_layout.ns,
                       core_.norm_factor,
                       core_.ComputeCUDAGridSize(new_layout.ns),
                       core_.cu_block_size);
+        }
+
+        {
+            HybridScopedTimer t(this->current_times_.reshape_time_ms);
+
+            new_layout = core_.reshaper->ReshapeReal(
+                core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
         }
 
         {
@@ -526,34 +524,33 @@ private:
         }
 
         {
+            HybridScopedTimer t(this->current_times_.reshape_time_ms);
+
+            new_layout = core_.reshaper->ReshapeReal(
+                core_.cu_real_workspace1.get(), core_.cu_real_workspace2.get());
+        }
+
+        {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
             Init(core_.cu_cmplx_workspace1.get(),
-                 core_.cu_real_workspace2.get(),
+                 core_.cu_real_workspace1.get(),
                  new_layout.ns,
                  core_.ComputeCUDAGridSize(new_layout.ns),
                  core_.cu_block_size);
         }
 
         {
-            HybridScopedTimer t(this->current_times_.reshape_time_ms);
-
-            new_layout =
-                core_.reshaper->ReshapeCmplx(core_.cu_cmplx_workspace2.get(),
-                                             core_.cu_cmplx_workspace1.get());
-        }
-
-        {
             HybridScopedTimer t(this->current_times_.fft_time_ms);
 
-            FFTPolicy::Forward2D(core_.cu_cmplx_workspace2.get(),
+            FFTPolicy::Forward2D(core_.cu_cmplx_workspace1.get(),
                                  core_.fft_plan);
         }
 
         {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
-            DivideByDenoms(core_.cu_cmplx_workspace2.get(),
+            DivideByDenoms(core_.cu_cmplx_workspace1.get(),
                            new_layout.ns,
                            new_layout.offs,
                            core_.cu_denom_observers,
@@ -564,27 +561,26 @@ private:
         {
             HybridScopedTimer t(this->current_times_.fft_time_ms);
 
-            FFTPolicy::Backward2D(core_.cu_cmplx_workspace2.get(),
+            FFTPolicy::Backward2D(core_.cu_cmplx_workspace1.get(),
                                   core_.fft_plan);
-        }
-
-        {
-            HybridScopedTimer t(this->current_times_.reshape_time_ms);
-
-            new_layout =
-                core_.reshaper->ReshapeCmplx(core_.cu_cmplx_workspace1.get(),
-                                             core_.cu_cmplx_workspace2.get());
         }
 
         {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
-            Normalize(core_.cu_real_workspace2.get(),
+            Normalize(core_.cu_real_workspace1.get(),
                       core_.cu_cmplx_workspace1.get(),
                       new_layout.ns,
                       core_.norm_factor,
                       core_.ComputeCUDAGridSize(new_layout.ns),
                       core_.cu_block_size);
+        }
+
+        {
+            HybridScopedTimer t(this->current_times_.reshape_time_ms);
+
+            new_layout = core_.reshaper->ReshapeReal(
+                core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
         }
 
         {
@@ -632,34 +628,33 @@ private:
         }
 
         {
+            HybridScopedTimer t(this->current_times_.reshape_time_ms);
+
+            new_layout = core_.reshaper->ReshapeReal(
+                core_.cu_real_workspace1.get(), core_.cu_real_workspace2.get());
+        }
+
+        {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
             Init(core_.cu_cmplx_workspace1.get(),
-                 core_.cu_real_workspace2.get(),
+                 core_.cu_real_workspace1.get(),
                  new_layout.ns,
                  core_.ComputeCUDAGridSize(new_layout.ns),
                  core_.cu_block_size);
         }
 
         {
-            HybridScopedTimer t(this->current_times_.reshape_time_ms);
-
-            new_layout =
-                core_.reshaper->ReshapeCmplx(core_.cu_cmplx_workspace2.get(),
-                                             core_.cu_cmplx_workspace1.get());
-        }
-
-        {
             HybridScopedTimer t(this->current_times_.fft_time_ms);
 
-            FFTPolicy::Forward1D(core_.cu_cmplx_workspace2.get(),
+            FFTPolicy::Forward1D(core_.cu_cmplx_workspace1.get(),
                                  core_.fft_plan);
         }
 
         {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
-            DivideByDenoms(core_.cu_cmplx_workspace2.get(),
+            DivideByDenoms(core_.cu_cmplx_workspace1.get(),
                            new_layout.ns,
                            new_layout.offs,
                            core_.cu_denom_observers,
@@ -671,27 +666,26 @@ private:
         {
             HybridScopedTimer t(this->current_times_.fft_time_ms);
 
-            FFTPolicy::Backward1D(core_.cu_cmplx_workspace2.get(),
+            FFTPolicy::Backward1D(core_.cu_cmplx_workspace1.get(),
                                   core_.fft_plan);
-        }
-
-        {
-            HybridScopedTimer t(this->current_times_.reshape_time_ms);
-
-            new_layout =
-                core_.reshaper->ReshapeCmplx(core_.cu_cmplx_workspace1.get(),
-                                             core_.cu_cmplx_workspace2.get());
         }
 
         {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
-            Normalize(core_.cu_real_workspace2.get(),
+            Normalize(core_.cu_real_workspace1.get(),
                       core_.cu_cmplx_workspace1.get(),
                       new_layout.ns,
                       core_.norm_factor,
                       core_.ComputeCUDAGridSize(new_layout.ns),
                       core_.cu_block_size);
+        }
+
+        {
+            HybridScopedTimer t(this->current_times_.reshape_time_ms);
+
+            new_layout = core_.reshaper->ReshapeReal(
+                core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
         }
 
         {
@@ -739,34 +733,33 @@ private:
         }
 
         {
+            HybridScopedTimer t(this->current_times_.reshape_time_ms);
+
+            new_layout = core_.reshaper->ReshapeReal(
+                core_.cu_real_workspace1.get(), core_.cu_real_workspace2.get());
+        }
+
+        {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
             Init(core_.cu_cmplx_workspace1.get(),
-                 core_.cu_real_workspace2.get(),
+                 core_.cu_real_workspace1.get(),
                  new_layout.ns,
                  core_.ComputeCUDAGridSize(new_layout.ns),
                  core_.cu_block_size);
         }
 
         {
-            HybridScopedTimer t(this->current_times_.reshape_time_ms);
-
-            new_layout =
-                core_.reshaper->ReshapeCmplx(core_.cu_cmplx_workspace2.get(),
-                                             core_.cu_cmplx_workspace1.get());
-        }
-
-        {
             HybridScopedTimer t(this->current_times_.fft_time_ms);
 
-            FFTPolicy::Forward1D(core_.cu_cmplx_workspace2.get(),
+            FFTPolicy::Forward1D(core_.cu_cmplx_workspace1.get(),
                                  core_.fft_plan);
         }
 
         {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
-            DivideByDenoms(core_.cu_cmplx_workspace2.get(),
+            DivideByDenoms(core_.cu_cmplx_workspace1.get(),
                            new_layout.ns,
                            new_layout.offs,
                            core_.cu_denom_observers,
@@ -777,27 +770,26 @@ private:
         {
             HybridScopedTimer t(this->current_times_.fft_time_ms);
 
-            FFTPolicy::Backward1D(core_.cu_cmplx_workspace2.get(),
+            FFTPolicy::Backward1D(core_.cu_cmplx_workspace1.get(),
                                   core_.fft_plan);
-        }
-
-        {
-            HybridScopedTimer t(this->current_times_.reshape_time_ms);
-
-            new_layout =
-                core_.reshaper->ReshapeCmplx(core_.cu_cmplx_workspace1.get(),
-                                             core_.cu_cmplx_workspace2.get());
         }
 
         {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
-            Normalize(core_.cu_real_workspace2.get(),
+            Normalize(core_.cu_real_workspace1.get(),
                       core_.cu_cmplx_workspace1.get(),
                       new_layout.ns,
                       core_.norm_factor,
                       core_.ComputeCUDAGridSize(new_layout.ns),
                       core_.cu_block_size);
+        }
+
+        {
+            HybridScopedTimer t(this->current_times_.reshape_time_ms);
+
+            new_layout = core_.reshaper->ReshapeReal(
+                core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
         }
 
         {
