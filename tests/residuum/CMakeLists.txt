@@ -33,6 +33,9 @@ set(SLURM_FLAG_DISTRIBUTED
     -N 2
     --ntasks-per-node 2
 )
+set(SLURM_FLAG_GPU_DISTRIBUTED
+    --gpus 4
+)
 set(CH_CLD_LAUNCH
     ch-run
     # The mapped directory
@@ -47,7 +50,7 @@ set(LOCAL_TEST_LAUNCH
 )
 set(DISTRIBUTED_TEST_LAUNCH
     ${SLURM_LAUNCH_BASE}
-    ${SLURM_FLAG_GPU}
+    ${SLURM_FLAG_GPU_DISTRIBUTED}
     ${SLURM_FLAG_DISTRIBUTED}
     ${CH_CLD_LAUNCH}
 )
