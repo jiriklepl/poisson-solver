@@ -872,25 +872,27 @@ private:
 
         auto grid_box = GetGridBox(ns, offs);
 
+        auto options = heffte::default_options<heffte::backend::cufft>();
+        options.algorithm = heffte::reshape_algorithm::p2p_plined;
         switch (fl.forward_type) {
             case Complex: {
                 using TransformTag = heffte::backend::cufft;
                 auto plan =
-                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm, options);
                 return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
                     std::move(plan))};
             }
             case DCT1: {
                 using TransformTag = heffte::backend::cufft_cos1;
                 auto plan =
-                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm, options);
                 return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
                     std::move(plan))};
             }
             case DCT2: {
                 using TransformTag = heffte::backend::cufft_cos;
                 auto plan =
-                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm, options);
                 return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
                     std::move(plan))};
             }
@@ -903,21 +905,21 @@ private:
             case DCT4: {
                 using TransformTag = heffte::backend::cufft_cos4;
                 auto plan =
-                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm, options);
                 return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
                     std::move(plan))};
             }
             case DST1: {
                 using TransformTag = heffte::backend::cufft_sin1;
                 auto plan =
-                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm, options);
                 return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
                     std::move(plan))};
             }
             case DST2: {
                 using TransformTag = heffte::backend::cufft_sin;
                 auto plan =
-                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm, options);
                 return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
                     std::move(plan))};
             }
@@ -930,7 +932,7 @@ private:
             case DST4: {
                 using TransformTag = heffte::backend::cufft_sin4;
                 auto plan =
-                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm);
+                    heffte::make_fft3d<TransformTag>(grid_box, grid_box, comm, options);
                 return Plan{std::make_unique<MpiFftFullHandle<T, TransformTag>>(
                     std::move(plan))};
             }
