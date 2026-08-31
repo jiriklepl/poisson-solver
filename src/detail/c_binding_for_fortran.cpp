@@ -147,5 +147,11 @@ void PoissonSolverGetLocalGridInfoForFortran(const int *gns,
     MPI_Comm c_cart_comm = MPI_Comm_f2c(*cart_comm);
     PoissonSolverGetLocalGridInfo(gns, c_cart_comm, ns, offs);
 }
+
+void PoissonSolverSelectLocalDeviceForFortran(const MPI_Fint *comm,
+                                              int *device_out) {
+    MPI_Comm c_comm = MPI_Comm_f2c(*comm);
+    PoissonSolverSelectLocalDevice(c_comm, device_out);
+}
 }
 #endif  // POISSON_SOLVER_USE_MPI

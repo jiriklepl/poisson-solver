@@ -265,6 +265,16 @@ void PoissonSolverGetLocalGridInfo(const int gns[3],
                                    MPI_Comm cart_comm,
                                    int ns[3],
                                    int offs[3]);
+
+/**
+ * @brief Selects one CUDA device per rank based on this process's rank
+ * within its node, and makes it the active device.
+ *
+ * @param[in] comm A communicator containing (at least) all ranks that
+ * share this node.
+ * @param[out] device_out The CUDA device ordinal selected for this rank.
+ */
+void PoissonSolverSelectLocalDevice(MPI_Comm comm, int *device_out);
 #endif
 
 #ifdef __cplusplus

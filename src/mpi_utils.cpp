@@ -1,6 +1,7 @@
 #ifdef POISSON_SOLVER_USE_MPI
 #include "poisson-solver/mpi_utils.hpp"
 
+#include "poisson-solver/detail/cuch.hpp"
 #include "poisson-solver/detail/mpi_check.hpp"
 
 #include <cstddef>
@@ -84,6 +85,28 @@ auto GetLocalGridInfo(GridSizes<3> gns, MPI_Comm cart_comm) -> LocalGridInfo<3> 
     auto my_box = GetMyBox(cart_comm, boxes);
 
     return ConvertToLocalGridInfo(my_box);
+}
+
+auto SelectLocalDevice(MPI_Comm comm) -> int {
+    MPI_Comm local_comm{};
+    MPI_CHECK(MPI_Comm_split_type(
+        comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &local_comm));
+
+    int local_rank{};
+    MPI_CHECK(MPI_Comm_rank(local_comm, &local_rank));
+    MPI_CHECK(MPI_Comm_free(&local_comm));
+
+    int device_count{};
+    CUCH(cudaGetDeviceCount(&device_count));
+    if (device_count == 0) {
+        throw std::runtime_error(
+                "No CUDA devices are visible to this process.");
+    }
+
+    int device = local_rank % device_count;
+    CUCH(cudaSetDevice(device));
+
+    return device;
 }
 }  // namespace poisson_solver::mpi_utils
 

@@ -114,6 +114,12 @@ Apart from `solver.hpp`, also include `mpi_utils.hpp` and create the communicato
 MPI_Comm cart_comm = mpi_utils::InitMPIGrid(MPI_COMM_WORLD, {2, 2});
 ```
 
+After `MPI_Init` but before constructing a distributed solver, call `SelectLocalDevice()` once per process.
+You should skip this step if you already employ another mechanism by which you select devices for processes.
+```cpp
+mpi_utils::SelectLocalDevice(MPI_COMM_WORLD);
+```
+
 Get local grid dimensions and offsets.
 ```cpp
 GridSizes<3> global_ns = {64, 64, 64};

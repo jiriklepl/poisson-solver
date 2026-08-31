@@ -247,6 +247,13 @@ module PoisSolver
             integer(c_int), intent(out) :: ns(3)
             integer(c_int), intent(out) :: offs(3)
         end subroutine poisson_solver_get_local_grid_info_c
+
+        subroutine poisson_solver_select_local_device_c(comm, device) &
+                bind(C, name="PoissonSolverSelectLocalDeviceForFortran")
+            import :: c_int
+            integer(c_int), intent(in)  :: comm
+            integer(c_int), intent(out) :: device
+        end subroutine poisson_solver_select_local_device_c
     end interface
 #endif // POISSON_SOLVER_USE_MPI
 
@@ -644,6 +651,13 @@ contains
         ns = int(c_ns, c_intptr_t)
         offs = int(c_offs, c_intptr_t)
     end subroutine poisson_solver_get_local_grid_info
+
+    subroutine poisson_solver_select_local_device(comm, device_out)
+        integer, intent(in)  :: comm
+        integer, intent(out) :: device_out
+
+        call poisson_solver_select_local_device_c(comm, device_out)
+    end subroutine poisson_solver_select_local_device
 #endif // POISSON_SOLVER_USE_MPI
 
 end module PoisSolver
