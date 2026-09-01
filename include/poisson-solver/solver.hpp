@@ -473,7 +473,8 @@ private:
                        new_layout.offs,
                        core_.cu_denom_observers,
                        core_.ComputeCUDAGridSize(new_layout.ns),
-                       core_.cu_block_size);
+                       core_.cu_block_size,
+                       solver_plan_.zero_origin);
         FFTPolicy::Backward1D(core_.cu_real_workspace1.get(), core_.fft_plan);
 
         new_layout = core_.reshaper->ReshapeReal(

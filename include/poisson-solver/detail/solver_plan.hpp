@@ -132,9 +132,17 @@ public:
     using SolveMethod = void (poisson_solver::Solver<T, FFTDim>::*)();
 
     SolveMethod solve_method{};
+    bool zero_origin{false};
 
     SolverPlan(BCs<FFTDim> bcs)
         : ISolverPlan<T, FFTDim>(bcs, FullLayout{}) {
+#ifdef POISSON_SOLVER_USE_MPI
+        if constexpr (FFTDim == 3) {
+            if (TryConstructFromFullRealBCsSplit(bcs)) {
+                return;
+            }
+        }
+#endif  // POISSON_SOLVER_USE_MPI
         bool all_bcs_identical = TryConstructFromFullBCs(bcs);
         if (all_bcs_identical) {
             return;
@@ -143,6 +151,52 @@ public:
     }
 
 private:
+#ifdef POISSON_SOLVER_USE_MPI
+    /**
+     * @brief Tries to construct the object for full real BCs
+     * in a distributed 3D solver.
+     *
+     * heFFTe for some reason calls the pre/pos_forward/backward_kernel
+     * (kernels that restructure data before/after FFT so that the FFT
+     * computes the desired DCT/DST) so many times that it slows
+     * the solver down.
+     * We instead use split layouts and do the transforms ourselves
+     * with the heFFTe MPI API.
+     *
+     * @note This issue doesn't affect full periodic solvers and
+     * therefore they remain on the full layout path.
+     */
+    auto TryConstructFromFullRealBCsSplit(BCs<3> bcs) -> bool {
+        using std::ranges::all_of;
+        using std::ranges::none_of;
+        using enum ReshapeType;
+
+        bool is_real_full =
+            all_of(bcs, IsDirichlet) || all_of(bcs, IsDirichletStag) ||
+            all_of(bcs, IsNeumann) || all_of(bcs, IsNeumannStag);
+        if (!is_real_full) {
+            return false;
+        }
+
+        zero_origin = none_of(bcs, HasDirichletOrStag);
+
+        this->fft_layout = SplitLayout{};
+        auto &layout = std::get<SplitLayout>(this->fft_layout);
+
+        auto forward_type = this->GetAxisFFTType(bcs[0]);
+        layout.forward_type_1d = forward_type;
+        layout.forward_type_2d = forward_type;
+        layout.isolated_dim_idx = 2;
+
+        solve_method = &Solver<T, FFTDim>::Solve2Real1Real;
+        this->reshape_types.emplace_back(ToSlabs);
+        this->reshape_types.emplace_back(ToPencils);
+        this->requires_cmplx_wspace = false;
+
+        return true;
+    }
+#endif  // POISSON_SOLVER_USE_MPI
+
     /**
      * @brief Tries to construct the object in case all BCs are identical
      * (this behavior is shared among all solver dimensionalities).
