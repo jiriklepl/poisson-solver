@@ -849,7 +849,8 @@ private:
                            new_layout.offs,
                            core_.cu_denom_observers,
                            core_.ComputeCUDAGridSize(new_layout.ns),
-                           core_.cu_block_size);
+                           core_.cu_block_size,
+                           solver_plan_.zero_origin);
         }
 
         {
