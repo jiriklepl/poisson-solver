@@ -146,45 +146,58 @@ public:
                  std::span<const T> rhs,
                  GridSizes<Dim> ngs_phi,
                  GridSizes<Dim> ngs_rhs) override {
-        // `const_cast` necessary due to
-        // CUDA C-like API interaction.
-        // Nothing is actually modified.
-        detail::MemcpyActiveGrid(const_cast<T *>(rhs.data()),
-                                 core_.cu_real_workspace1.get(),
-                                 core_.ns,
-                                 ngs_rhs,
-                                 cudaMemcpyHostToDevice,
-                                 true);
+        using detail::runners::UnpackPaddedGrid;
+        using detail::runners::PackPaddedGrid;
+
+        auto rhs_padded = core_.GetRhsPaddedBuffer(ngs_rhs);
+        CUCH(cudaMemcpy(rhs_padded,
+                    rhs.data(),
+                    core_.GetBufferTotalSize(ngs_rhs) * sizeof(T),
+                    cudaMemcpyHostToDevice));
+        UnpackPaddedGrid(core_.cu_real_workspace1.get(),
+                rhs_padded,
+                core_.ns,
+                ngs_rhs,
+                core_.ComputeFullCUDAGridSize(core_.ns),
+                core_.cu_block_size);
 
         (this->*solver_plan_.solve_method)();
 
-        detail::MemcpyActiveGrid(phi.data(),
-                                 core_.cu_real_workspace1.get(),
-                                 core_.ns,
-                                 ngs_phi,
-                                 cudaMemcpyDeviceToHost,
-                                 false);
+        auto phi_padded = core_.GetPhiPaddedBuffer(ngs_phi);
+        PackPaddedGrid(phi_padded,
+                core_.cu_real_workspace1.get(),
+                core_.ns,
+                ngs_phi,
+                core_.ComputeFullCUDAGridSize(core_.ns),
+                core_.cu_block_size);
+        CUCH(cudaMemcpy(phi.data(),
+                    phi_padded,
+                    core_.GetBufferTotalSize(ngs_phi) * sizeof(T),
+                    cudaMemcpyDeviceToHost));
     }
 
     void ExecuteGPU(std::span<T> d_phi,
                     std::span<const T> d_rhs,
                     GridSizes<Dim> ngs_phi,
                     GridSizes<Dim> ngs_rhs) override {
-        detail::MemcpyActiveGrid(const_cast<T *>(d_rhs.data()),
-                                 core_.cu_real_workspace1.get(),
-                                 core_.ns,
-                                 ngs_rhs,
-                                 cudaMemcpyDeviceToDevice,
-                                 true);
+        using detail::runners::UnpackPaddedGrid;
+        using detail::runners::PackPaddedGrid;
+
+        UnpackPaddedGrid(core_.cu_real_workspace1.get(),
+                d_rhs.data(),
+                core_.ns,
+                ngs_rhs,
+                core_.ComputeFullCUDAGridSize(core_.ns),
+                core_.cu_block_size);
 
         (this->*solver_plan_.solve_method)();
 
-        detail::MemcpyActiveGrid(d_phi.data(),
-                                 core_.cu_real_workspace1.get(),
-                                 core_.ns,
-                                 ngs_phi,
-                                 cudaMemcpyDeviceToDevice,
-                                 false);
+        PackPaddedGrid(d_phi.data(),
+                core_.cu_real_workspace1.get(),
+                core_.ns,
+                ngs_phi,
+                core_.ComputeFullCUDAGridSize(core_.ns),
+                core_.cu_block_size);
     }
 
     auto GetTotalGridSize() const -> std::size_t override {
@@ -591,43 +604,58 @@ public:
                  std::span<const T> rhs,
                  GridSizes<3> ngs_phi,
                  GridSizes<3> ngs_rhs) override {
-        // `const_cast` necessary due to
-        // CUDA C-like API interaction.
-        // Nothing is actually modified.
-        detail::MemcpyActiveGrid(const_cast<T *>(rhs.data()),
-                                 core_.cu_real_workspace1.get(),
-                                 core_.ns,
-                                 ngs_rhs,
-                                 cudaMemcpyHostToDevice,
-                                 true);
+        using detail::runners::UnpackPaddedGrid;
+        using detail::runners::PackPaddedGrid;
+
+        auto rhs_padded = core_.GetRhsPaddedBuffer(ngs_rhs);
+        CUCH(cudaMemcpy(rhs_padded,
+                    rhs.data(),
+                    core_.GetBufferTotalSize(ngs_rhs) * sizeof(T),
+                    cudaMemcpyHostToDevice));
+        UnpackPaddedGrid(core_.cu_real_workspace1.get(),
+                rhs_padded,
+                core_.ns,
+                ngs_rhs,
+                core_.ComputeFullCUDAGridSize(core_.ns),
+                core_.cu_block_size);
+
         (this->*solver_plan_.solve_method)();
 
-        detail::MemcpyActiveGrid(phi.data(),
-                                 core_.cu_real_workspace1.get(),
-                                 core_.ns,
-                                 ngs_phi,
-                                 cudaMemcpyDeviceToHost,
-                                 false);
+        auto phi_padded = core_.GetPhiPaddedBuffer(ngs_phi);
+        PackPaddedGrid(phi_padded,
+                core_.cu_real_workspace1.get(),
+                core_.ns,
+                ngs_phi,
+                core_.ComputeFullCUDAGridSize(core_.ns),
+                core_.cu_block_size);
+        CUCH(cudaMemcpy(phi.data(),
+                    phi_padded,
+                    core_.GetBufferTotalSize(ngs_phi) * sizeof(T),
+                    cudaMemcpyDeviceToHost));
     }
 
     void ExecuteGPU(std::span<T> d_phi,
                     std::span<const T> d_rhs,
                     GridSizes<3> ngs_phi,
                     GridSizes<3> ngs_rhs) override {
-        detail::MemcpyActiveGrid(const_cast<T *>(d_rhs.data()),
-                                 core_.cu_real_workspace1.get(),
-                                 core_.ns,
-                                 ngs_rhs,
-                                 cudaMemcpyDeviceToDevice,
-                                 true);
+        using detail::runners::UnpackPaddedGrid;
+        using detail::runners::PackPaddedGrid;
+
+        UnpackPaddedGrid(core_.cu_real_workspace1.get(),
+                d_rhs.data(),
+                core_.ns,
+                ngs_rhs,
+                core_.ComputeFullCUDAGridSize(core_.ns),
+                core_.cu_block_size);
+
         (this->*solver_plan_.solve_method)();
 
-        detail::MemcpyActiveGrid(d_phi.data(),
-                                 core_.cu_real_workspace1.get(),
-                                 core_.ns,
-                                 ngs_phi,
-                                 cudaMemcpyDeviceToDevice,
-                                 false);
+        PackPaddedGrid(d_phi.data(),
+                core_.cu_real_workspace1.get(),
+                core_.ns,
+                ngs_phi,
+                core_.ComputeFullCUDAGridSize(core_.ns),
+                core_.cu_block_size);
     }
 
     auto GetTotalGridSize() const -> std::size_t override {

@@ -21,6 +21,18 @@ void DivideByDenoms(Workspace *workspace,
     CUCH(cudaGetLastError());
 }
 
+template <std::floating_point T, std::size_t Dim>
+void UnpackPaddedGrid(T *active, const T * padded, GridSizes<Dim> ns, GridSizes<Dim> ngs, dim3 cu_grid_size, dim3 cu_block_size) {
+    ker::UnpackPaddedGrid<<<cu_grid_size, cu_block_size>>>(active, padded, ns, ngs);
+    CUCH(cudaGetLastError());
+}
+
+template <std::floating_point T, std::size_t Dim>
+void PackPaddedGrid(T * padded, const T * active, GridSizes<Dim> ns, GridSizes<Dim> ngs, dim3 cu_grid_size, dim3 cu_block_size) {
+    ker::PackPaddedGrid<<<cu_grid_size, cu_block_size>>>(padded, active, ns, ngs);
+    CUCH(cudaGetLastError());
+}
+
 // === Explicit Instantiations ===
 #define INSTANTIATE_DIVISION_REAL(TYPE, DIM)                       \
     template void DivideByDenoms<TYPE, DIM, TYPE>(                 \
@@ -45,6 +57,19 @@ void DivideByDenoms(Workspace *workspace,
                                          dim3 cu_grid_size,                    \
                                          dim3 cu_block_size,                   \
                                          bool zero_origin);
+#define INSTANTIATE_PACKING(TYPE, DIM) \
+    template void UnpackPaddedGrid<TYPE, DIM>(TYPE *active, \
+            const TYPE *padded, \
+            GridSizes<DIM> ns, \
+            GridSizes<DIM> ngs, \
+            dim3 cu_grid_size, \
+            dim3 cu_block_size); \
+    template void PackPaddedGrid<TYPE, DIM>(TYPE *padded, \
+            const TYPE *active, \
+            GridSizes<DIM> ns, \
+            GridSizes<DIM> ngs, \
+            dim3 cu_grid_size, \
+            dim3 cu_block_size);
 
 #define INSTANTIATE_DIV_REAL_ALL_DIMS(TYPE) \
     INSTANTIATE_DIVISION_REAL(TYPE, 1)      \
@@ -56,13 +81,23 @@ void DivideByDenoms(Workspace *workspace,
     INSTANTIATE_DIVISION_COMPLEX(TYPE, 2)      \
     INSTANTIATE_DIVISION_COMPLEX(TYPE, 3)
 
+#define INSTANTIATE_PACKING_ALL_DIMS(TYPE) \
+    INSTANTIATE_PACKING(TYPE, 1) \
+    INSTANTIATE_PACKING(TYPE, 2) \
+    INSTANTIATE_PACKING(TYPE, 3)
+
 INSTANTIATE_DIV_REAL_ALL_DIMS(float)
 INSTANTIATE_DIV_REAL_ALL_DIMS(double)
 INSTANTIATE_DIV_COMPLEX_ALL_DIMS(float)
 INSTANTIATE_DIV_COMPLEX_ALL_DIMS(double)
 
+INSTANTIATE_PACKING_ALL_DIMS(float)
+INSTANTIATE_PACKING_ALL_DIMS(double)
+
+#undef INSTANTIATE_PACKING_ALL_DIMS
 #undef INSTANTIATE_DIV_COMPLEX_ALL_DIMS
 #undef INSTANTIATE_DIV_REAL_ALL_DIMS
+#undef INSTANTIATE_PACKING
 #undef INSTANTIATE_DIVISION_COMPLEX
 #undef INSTANTIATE_DIVISION_REAL
 }  // namespace poisson_solver::detail::runners

@@ -17,6 +17,12 @@ void DivideByDenoms(Workspace *workspace,
                     dim3 cu_grid_size,
                     dim3 cu_block_size,
                     bool zero_origin = false);
+
+template <std::floating_point T, std::size_t Dim>
+void UnpackPaddedGrid(T *active, const T * padded, GridSizes<Dim> ns, GridSizes<Dim> ngs, dim3 cu_grid_size, dim3 cu_block_size);
+
+template <std::floating_point T, std::size_t Dim>
+void PackPaddedGrid(T * padded, const T * active, GridSizes<Dim> ns, GridSizes<Dim> ngs, dim3 cu_grid_size, dim3 cu_block_size);
 }  // namespace poisson_solver::detail::runners
 
 #endif  // COMMON_HPP

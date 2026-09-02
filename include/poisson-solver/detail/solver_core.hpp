@@ -4,6 +4,7 @@
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/approximations.hpp"
 #include "poisson-solver/detail/axis_strategies.hpp"
+#include "poisson-solver/detail/cuch.hpp"
 #include "poisson-solver/detail/fft_policies.hpp"
 #include "poisson-solver/detail/helpers.hpp"
 #include "poisson-solver/detail/reshaper.hpp"
@@ -23,7 +24,6 @@
 #include <vector>
 
 #ifdef POISSON_SOLVER_USE_MPI
-#include "poisson-solver/detail/cuch.hpp"
 #include "poisson-solver/detail/mpi_check.hpp"
 
 #include <mpi.h>
@@ -154,7 +154,64 @@ public:
         }
     }
 
+    auto ComputeFullCUDAGridSize(GridSizes<Dim> ns) -> dim3 {
+        if constexpr (Dim == 1) {
+            return {(static_cast<unsigned>(ns[0]) + cu_block_size.x - 1) /
+                    cu_block_size.x};
+        } else if constexpr (Dim == 2) {
+            return {(static_cast<unsigned>(ns[0]) + cu_block_size.x - 1) /
+                        cu_block_size.x,
+                    (static_cast<unsigned>(ns[1]) + cu_block_size.y - 1) /
+                        cu_block_size.y};
+        } else {
+            // Dim == 3
+            return {(static_cast<unsigned>(ns[0]) + cu_block_size.x - 1) /
+                        cu_block_size.x,
+                    (static_cast<unsigned>(ns[1]) + cu_block_size.y - 1) /
+                        cu_block_size.y,
+                    (static_cast<unsigned>(ns[2]) + cu_block_size.z - 1) /
+                        cu_block_size.z};
+        }
+    }
+
+    auto GetBufferTotalSize(GridSizes<Dim> ngs) const -> std::size_t {
+        std::size_t total_size{1};
+        for(std::size_t d{0}; d < Dim; ++d) {
+            total_size *= (ns[d] + 2 * ngs[d]);
+        }
+        return total_size;
+    }
+
+    auto GetRhsPaddedBuffer(GridSizes<Dim> ngs) -> T * {
+        if (!cu_padded_rhs.get() || ngs != padded_rhs_ngs) {
+            cu_padded_rhs = MakeCudaShared<T>(
+                    GetBufferTotalSize(ngs));
+            padded_rhs_ngs = ngs;
+        }
+        return cu_padded_rhs.get();
+    }
+
+    auto GetPhiPaddedBuffer(GridSizes<Dim> ngs) -> T * {
+        if (!cu_padded_phi.get() || ngs != padded_phi_ngs) {
+            auto total_size = GetBufferTotalSize(ngs);
+            cu_padded_phi = MakeCudaShared<T>(total_size);
+            padded_phi_ngs = ngs;
+            CUCH(cudaMemset(cu_padded_phi.get(),
+                        0, total_size * sizeof(T)));
+        }
+        return cu_padded_phi.get();
+    }
+
 private:
+    // CPU API first copies data here, then uses (un)packing kernels
+    // to move it.
+    // Users should interact with these buffers only via their getters
+    // (those ensure correct size).
+    CudaSharedPtrT cu_padded_rhs{};
+    CudaSharedPtrT cu_padded_phi{};
+    GridSizes<Dim> padded_rhs_ngs{};
+    GridSizes<Dim> padded_phi_ngs{};
+
     struct SolverBackend {
         std::unique_ptr<IReshaper<T, Dim>> reshaper;
         FFTPlan fft_plan;
