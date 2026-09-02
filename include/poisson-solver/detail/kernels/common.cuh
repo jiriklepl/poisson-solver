@@ -164,6 +164,38 @@ __global__ void DivideByDenoms(Workspace *workspace,
         workspace[idx] /= SumIndexedDenoms(denoms, midx, offs);
     });
 }
+
+template <std::floating_point T, std::size_t Dim>
+__global__ void UnpackPaddedGrid(T *active, const T * padded, GridSizes<Dim> ns, GridSizes<Dim> ngs) {
+    GridSizes<Dim> padded_ns{};
+    for (std::size_t d{0}; d < Dim; ++d) {
+        padded_ns[d] = ns[d] + 2 * ngs[d];
+    }
+
+    ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
+        auto padded_midx = midx;
+        for(std::size_t d{0}; d < Dim; ++d) {
+            padded_midx[d] += ngs[d];
+        }
+        active[FlatIndex(midx, ns)] = padded[FlatIndex(padded_midx, padded_ns)];
+    });
+}
+
+template <std::floating_point T, std::size_t Dim>
+__global__ void PackPaddedGrid(T * padded, const T * active, GridSizes<Dim> ns, GridSizes<Dim> ngs) {
+    GridSizes<Dim> padded_ns{};
+    for (std::size_t d{0}; d < Dim; ++d) {
+        padded_ns[d] = ns[d] + 2 * ngs[d];
+    }
+
+    ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
+        auto padded_midx = midx;
+        for(std::size_t d{0}; d < Dim; ++d) {
+            padded_midx[d] += ngs[d];
+        }
+        padded[FlatIndex(padded_midx, padded_ns)] = active[FlatIndex(midx, ns)];
+    });
+}
 }  // namespace poisson_solver::detail::kernels
 
 #endif  // COMMON_CUH

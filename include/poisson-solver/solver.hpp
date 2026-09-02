@@ -200,63 +200,82 @@ public:
 #endif  // POISSON_SOLVER_USE_MPI
 
     auto Execute(std::span<T> phi,
-                           std::span<const T> rhs,
-                           GridSizes<Dim> ngs_phi,
-                           GridSizes<Dim> ngs_rhs) -> ExecutionTimes override {
+                 std::span<const T> rhs,
+                 GridSizes<Dim> ngs_phi,
+                 GridSizes<Dim> ngs_rhs) -> ExecutionTimes override {
+        using detail::runners::PackPaddedGrid;
+        using detail::runners::UnpackPaddedGrid;
+
         this->current_times_ = ExecutionTimes{};
         float copy_time{0.0f};
         {
             CUDAScopedTimer t(copy_time);
-            // `const_cast` necessary due to
-            // CUDA C-like API interaction.
-            // Nothing is actually modified.
-            detail::MemcpyActiveGrid(const_cast<T *>(rhs.data()),
-                                     core_.cu_real_workspace1.get(),
-                                     core_.ns,
-                                     ngs_rhs,
-                                     cudaMemcpyHostToDevice,
-                                     true);
+
+            auto rhs_padded = core_.GetRhsPaddedBuffer(ngs_rhs);
+            CUCH(cudaMemcpy(rhs_padded,
+                            rhs.data(),
+                            core_.GetBufferTotalSize(ngs_rhs) * sizeof(T),
+                            cudaMemcpyHostToDevice));
+            UnpackPaddedGrid(core_.cu_real_workspace1.get(),
+                             rhs_padded,
+                             core_.ns,
+                             ngs_rhs,
+                             core_.ComputeFullCUDAGridSize(core_.ns),
+                             core_.cu_block_size);
         }
+
         (this->*solver_plan_.solve_method)();
+
         {
             CUDAScopedTimer t(copy_time);
 
-            detail::MemcpyActiveGrid(phi.data(),
-                                     core_.cu_real_workspace1.get(),
-                                     core_.ns,
-                                     ngs_phi,
-                                     cudaMemcpyDeviceToHost,
-                                     false);
+            auto phi_padded = core_.GetPhiPaddedBuffer(ngs_phi);
+            PackPaddedGrid(phi_padded,
+                           core_.cu_real_workspace1.get(),
+                           core_.ns,
+                           ngs_phi,
+                           core_.ComputeFullCUDAGridSize(core_.ns),
+                           core_.cu_block_size);
+            CUCH(cudaMemcpy(phi.data(),
+                            phi_padded,
+                            core_.GetBufferTotalSize(ngs_phi) * sizeof(T),
+                            cudaMemcpyDeviceToHost));
         }
         this->current_times_.copy_time_ms = copy_time;
         return this->current_times_;
     }
 
     auto ExecuteGPU(std::span<T> d_phi,
-                              std::span<const T> d_rhs,
-                              GridSizes<Dim> ngs_phi,
-                              GridSizes<Dim> ngs_rhs) -> ExecutionTimes override {
+                    std::span<const T> d_rhs,
+                    GridSizes<Dim> ngs_phi,
+                    GridSizes<Dim> ngs_rhs) -> ExecutionTimes override {
+        using detail::runners::PackPaddedGrid;
+        using detail::runners::UnpackPaddedGrid;
+
         this->current_times_ = ExecutionTimes{};
         float copy_time{0.0f};
         {
             CUDAScopedTimer t(copy_time);
-            detail::MemcpyActiveGrid(const_cast<T *>(d_rhs.data()),
-                                     core_.cu_real_workspace1.get(),
-                                     core_.ns,
-                                     ngs_rhs,
-                                     cudaMemcpyDeviceToDevice,
-                                     true);
+
+            UnpackPaddedGrid(core_.cu_real_workspace1.get(),
+                             d_rhs.data(),
+                             core_.ns,
+                             ngs_rhs,
+                             core_.ComputeFullCUDAGridSize(core_.ns),
+                             core_.cu_block_size);
         }
+
         (this->*solver_plan_.solve_method)();
+
         {
             CUDAScopedTimer t(copy_time);
 
-            detail::MemcpyActiveGrid(d_phi.data(),
-                                     core_.cu_real_workspace1.get(),
-                                     core_.ns,
-                                     ngs_phi,
-                                     cudaMemcpyDeviceToDevice,
-                                     false);
+            PackPaddedGrid(d_phi.data(),
+                           core_.cu_real_workspace1.get(),
+                           core_.ns,
+                           ngs_phi,
+                           core_.ComputeFullCUDAGridSize(core_.ns),
+                           core_.cu_block_size);
         }
         this->current_times_.copy_time_ms = copy_time;
         return this->current_times_;
@@ -993,28 +1012,43 @@ public:
                            std::span<const T> rhs,
                            GridSizes<3> ngs_phi,
                            GridSizes<3> ngs_rhs) override {
+        using detail::runners::PackPaddedGrid;
+        using detail::runners::UnpackPaddedGrid;
+
         this->current_times_ = ExecutionTimes{};
         float copy_time{0.0f};
         {
             CUDAScopedTimer t(copy_time);
-            detail::MemcpyActiveGrid(const_cast<T *>(rhs.data()),
-                                     core_.cu_real_workspace1.get(),
-                                     core_.ns,
-                                     ngs_rhs,
-                                     cudaMemcpyHostToDevice,
-                                     true);
+
+            auto rhs_padded = core_.GetRhsPaddedBuffer(ngs_rhs);
+            CUCH(cudaMemcpy(rhs_padded,
+                            rhs.data(),
+                            core_.GetBufferTotalSize(ngs_rhs) * sizeof(T),
+                            cudaMemcpyHostToDevice));
+            UnpackPaddedGrid(core_.cu_real_workspace1.get(),
+                             rhs_padded,
+                             core_.ns,
+                             ngs_rhs,
+                             core_.ComputeFullCUDAGridSize(core_.ns),
+                             core_.cu_block_size);
         }
 
         (this->*solver_plan_.solve_method)();
 
         {
             CUDAScopedTimer t(copy_time);
-            detail::MemcpyActiveGrid(phi.data(),
-                                     core_.cu_real_workspace1.get(),
-                                     core_.ns,
-                                     ngs_phi,
-                                     cudaMemcpyDeviceToHost,
-                                     false);
+
+            auto phi_padded = core_.GetPhiPaddedBuffer(ngs_phi);
+            PackPaddedGrid(phi_padded,
+                           core_.cu_real_workspace1.get(),
+                           core_.ns,
+                           ngs_phi,
+                           core_.ComputeFullCUDAGridSize(core_.ns),
+                           core_.cu_block_size);
+            CUCH(cudaMemcpy(phi.data(),
+                            phi_padded,
+                            core_.GetBufferTotalSize(ngs_phi) * sizeof(T),
+                            cudaMemcpyDeviceToHost));
         }
         this->current_times_.copy_time_ms = copy_time;
         return this->current_times_;
@@ -1024,28 +1058,33 @@ public:
                               std::span<const T> d_rhs,
                               GridSizes<3> ngs_phi,
                               GridSizes<3> ngs_rhs) override {
+        using detail::runners::PackPaddedGrid;
+        using detail::runners::UnpackPaddedGrid;
+
         this->current_times_ = ExecutionTimes{};
         float copy_time{0.0f};
         {
             CUDAScopedTimer t(copy_time);
-            detail::MemcpyActiveGrid(const_cast<T *>(d_rhs.data()),
-                                     core_.cu_real_workspace1.get(),
-                                     core_.ns,
-                                     ngs_rhs,
-                                     cudaMemcpyDeviceToDevice,
-                                     true);
+
+            UnpackPaddedGrid(core_.cu_real_workspace1.get(),
+                             d_rhs.data(),
+                             core_.ns,
+                             ngs_rhs,
+                             core_.ComputeFullCUDAGridSize(core_.ns),
+                             core_.cu_block_size);
         }
 
         (this->*solver_plan_.solve_method)();
 
         {
             CUDAScopedTimer t(copy_time);
-            detail::MemcpyActiveGrid(d_phi.data(),
-                                     core_.cu_real_workspace1.get(),
-                                     core_.ns,
-                                     ngs_phi,
-                                     cudaMemcpyDeviceToDevice,
-                                     false);
+
+            PackPaddedGrid(d_phi.data(),
+                           core_.cu_real_workspace1.get(),
+                           core_.ns,
+                           ngs_phi,
+                           core_.ComputeFullCUDAGridSize(core_.ns),
+                           core_.cu_block_size);
         }
         this->current_times_.copy_time_ms = copy_time;
         return this->current_times_;
