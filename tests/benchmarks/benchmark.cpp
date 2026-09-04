@@ -18,6 +18,7 @@
 #include <vector>
 
 using namespace poisson_solver;
+using namespace tests;
 
 template <std::floating_point T, std::size_t Dim>
 auto InstantiateSolver(bool use_nonuniform_z,
