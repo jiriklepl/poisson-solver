@@ -1146,6 +1146,26 @@ program testpoisson_MPI
   call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_NeumannStag, i=5,6)], .false.)
   call compute3d([(PoisSolver_Periodic, i=1,4),(PoisSolver_NeumannStag, i=5,6)], .true.)
 
+  call MPI_Barrier(glob_comm,ie)
+
+  if (master) write(*,*) "3D DDP"
+
+  call compute3d([(PoisSolver_DirichletStag, i=1,4),(PoisSolver_Periodic, i=5,6)], .false.)
+  call compute3d([(PoisSolver_DirichletStag, i=1,4),(PoisSolver_Periodic, i=5,6)], .true.)
+
+  call MPI_Barrier(glob_comm,ie)
+
+  if (master) write(*,*) "3D 2real1real DsDsDsDsNsNs"
+
+  call compute3d([(PoisSolver_DirichletStag, i=1,4),(PoisSolver_NeumannStag, i=5,6)], .false.)
+  call compute3d([(PoisSolver_DirichletStag, i=1,4),(PoisSolver_NeumannStag, i=5,6)], .true.)
+
+  call MPI_Barrier(glob_comm,ie)
+
+  if (master) write(*,*) "3D 2real1real DsDsDsDsNsDs"
+
+  call compute3d([(PoisSolver_DirichletStag, i=1,4), PoisSolver_NeumannStag, PoisSolver_DirichletStag], .false.)
+  call compute3d([(PoisSolver_DirichletStag, i=1,4), PoisSolver_NeumannStag, PoisSolver_DirichletStag], .true.)
 
   call MPI_Barrier(glob_comm,ie)
   
