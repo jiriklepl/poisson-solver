@@ -128,7 +128,7 @@ void RunBenchmarks(std::size_t dim,
         }
 
         auto solver_ptr = InstantiateSolver<T, Dim>(
-            use_nonuniform_z, {ns, lens, bcs, ngs, ngs}, gns, offs},
+            use_nonuniform_z, {ns, lens, bcs, ngs, ngs, gns, offs},
             seed, cart_comm);
 
         std::vector<T> h_phi(padded_elements);
