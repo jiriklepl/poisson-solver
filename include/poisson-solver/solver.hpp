@@ -1261,16 +1261,20 @@ private:
                                              core_.cu_cmplx_workspace1.get());
         }
 
-        TridiagZ(core_.cu_cmplx_workspace2.get(),
-                 cu_cp_workspace_.get(),
-                 new_layout.ns,
-                 {new_layout.offs[0], new_layout.offs[1]},
-                 core_.cu_denom_observers,
-                 cu_mat_a_.get(),
-                 cu_mat_b_.get(),
-                 cu_mat_c_.get(),
-                 core_.ComputeCUDAGridSize(new_layout.ns),
-                 core_.cu_block_size);
+
+        {
+            CUDAScopedTimer t(this->current_times_.kernel_time_ms);
+            TridiagZ(core_.cu_cmplx_workspace2.get(),
+                     cu_cp_workspace_.get(),
+                     new_layout.ns,
+                     {new_layout.offs[0], new_layout.offs[1]},
+                     core_.cu_denom_observers,
+                     cu_mat_a_.get(),
+                     cu_mat_b_.get(),
+                     cu_mat_c_.get(),
+                     core_.ComputeCUDAGridSize(new_layout.ns),
+                     core_.cu_block_size);
+        }
 
         {
             HybridScopedTimer t(this->current_times_.reshape_time_ms);
@@ -1333,16 +1337,19 @@ private:
                 core_.cu_real_workspace1.get(), core_.cu_real_workspace2.get());
         }
 
-        TridiagZ(core_.cu_real_workspace1.get(),
-                 cu_cp_workspace_.get(),
-                 new_layout.ns,
-                 {new_layout.offs[0], new_layout.offs[1]},
-                 core_.cu_denom_observers,
-                 cu_mat_a_.get(),
-                 cu_mat_b_.get(),
-                 cu_mat_c_.get(),
-                 core_.ComputeCUDAGridSize(new_layout.ns),
-                 core_.cu_block_size);
+        {
+            CUDAScopedTimer t(this->current_times_.kernel_time_ms);
+            TridiagZ(core_.cu_real_workspace1.get(),
+                     cu_cp_workspace_.get(),
+                     new_layout.ns,
+                     {new_layout.offs[0], new_layout.offs[1]},
+                     core_.cu_denom_observers,
+                     cu_mat_a_.get(),
+                     cu_mat_b_.get(),
+                     cu_mat_c_.get(),
+                     core_.ComputeCUDAGridSize(new_layout.ns),
+                     core_.cu_block_size);
+        }
 
         {
             HybridScopedTimer t(this->current_times_.reshape_time_ms);
