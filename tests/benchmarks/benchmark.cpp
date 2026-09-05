@@ -79,11 +79,15 @@ void RunBenchmarks(std::size_t dim,
     tests::TestConfig<T, Dim> cfg(bcs, {});
     std::string bc_name = cfg.Name();
 
+    GridSizes<Dim> ngs{};
+    ngs.fill(1);
+
     T *d_phi = nullptr;
     T *d_rhs = nullptr;
 
     if (use_gpu) {
-        auto max_grid_size = grid_size_end * grid_size_end * grid_size_end;
+        auto max_padded = grid_size_end + 2 * ngs[0];
+        auto max_grid_size = max_padded * max_padded * max_padded;
         cudaMalloc(&d_phi, max_grid_size * sizeof(T));
         cudaMalloc(&d_rhs, max_grid_size * sizeof(T));
     }
@@ -92,19 +96,17 @@ void RunBenchmarks(std::size_t dim,
          size += grid_size_step) {
         std::cout << "Measuring grid size " << size << std::endl;
         GridSizes<Dim> ns;
-        std::size_t total_elements = 1;
+        std::size_t padded_elements = 1;
         for (std::size_t i = 0; i < Dim; ++i) {
             ns[i] = size;
-            total_elements *= size;
+            padded_elements *= size + 2 * ngs[i];
         }
 
         auto solver_ptr = InstantiateSolver<T, Dim>(
-            use_nonuniform_z,
-            {ns, lens, bcs, GridSizes<Dim>{}, GridSizes<Dim>{}},
-            seed);
+            use_nonuniform_z, {ns, lens, bcs, ngs, ngs}, seed);
 
-        std::vector<T> h_phi(total_elements);
-        std::vector<T> h_rhs(total_elements);
+        std::vector<T> h_phi(padded_elements);
+        std::vector<T> h_rhs(padded_elements);
 
         for (std::size_t iter = 0; iter < measurement_iters; ++iter) {
             std::cout << "    Iteration " << iter << std::endl;
@@ -115,23 +117,21 @@ void RunBenchmarks(std::size_t dim,
             if (use_gpu) {
                 cudaMemcpy(d_rhs,
                            h_rhs.data(),
-                           total_elements * sizeof(T),
+                           padded_elements * sizeof(T),
                            cudaMemcpyHostToDevice);
 
                 auto start = std::chrono::steady_clock::now();
                 times = solver_ptr->ExecuteGPU(
-                    std::span<T>{d_phi, total_elements},
-                    std::span<const T>{d_rhs, total_elements},
-                    GridSizes<Dim>{},
-                    GridSizes<Dim>{});
+                    std::span<T>{d_phi, padded_elements},
+                    std::span<const T>{d_rhs, padded_elements},
+                    ngs, ngs);
                 auto end = std::chrono::steady_clock::now();
                 outside_time_ms =
                     std::chrono::duration<double, std::milli>(end - start)
                         .count();
             } else {
                 auto start = std::chrono::steady_clock::now();
-                times = solver_ptr->Execute(
-                    h_phi, h_rhs, GridSizes<Dim>{}, GridSizes<Dim>{});
+                times = solver_ptr->Execute(h_phi, h_rhs, ngs, ngs);
                 auto end = std::chrono::steady_clock::now();
                 outside_time_ms =
                     std::chrono::duration<double, std::milli>(end - start)
