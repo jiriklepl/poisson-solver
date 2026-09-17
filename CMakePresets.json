@@ -12,7 +12,7 @@
       "$comment": "PoisFFT builds shared libs by default, so do we",
       "cacheVariables": {
         "BUILD_SHARED_LIBS": "ON",
-        "BUILD_FORTRAN": "ON"
+        "POISSON_SOLVER_BUILD_FORTRAN": "ON"
       }
     },
     {

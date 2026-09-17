@@ -4,8 +4,13 @@ project(PoissonSolver
     LANGUAGES CXX CUDA
 )
 
-if (BUILD_FORTRAN)
+option(POISSON_SOLVER_BUILD_FORTRAN "Build Fortran binding" ON)
+
+if (POISSON_SOLVER_BUILD_FORTRAN)
     enable_language(Fortran)
+
+    # All Fortran `.mod` files shall be placed into into a separate dir.
+    set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 endif()
 
 enable_testing()
@@ -22,21 +27,13 @@ else()
     set(CMAKE_CUDA_ARCHITECTURES 70 80 90 100)
 endif()
 
-
-option(BUILD_FORTRAN "Build Fortran binding" ON)
-
-if (BUILD_FORTRAN)
-    # All Fortran `.mod` files shall be placed into into a separate dir.
-    set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
-endif()
-
 find_package(CUDAToolkit REQUIRED)
 
 option(POISSON_SOLVER_USE_MPI "Build distributed version" OFF)
 if (POISSON_SOLVER_USE_MPI)
     # `COMPONENTS` finds only the CXX and (maybe) Fortran APIs
     find_package(MPI REQUIRED COMPONENTS CXX)
-    if (BUILD_FORTRAN)
+    if (POISSON_SOLVER_BUILD_FORTRAN)
         find_package(MPI REQUIRED COMPONENTS Fortran)
     endif()
 

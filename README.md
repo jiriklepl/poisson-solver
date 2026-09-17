@@ -15,9 +15,9 @@ If not building the Fortran binding (see [How to Build](#how-to-build)), Fortran
 Navigate to the project root directory.
 It is recommended to use one of the presents in `CMakePresets.json` (e.g., `cmake --preset release`).
 More fine grained control can be achieved by altering some of the options, notably:
-1. `BUILD_FORTRAN` to disable the build of Fortran binding and
+1. `POISSON_SOLVER_BUILD_FORTRAN` to disable the build of Fortran binding and
 2. `BUILD_SHARED_LIBS` as shared libs are built by default.
-E.g., `cmake --preset release -DBUILD_FORTRAN=OFF -DBUILD_SHARED_LIBS=OFF`.
+E.g., `cmake --preset release -DPOISSON_SOLVER_BUILD_FORTRAN=OFF -DBUILD_SHARED_LIBS=OFF`.
 
 After generating the `Makefile`s, you can build the target
 ```bash

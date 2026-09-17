@@ -23,7 +23,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 add_library(poisson-solver ${LIB_SRC_CXX})
 
-if (BUILD_FORTRAN)
+if (POISSON_SOLVER_BUILD_FORTRAN)
     target_sources(poisson-solver PRIVATE ${FORTRAN_BINDING})
 endif()
 

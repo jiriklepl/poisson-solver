@@ -128,7 +128,7 @@ foreach(f_test_src IN LISTS FORTRAN_TEST_SRCS)
         common_flags
         poisson-solver
     )
-    if (BUILD_FORTRAN AND POISSON_SOLVER_USE_MPI)
+    if (POISSON_SOLVER_BUILD_FORTRAN AND POISSON_SOLVER_USE_MPI)
         target_link_libraries(poisson-solver PUBLIC
             MPI::MPI_Fortran
         )
