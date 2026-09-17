@@ -27,13 +27,8 @@
 
 namespace poisson_solver {
 /**
- * @brief Abstract solver class for both uniform and nonuniform solvers.
- * Its childer are solvers of the equation \f$ \Delta \phi = b \f$.
- *
- * @tparam T Floating point type (only `float` and `double` supported).
- * @tparam Dim Number of grid dimensions.
+ * struct ExecutionTimes - Aggregate of measured times inside the solver.
  */
-
 struct ExecutionTimes {
     float copy_time_ms = 0;
     float reshape_time_ms = 0;
@@ -45,6 +40,13 @@ struct ExecutionTimes {
     }
 };
 
+/**
+ * @brief Abstract solver class for both uniform and nonuniform solvers.
+ * Its childer are solvers of the equation \f$ \Delta \phi = b \f$.
+ *
+ * @tparam T Floating point type (only `float` and `double` supported).
+ * @tparam Dim Number of grid dimensions.
+ */
 template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 class ISolver {
