@@ -56,6 +56,9 @@ if (POISSON_SOLVER_USE_MPI)
     FetchContent_MakeAvailable(heffte)
 endif()
 
+option(POISSON_SOLVER_ENABLE_BENCHMARKS
+    "Enable measurements and the benchmarks target" OFF)
+
 # VkFFT is required even for MPI builds
 FetchContent_Populate(
     vkfft
@@ -90,7 +93,9 @@ target_compile_options(common_flags INTERFACE
 add_subdirectory(src)
 add_subdirectory(simulation)
 add_subdirectory(tests/residuum)
-add_subdirectory(tests/benchmarks)
+if (POISSON_SOLVER_ENABLE_BENCHMARKS)
+    add_subdirectory(tests/benchmarks)
+endif()
 
 # === Auto-generate .clangd ===
 set(CLANGD_CONFIG

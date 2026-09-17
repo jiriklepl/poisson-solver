@@ -79,6 +79,7 @@ protected:
         float &accum;
         cudaEvent_t start, stop;
 
+#ifdef POISSON_SOLVER_ENABLE_BENCHMARKS
         explicit CUDAScopedTimer(float &acc)
             : accum(acc) {
             cudaEventCreate(&start);
@@ -97,12 +98,14 @@ protected:
             cudaEventDestroy(start);
             cudaEventDestroy(stop);
         }
+#endif  // POISSON_SOLVER_ENABLE_BENCHMARKS
     };
 
     struct HybridScopedTimer {
         float &accum;
         std::chrono::time_point<std::chrono::steady_clock> start;
 
+#ifdef POISSON_SOLVER_ENABLE_BENCHMARKS
         explicit HybridScopedTimer(float &acc)
             : accum(acc) {
             cudaDeviceSynchronize();
@@ -115,6 +118,7 @@ protected:
             std::chrono::duration<float, std::milli> ms = stop - start;
             accum += ms.count();
         }
+#endif  // POISSON_SOLVER_ENABLE_BENCHMARKS
     };
 
     ExecutionTimes current_times_;

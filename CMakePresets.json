@@ -56,6 +56,22 @@
         "CMAKE_BUILD_TYPE": "Release",
         "POISSON_SOLVER_USE_MPI": "ON"
       }
+    },
+    {
+      "name": "release-benchmarks",
+      "inherits": "release",
+      "description": "Release build without MPI support, with the benchmarks target enabled",
+      "cacheVariables": {
+        "POISSON_SOLVER_ENABLE_BENCHMARKS": "ON"
+      }
+    },
+    {
+      "name": "release-mpi-benchmarks",
+      "inherits": "release-mpi",
+      "description": "Release build with MPI support, with the benchmarks target enabled",
+      "cacheVariables": {
+        "POISSON_SOLVER_ENABLE_BENCHMARKS": "ON"
+      }
     }
   ]
 }

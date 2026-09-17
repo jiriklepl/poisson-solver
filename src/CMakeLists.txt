@@ -45,3 +45,7 @@ if (POISSON_SOLVER_USE_MPI)
     # Defines `POISSON_SOLVER_USE_MPI`, therefore code can do `#ifdef POISSON_SOLVER_USE_MPI`
     target_compile_definitions(poisson-solver PUBLIC POISSON_SOLVER_USE_MPI)
 endif()
+
+if (POISSON_SOLVER_ENABLE_BENCHMARKS)
+    target_compile_definitions(poisson-solver PUBLIC POISSON_SOLVER_ENABLE_BENCHMARKS)
+endif()
