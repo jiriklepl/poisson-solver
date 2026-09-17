@@ -28,5 +28,5 @@ for cfg in "${CONFIGS[@]}"; do
     # Currently unused
     NODES_SATURATED=${CFG_ARR[5]}
 
-    salloc -p gpu-ffa-gpulab -c 8 -N $NUM_NODES -n $NTASKS -w "$NODES" --gpus $NTASKS -t 12:00:00 ./mapped/poisson-solver/strong_scaling_benchmarks.sh $NUM_NODES $NTASKS $NPS_Y $NPS_Z
+    salloc -p gpu-ffa-gpulab -c 8 -N $NUM_NODES -n $NTASKS -w "$NODES" --gpus $NTASKS -t 12:00:00 ./mapped/poisson-solver/benchmark-runners/strong_scaling_benchmarks.sh $NUM_NODES $NTASKS $NPS_Y $NPS_Z
 done
