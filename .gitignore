@@ -1,5 +1,4 @@
 build*
-frames
 *.csv
 lib
 compile_commands.json

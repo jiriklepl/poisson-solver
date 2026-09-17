@@ -88,7 +88,6 @@ target_compile_options(common_flags INTERFACE
 )
 
 add_subdirectory(src)
-add_subdirectory(simulation)
 add_subdirectory(tests/residuum)
 if (POISSON_SOLVER_ENABLE_BENCHMARKS)
     add_subdirectory(tests/benchmarks)
