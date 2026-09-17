@@ -79,7 +79,8 @@ public:
 protected:
     struct CUDAScopedTimer {
         float &accum;
-        cudaEvent_t start, stop;
+        cudaEvent_t start{};
+        cudaEvent_t stop{};
 
 #ifdef POISSON_SOLVER_ENABLE_BENCHMARKS
         explicit CUDAScopedTimer(float &acc)
@@ -105,7 +106,7 @@ protected:
 
     struct HybridScopedTimer {
         float &accum;
-        std::chrono::time_point<std::chrono::steady_clock> start;
+        std::chrono::time_point<std::chrono::steady_clock> start{};
 
 #ifdef POISSON_SOLVER_ENABLE_BENCHMARKS
         explicit HybridScopedTimer(float &acc)
