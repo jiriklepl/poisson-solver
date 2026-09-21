@@ -974,9 +974,9 @@ public:
      * @param ns Sizes of the grid in each dimension (without ghost cells).
      * @param lens Real lengths of the grid in each dimension.
      * @param z Coordinates representing the cell centers along the Z-axis.
-     * Must contain at least `ns[2]` elements.
+     * Must contain at least `gns[2]` elements.
      * @param z_u Coordinates representing the cell faces along the Z-axis.
-     * Must contain at least `ns[2] + 1` elements.
+     * Must contain at least `gns[2] + 1` elements.
      * @param bcs Boundary conditions for each axis in the order {{west, east},
      * {south, north}, {bottom, top}}.
      * For more information @see boundary_conditions.hpp.
