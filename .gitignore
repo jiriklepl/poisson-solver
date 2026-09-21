@@ -1,5 +1,4 @@
 build*
-*.csv
 lib
 compile_commands.json
 .clangd
