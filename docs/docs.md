@@ -555,7 +555,11 @@ See [`../examples/README.md`](../examples/README.md) for the full build and usag
 
 ## 9. Tests
 
-Tests run only on the `chimera` cluster, inside the container environment (`container-environment/`), using Charliecloud (`ch-run`).
+**This section assumes that you understand how poisson-solver is used in the** [container environment](../container-environment/).
+If you do not, please, explore the [container environment directory](../container-environment/) first and then return to this section.
+
+Tests run on the `chimera` cluster via `ctest`, inside the [container environment](../container-environment/), using Charliecloud (`ch-run`).
+**You can execute the built binaries directly to bypass the SLURM allocation.**
 Every `add_test` command in `tests/residuum/CMakeLists.txt` hard-codes `srun -p gpu-short-teach -w volta[02-05] ... ch-run -b ../../../../:/opt/build ../../../../../imgdir`.
 
 **Directory layout.** `mapped/` and `imgdir` (the unpacked container image) must be siblings.
@@ -564,12 +568,23 @@ The relative paths above resolve against this layout.
 
 **Build target.** `cmake --build build/ --target tests` builds every test executable.
 
-**Running them.** From the head node, navigate into `poisson-solver/build` and run `ctest -V`.
+**Running them.** On the cluster head node, navigate into `poisson-solver/build` and run `ctest -V`.
 Each test's `srun` command handles its own allocation, so do not run `ctest` itself from inside an already-allocated GPU node.
 If you already hold a GPU allocation for another reason, you can instead bypass `srun` and invoke a binary directly.
 
 **Scoring.** doctest prints nothing until a test fails, so several minutes of silence is normal.
 Fortran tests are scored by matching `FAIL` in their output (`FAIL_REGULAR_EXPRESSION`), not by exit code.
+
+### Acknowledgments
+The Fortran tests are adapted from the [PoisFFT](https://github.com/LadaF/PoisFFT) library.
+They have been modified to use the `poisson-solver` API and perform additional tests.
+When using this library for your research please cite the `PoisFFT` article.
+
+Vladimir Fuka: PoisFFT - a free parallel fast Poisson solver, Applied Mathematics and Computation, 2015
+
+available online: http://dx.doi.org/10.1016/j.amc.2015.03.011
+
+preprint: http://arxiv.org/abs/1409.8116
 
 ---
 
