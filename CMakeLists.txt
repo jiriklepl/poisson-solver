@@ -92,6 +92,7 @@ add_subdirectory(tests/residuum)
 if (POISSON_SOLVER_ENABLE_BENCHMARKS)
     add_subdirectory(tests/benchmarks)
 endif()
+add_subdirectory(examples)
 
 # === Auto-generate .clangd ===
 set(CLANGD_CONFIG
