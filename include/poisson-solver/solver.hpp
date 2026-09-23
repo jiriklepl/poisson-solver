@@ -145,6 +145,7 @@ template <std::floating_point T, std::size_t Dim>
     requires(Dim <= 3 && Dim >= 1)
 class Solver : public ISolver<T, Dim> {
 public:
+#ifndef POISSON_SOLVER_USE_MPI
     /**
      * @brief Constructs a local poisson solver.
      *
@@ -166,6 +167,7 @@ public:
            dim3 cuda_block_size = ISolver<T, Dim>::DefaultBlockSize())
         : solver_plan_(bcs),
           core_(ns, lens, approx, cuda_block_size, solver_plan_) {}
+#endif  // POISSON_SOLVER_USE_MPI
 
 #ifdef POISSON_SOLVER_USE_MPI
     /**
@@ -935,6 +937,7 @@ private:
 template <std::floating_point T>
 class NonuniformZSolver : public ISolver<T, 3> {
 public:
+#ifndef POISSON_SOLVER_USE_MPI
     /**
      * @brief Constructs a local poisson solver with nonuniform Z axis.
      *
@@ -966,6 +969,7 @@ public:
           core_(ns, lens, approx, cuda_block_size, solver_plan_) {
         Init(z, z_u, ns);
     }
+#endif  // POISSON_SOLVER_USE_MPI
 
 #ifdef POISSON_SOLVER_USE_MPI
     /**

@@ -74,10 +74,9 @@ This section covers the API in `include/poisson-solver/solver.hpp`.
 - **`Solver<T, Dim>`** — the solver for a uniform grid, where `Dim` is 1, 2, or 3.
 - **`NonuniformZSolver<T>`** — a 3D-only solver whose Z axis has non-uniform cell spacing.
 
-Both concrete solvers have two constructors.
-The **local** constructor takes grid sizes, lengths, and BCs.
-The **distributed** constructor exists only when you compile with `POISSON_SOLVER_USE_MPI`.
-It also takes the global grid size, this rank's offset into it, and an `MPI_Comm` from `mpi_utils::InitMPIGrid` (see [Distributed decomposition and heFFTe communication](#6-distributed-decomposition-and-heffte-communication)).
+Each concrete solver has exactly one constructor, chosen at compile time by `POISSON_SOLVER_USE_MPI`.
+Without it, the **local** constructor takes grid sizes, lengths, and BCs.
+With it, only the **distributed** constructor exists: it additionally takes the global grid size, this rank's offset into it, and an `MPI_Comm` from `mpi_utils::InitMPIGrid` (see [Distributed decomposition and heFFTe communication](#6-distributed-decomposition-and-heffte-communication)).
 
 **Ghost cells.** `Execute` and `ExecuteGPU` take two parameters, `ngs_phi` and `ngs_rhs`.
 Each gives the number of ghost cells on one side, per dimension, around the active grid in the caller's `phi` or `rhs` buffer.
@@ -529,7 +528,7 @@ Three project-specific options control the build:
 | Option | Default | Effect |
 |---|---|---|
 | `POISSON_SOLVER_BUILD_FORTRAN` | on | builds the Fortran binding and its module files |
-| `POISSON_SOLVER_USE_MPI` | off | switches the distributed build on: fetches the heFFTe fork, enables `Solver`'s distributed constructors, selects `MpiFftPolicy` |
+| `POISSON_SOLVER_USE_MPI` | off | switches the distributed build on: fetches the heFFTe fork, selects `MpiFftPolicy`, and replaces `Solver`'s and `NonuniformZSolver`'s local constructors with their distributed ones |
 | `POISSON_SOLVER_ENABLE_BENCHMARKS` | off | enables the timer instrumentation described in [The public API](#2-the-public-api) and the `benchmarks` build target |
 
 **Fetched dependencies.** The build fetches all of these at configure time, with `FetchContent`.
