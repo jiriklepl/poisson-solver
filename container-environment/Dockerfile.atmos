@@ -1,0 +1,170 @@
+FROM nvidia/cuda:12.9.0-devel-ubuntu24.04
+
+# Set non-interactive mode to avoid apt-get prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    wget \
+    gfortran \
+    git \
+    scons \
+    python3 \
+    libopenblas-dev \
+    libgsl-dev \
+    libpmix-dev \
+    libmunge-dev \
+    vim \
+    autoconf \
+    automake \
+    libtool \
+    doxygen \
+    graphviz \
+    libibverbs-dev \
+    librdmacm-dev \
+    rdma-core \
+    libnuma-dev \
+    cuda-nsight-systems-12-9 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Get CMake binary
+ARG CMAKE_VERSION=4.1.2
+ARG CMAKE=cmake-${CMAKE_VERSION}
+RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/${CMAKE}-linux-x86_64.tar.gz \
+    && tar --extract --gzip --file ${CMAKE}-linux-x86_64.tar.gz -C /opt/ \
+    && ln -s /opt/${CMAKE}-linux-x86_64/bin/* /usr/local/bin/ \
+    && rm ${CMAKE}-linux-x86_64.tar.gz
+
+ARG GDRCOPY_VERSION=2.6
+ARG GDRCOPY=gdrcopy-${GDRCOPY_VERSION}
+RUN wget https://github.com/NVIDIA/gdrcopy/archive/refs/tags/v${GDRCOPY_VERSION}.tar.gz -O ${GDRCOPY}.tar.gz \
+    && tar --extract --gzip --file ${GDRCOPY}.tar.gz \
+    && cd ${GDRCOPY} \
+    && make -j$(nproc) lib \
+    && make lib_install \
+    && cd .. \
+    && rm -rf ${GDRCOPY} ${GDRCOPY}.tar.gz \
+    && ldconfig
+
+# Build and install CUDA-aware UCX
+ARG UCX_VERSION=1.21.0
+ARG UCX=ucx-${UCX_VERSION}
+RUN wget https://github.com/openucx/ucx/releases/download/v${UCX_VERSION}/${UCX}.tar.gz \
+    && tar --extract --gzip --file ${UCX}.tar.gz \
+    && cd $UCX \
+    && ./contrib/configure-release-mt \
+        --prefix=/usr/local/ucx \
+        --with-cuda=/usr/local/cuda \
+        --with-gdrcopy=/usr/local \
+        --with-verbs \
+        --with-rdmacm \
+    && make -j$(nproc) \
+    && make install \
+    && cd .. \
+    && rm -rf $UCX ${UCX}.tar.gz \
+    && echo "/usr/local/ucx/lib" > /etc/ld.so.conf.d/ucx.conf \
+    && ldconfig
+
+# Build OpenMPI with PMIx, CUDA, munge and UCX support
+# (Must be built before PFFT!)
+ARG OPENMPI_VER_MAJ_MIN=5.0
+ARG OPENMPI_VERSION=${OPENMPI_VER_MAJ_MIN}.8
+ARG OPENMPI=openmpi-${OPENMPI_VERSION}
+# See IMPORTANT NOTE at https://github.com/openucx/ucx/wiki/OpenMPI-and-OpenSHMEM-installation-with-UCX#running-open-mpi-with-ucx
+RUN wget https://download.open-mpi.org/release/open-mpi/v${OPENMPI_VER_MAJ_MIN}/${OPENMPI}.tar.gz \
+    && tar --extract --gzip --file ${OPENMPI}.tar.gz \
+    && cd $OPENMPI \
+    && ./configure \
+        --prefix=/usr/local \
+        --with-pmix \
+        --with-cuda=/usr/local/cuda \
+        --with-cuda-libdir=/usr/local/cuda/lib64/stubs \
+        --with-munge \
+        --with-ucx=/usr/local/ucx \
+        --enable-mca-no-build=btl-uct \
+    && make -j$(nproc) all \
+    && make install \
+    && ldconfig \
+    && cd .. \
+    && rm -rf $OPENMPI ${OPENMPI}.tar.gz
+
+# Build FFTW3 with MPI and vectorization support (both float and double)
+ARG FFTW_VERSION=3.3.11
+ARG FFTW=fftw-${FFTW_VERSION}
+RUN cd /opt \
+    && wget https://www.fftw.org/${FFTW}.tar.gz \
+    && tar --extract --gzip --file ${FFTW}.tar.gz \
+    && cd $FFTW \
+    && ./configure \
+        --prefix=/usr/local \
+        --enable-shared \
+        --enable-mpi \
+        --enable-threads \
+        --enable-openmp \
+        --enable-sse2 \
+        --enable-avx \
+        --enable-avx2 \
+        --enable-avx512 \
+    && make -j$(nproc) \
+    && make install \
+    && make clean \
+    && ./configure \
+        --prefix=/usr/local \
+        --enable-float \
+        --enable-shared \
+        --enable-mpi \
+        --enable-threads \
+        --enable-openmp \
+        --enable-sse2 \
+        --enable-avx \
+        --enable-avx2 \
+        --enable-avx512 \
+    && make -j$(nproc) \
+    && make install \
+    && cd /opt \
+    && rm -rf $FFTW ${FFTW}.tar.gz
+
+# Build PFFT all configs of float/double, MPI/standard
+RUN cd /opt \
+    && wget -O pfft.tar.gz https://github.com/mpip/pfft/archive/refs/heads/master.tar.gz \
+    && tar --extract --gzip --file pfft.tar.gz \
+    && mv pfft-master pfft \
+    && cd pfft \
+    && ./bootstrap.sh \
+    && CC=mpicc FC=mpif90 ./configure CFLAGS="-O3 -fopenmp" FCFLAGS="-O3 -fopenmp" \
+        --prefix=/usr/local \
+        --enable-openmp \
+        --disable-tests \
+    && make -j$(nproc) \
+    && make install \
+    && make clean \
+    && CC=mpicc FC=mpif90 ./configure CFLAGS="-O3" FCFLAGS="-O3" \
+        --prefix=/usr/local \
+        --disable-tests \
+    && make -j$(nproc) \
+    && make install \
+    && make clean \
+    && CC=mpicc FC=mpif90 ./configure CFLAGS="-O3 -fopenmp" FCFLAGS="-O3 -fopenmp" \
+        --prefix=/usr/local \
+        --enable-float \
+        --enable-openmp \
+        --disable-tests \
+    && make -j$(nproc) \
+    && make install \
+    && make clean \
+    && CC=mpicc FC=mpif90 ./configure CFLAGS="-O3" FCFLAGS="-O3" \
+        --prefix=/usr/local \
+        --enable-float \
+        --disable-tests \
+    && make -j$(nproc) \
+    && make install \
+    && cd /opt \
+    && rm -rf pfft
+
+RUN printf 'pml = ucx\n' >> /usr/local/etc/openmpi-mca-params.conf
+
+ENV PATH="/usr/local/cuda/bin:${PATH}" \
+    CUDACXX="/usr/local/cuda/bin/nvcc"
+
+# Create a build directory inside the container
+WORKDIR /opt/build
