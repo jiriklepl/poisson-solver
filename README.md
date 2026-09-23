@@ -22,10 +22,10 @@ It is based on the [PoisFFT](https://github.com/LadaF/PoisFFT) library and provi
   - NVRTC, `VkFFT` uses it to compile those kernels at run time,
   - cuFFT (**only for distributed use** - `heFFTe` uses it for the distributed FFTs).
 
-## Detailed Documentation
+## Detailed documentation
 For motivation behind this solver see [this](./docs/motivation.md).
-It is highly recommended that you explore the [examples](./examples/) directory as that containes the solver usage guide and more useful information.
+It is highly recommended that you explore the [examples](./examples/) directory as that contains the solver usage guide and more useful information.
 We have included a dockerfile (inside [container-environment](./container-environment/)) that contains all the necessary software required to run the solver.
 See the [container-environment](./container-environment/) directory to learn more about the deployment of the solver inside our container.
-For those interested, [benchmark-results](./benchmark-results/) containes the comparison of `poisson-solver` against the original `PoisFFT` library.
+[benchmark-results](./benchmark-results/) contains the performance comparison of `poisson-solver` against the original `PoisFFT` library.
 At last, see [docs](./docs/) for the inner code structure of `poisson-solver`.

@@ -1,4 +1,4 @@
-# Documentation
+# Programmer Documentation
 
 This document explains the structure of `poisson-solver`, its main components and how data moves through a solve.
 It covers both the local build and the distributed build.
@@ -24,7 +24,7 @@ The [examples README](../examples/README.md) explains how to generate it.
 
 `poisson-solver` solves `Δφ = b` on 1D, 2D, and 3D grids with FFT-based methods.
 It follows the design of [`PoisFFT`](https://github.com/LadaF/PoisFFT).
-See [`motivation.md`](./motivation.md) for background on the design.
+See [motivation](./motivation.md) for background on the design.
 
 The library splits every solve into three pieces.
 A **plan** decides *what* to do, based on the requested boundary conditions.
@@ -103,13 +103,13 @@ It does not change which BCs the solver supports.
 
 ---
 
-## 3. Plan / Core / Policies Split
+## 3. Plan / Core / Policies split
 
 This split ensures the solving itself is done with little overhead and its code remains maintainable and readable.
 
 `poisson-solver` solves the equation described in [`motivation.md`](./motivation.md).
 See that page for the FFT-based solving pipeline itself.
-[Data-flow traces](#5-data-flow-traces) below walks through concrete, step-by-step examples of that pipeline for specific boundary conditions.
+[Data-flow traces](#5-data-flow-traces) below walk through concrete, step-by-step examples of that pipeline for specific boundary conditions.
 
 1. **Plan** - what has to happen, given the requested BCs?
 2. **Core** - what buffers, handles, and precomputed data does that imply?
@@ -225,17 +225,17 @@ This means the FFT transform type `GetAxisFFTType` returns for the boundary-cond
 `ISolverPlan::GetAxisFFTType` creates this mapping.
 An unsupported pair throws an error:
 
-| BC pair | Transform |
-|---|---|
-| Periodic / Periodic | Complex (C2C) |
-| Dirichlet / Dirichlet | DST-I |
-| DirichletStag / DirichletStag | DST-II |
-| Neumann / Neumann | DCT-I |
-| NeumannStag / NeumannStag | DCT-II |
-| Dirichlet / Neumann | DST-III |
-| Neumann / Dirichlet | DCT-III |
-| DirichletStag / NeumannStag | DST-IV |
-| NeumannStag / DirichletStag | DCT-IV |
+| BC pair                       | Transform     |
+|-------------------------------|---------------|
+| Periodic / Periodic           | Complex (C2C) |
+| Dirichlet / Dirichlet         | DST-I         |
+| DirichletStag / DirichletStag | DST-II        |
+| Neumann / Neumann             | DCT-I         |
+| NeumannStag / NeumannStag     | DCT-II        |
+| Dirichlet / Neumann           | DST-III       |
+| Neumann / Dirichlet           | DCT-III       |
+| DirichletStag / NeumannStag   | DST-IV        |
+| NeumannStag / DirichletStag   | DCT-IV        |
 
 ### Whole-solver dispatch (`SolverPlan`'s constructor)
 
@@ -245,13 +245,13 @@ The constructor tries, in order:
    The code reaches this branch only in an MPI build, and only when `FFTDim == 3`.
 2. **All BCs identical** (`TryConstructFromFullBCs`) — one `FullLayout` transform over the whole grid, empty `reshape_types`:
 
-   | BCs (all axes) | `solve_method` | Transform |
-   |---|---|---|
-   | Periodic | `SolveFullPeriodic` | Complex |
-   | Dirichlet | `SolveFullDirichlet` | DST-I |
-   | DirichletStag | `SolveFullDirichlet` | DST-II |
-   | Neumann | `SolveFullNeumann` | DCT-I |
-   | NeumannStag | `SolveFullNeumann` | DCT-II |
+   | BCs (all axes) | `solve_method`       | Transform |
+   |----------------|----------------------|-----------|
+   | Periodic       | `SolveFullPeriodic`  | Complex   |
+   | Dirichlet      | `SolveFullDirichlet` | DST-I     |
+   | DirichletStag  | `SolveFullDirichlet` | DST-II    |
+   | Neumann        | `SolveFullNeumann`   | DCT-I     |
+   | NeumannStag    | `SolveFullNeumann`   | DCT-II    |
 
 3. **Non-full BCs** (`ConstructFromNonFullBCs`), by dimensionality:
    - **1D**: any remaining BC pair maps to `SolveFullDirichlet`, on a `FullLayout`, with that pair's transform type.

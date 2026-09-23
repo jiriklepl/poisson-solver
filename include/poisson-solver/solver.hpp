@@ -626,7 +626,7 @@ private:
 
     void SolveNsPP() {
         // Same body as PPNs.
-        // Only is change is in `fft_plan` construction
+        // The only change is in `fft_plan` construction
         // and `reshaper` configuration
         // but this doesn't concern this function.
         SolvePPNs();
@@ -731,7 +731,7 @@ private:
 
     void SolvePNsP() {
         // Same body as PPNs.
-        // Only is change is in `fft_plan` construction
+        // The only change is in `fft_plan` construction
         // and `reshaper` configuration
         // but this doesn't concern this function.
         SolvePPNs();
@@ -920,7 +920,7 @@ private:
 
     void Solve1Real2Real() {
         // Same body as 2Real1Real.
-        // Only is change is in `fft_plan` construction
+        // The only change is in `fft_plan` construction
         // and `reshaper` configuration
         // but this doesn't concern this function.
         Solve2Real1Real();
