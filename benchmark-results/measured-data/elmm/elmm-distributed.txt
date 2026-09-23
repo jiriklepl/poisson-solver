@@ -1,0 +1,32 @@
+256^3 grid, end time 0.5
+volta[02,03,05]
+64 processes for PoisFFT
+8 processes for poisson-solver (each one has a GPU)
+
+= Full Periodic =
+== ELMM + PoisFFT ==
+Total wall clock time for time steps: 328.82
+Wall clock time for Poisson solver: 175.22
+
+== gpu-elmm + poisson-solver ==
+Total wall clock time for time steps: 968.96
+Wall clock time for Poisson solver: 159.75
+
+= PPNs =
+== ELMM + PoisFFT ==
+Total wall clock time for time steps: 246.40
+Wall clock time for Poisson solver: 93.47
+
+== gpu-elmm + poisson-solver ==
+Total wall clock time for time steps: 862.70
+Wall clock time for Poisson solver: 71.98
+
+= Full NeumannStag =
+== ELMM + PoisFFT ==
+Total wall clock time for time steps: 252.50
+Wall clock time for Poisson solver: 96.48
+
+== gpu-elmm + poisson-solver ==
+Total wall clock time for time steps: 810.58
+Wall clock time for Poisson solver: 42.51
+

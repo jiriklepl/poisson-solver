@@ -1,0 +1,577 @@
+Dim,BCs,Uniformity,Precision,Grid Size,poisson-solverCpuApiSpeedup,poisson-solverGpuApiSpeedup
+1,D | D,uniform,double,64,0.022,0.032
+1,D | D,uniform,double,128,0.056,0.075
+1,D | D,uniform,double,192,0.137,0.177
+1,D | D,uniform,double,256,0.166,0.216
+1,D | D,uniform,double,320,0.171,0.201
+1,D | D,uniform,double,384,0.084,0.109
+1,D | D,uniform,double,448,0.252,0.3
+1,D | D,uniform,double,512,0.114,0.142
+1,D | D,uniform,float,64,0.02,0.03
+1,D | D,uniform,float,128,0.075,0.112
+1,D | D,uniform,float,192,0.171,0.251
+1,D | D,uniform,float,256,0.222,0.314
+1,D | D,uniform,float,320,0.411,0.623
+1,D | D,uniform,float,384,0.107,0.164
+1,D | D,uniform,float,448,0.423,0.626
+1,D | D,uniform,float,512,0.199,0.294
+1,D | N,uniform,double,64,0.016,0.023
+1,D | N,uniform,double,128,0.024,0.034
+1,D | N,uniform,double,192,0.03,0.042
+1,D | N,uniform,double,256,0.04,0.056
+1,D | N,uniform,double,320,0.046,0.064
+1,D | N,uniform,double,384,0.052,0.072
+1,D | N,uniform,double,448,0.063,0.088
+1,D | N,uniform,double,512,0.067,0.093
+1,D | N,uniform,float,64,0.013,0.021
+1,D | N,uniform,float,128,0.021,0.032
+1,D | N,uniform,float,192,0.027,0.041
+1,D | N,uniform,float,256,0.037,0.055
+1,D | N,uniform,float,320,0.047,0.072
+1,D | N,uniform,float,384,0.053,0.082
+1,D | N,uniform,float,448,0.068,0.104
+1,D | N,uniform,float,512,0.069,0.107
+1,Ds | Ds,uniform,double,64,0.014,0.02
+1,Ds | Ds,uniform,double,128,0.022,0.032
+1,Ds | Ds,uniform,double,192,0.032,0.044
+1,Ds | Ds,uniform,double,256,0.038,0.053
+1,Ds | Ds,uniform,double,320,0.044,0.061
+1,Ds | Ds,uniform,double,384,0.05,0.069
+1,Ds | Ds,uniform,double,448,0.063,0.087
+1,Ds | Ds,uniform,double,512,0.063,0.088
+1,Ds | Ds,uniform,float,64,0.014,0.022
+1,Ds | Ds,uniform,float,128,0.022,0.035
+1,Ds | Ds,uniform,float,192,0.027,0.042
+1,Ds | Ds,uniform,float,256,0.035,0.055
+1,Ds | Ds,uniform,float,320,0.047,0.073
+1,Ds | Ds,uniform,float,384,0.054,0.083
+1,Ds | Ds,uniform,float,448,0.071,0.11
+1,Ds | Ds,uniform,float,512,0.068,0.108
+1,Ds | Ns,uniform,double,64,0.012,0.017
+1,Ds | Ns,uniform,double,128,0.019,0.027
+1,Ds | Ns,uniform,double,192,0.027,0.037
+1,Ds | Ns,uniform,double,256,0.037,0.051
+1,Ds | Ns,uniform,double,320,0.043,0.06
+1,Ds | Ns,uniform,double,384,0.048,0.066
+1,Ds | Ns,uniform,double,448,0.061,0.086
+1,Ds | Ns,uniform,double,512,0.062,0.086
+1,Ds | Ns,uniform,float,64,0.013,0.02
+1,Ds | Ns,uniform,float,128,0.019,0.03
+1,Ds | Ns,uniform,float,192,0.027,0.041
+1,Ds | Ns,uniform,float,256,0.039,0.06
+1,Ds | Ns,uniform,float,320,0.045,0.07
+1,Ds | Ns,uniform,float,384,0.053,0.082
+1,Ds | Ns,uniform,float,448,0.066,0.102
+1,Ds | Ns,uniform,float,512,0.067,0.103
+1,N | D,uniform,double,64,0.014,0.021
+1,N | D,uniform,double,128,0.023,0.033
+1,N | D,uniform,double,192,0.03,0.042
+1,N | D,uniform,double,256,0.039,0.055
+1,N | D,uniform,double,320,0.045,0.062
+1,N | D,uniform,double,384,0.051,0.071
+1,N | D,uniform,double,448,0.062,0.086
+1,N | D,uniform,double,512,0.062,0.088
+1,N | D,uniform,float,64,0.014,0.021
+1,N | D,uniform,float,128,0.02,0.031
+1,N | D,uniform,float,192,0.026,0.041
+1,N | D,uniform,float,256,0.035,0.052
+1,N | D,uniform,float,320,0.046,0.07
+1,N | D,uniform,float,384,0.053,0.08
+1,N | D,uniform,float,448,0.069,0.106
+1,N | D,uniform,float,512,0.068,0.106
+1,N | N,uniform,double,64,0.017,0.025
+1,N | N,uniform,double,128,0.119,0.156
+1,N | N,uniform,double,192,0.147,0.185
+1,N | N,uniform,double,256,0.062,0.081
+1,N | N,uniform,double,320,0.093,0.12
+1,N | N,uniform,double,384,0.191,0.221
+1,N | N,uniform,double,448,0.249,0.285
+1,N | N,uniform,double,512,0.223,0.275
+1,N | N,uniform,float,64,0.02,0.03
+1,N | N,uniform,float,128,0.192,0.281
+1,N | N,uniform,float,192,0.231,0.34
+1,N | N,uniform,float,256,0.096,0.143
+1,N | N,uniform,float,320,0.158,0.23
+1,N | N,uniform,float,384,0.462,0.669
+1,N | N,uniform,float,448,0.785,1.149
+1,N | N,uniform,float,512,0.453,0.662
+1,Ns | Ds,uniform,double,64,0.012,0.017
+1,Ns | Ds,uniform,double,128,0.018,0.026
+1,Ns | Ds,uniform,double,192,0.027,0.038
+1,Ns | Ds,uniform,double,256,0.039,0.054
+1,Ns | Ds,uniform,double,320,0.042,0.06
+1,Ns | Ds,uniform,double,384,0.049,0.067
+1,Ns | Ds,uniform,double,448,0.068,0.096
+1,Ns | Ds,uniform,double,512,0.069,0.095
+1,Ns | Ds,uniform,float,64,0.014,0.021
+1,Ns | Ds,uniform,float,128,0.019,0.03
+1,Ns | Ds,uniform,float,192,0.029,0.044
+1,Ns | Ds,uniform,float,256,0.039,0.06
+1,Ns | Ds,uniform,float,320,0.044,0.068
+1,Ns | Ds,uniform,float,384,0.053,0.081
+1,Ns | Ds,uniform,float,448,0.065,0.1
+1,Ns | Ds,uniform,float,512,0.066,0.102
+1,Ns | Ns,uniform,double,64,0.014,0.02
+1,Ns | Ns,uniform,double,128,0.022,0.032
+1,Ns | Ns,uniform,double,192,0.03,0.042
+1,Ns | Ns,uniform,double,256,0.04,0.056
+1,Ns | Ns,uniform,double,320,0.044,0.063
+1,Ns | Ns,uniform,double,384,0.049,0.069
+1,Ns | Ns,uniform,double,448,0.061,0.085
+1,Ns | Ns,uniform,double,512,0.064,0.09
+1,Ns | Ns,uniform,float,64,0.014,0.022
+1,Ns | Ns,uniform,float,128,0.022,0.033
+1,Ns | Ns,uniform,float,192,0.028,0.043
+1,Ns | Ns,uniform,float,256,0.033,0.05
+1,Ns | Ns,uniform,float,320,0.046,0.07
+1,Ns | Ns,uniform,float,384,0.054,0.083
+1,Ns | Ns,uniform,float,448,0.07,0.105
+1,Ns | Ns,uniform,float,512,0.069,0.106
+1,P | P,uniform,double,64,0.011,0.015
+1,P | P,uniform,double,128,0.019,0.027
+1,P | P,uniform,double,192,0.024,0.034
+1,P | P,uniform,double,256,0.031,0.044
+1,P | P,uniform,double,320,0.034,0.047
+1,P | P,uniform,double,384,0.039,0.053
+1,P | P,uniform,double,448,0.047,0.065
+1,P | P,uniform,double,512,0.051,0.071
+1,P | P,uniform,float,64,0.011,0.017
+1,P | P,uniform,float,128,0.016,0.024
+1,P | P,uniform,float,192,0.023,0.035
+1,P | P,uniform,float,256,0.024,0.036
+1,P | P,uniform,float,320,0.029,0.043
+1,P | P,uniform,float,384,0.033,0.049
+1,P | P,uniform,float,448,0.041,0.061
+1,P | P,uniform,float,512,0.041,0.061
+2,D | D | D | D,uniform,double,64,0.75,0.901
+2,D | D | D | D,uniform,double,128,6.111,7.965
+2,D | D | D | D,uniform,double,192,18.703,24.603
+2,D | D | D | D,uniform,double,256,25.658,36.466
+2,D | D | D | D,uniform,double,320,35.188,53.502
+2,D | D | D | D,uniform,double,384,13.713,26.657
+2,D | D | D | D,uniform,double,448,48.218,78.331
+2,D | D | D | D,uniform,double,512,22.615,43.327
+2,D | D | D | D,uniform,float,64,1.288,1.88
+2,D | D | D | D,uniform,float,128,13.604,20.884
+2,D | D | D | D,uniform,float,192,40.723,66.936
+2,D | D | D | D,uniform,float,256,61.095,112.836
+2,D | D | D | D,uniform,float,320,121.272,255.829
+2,D | D | D | D,uniform,float,384,31.411,98.01
+2,D | D | D | D,uniform,float,448,119.701,379.785
+2,D | D | D | D,uniform,float,512,60.427,219.588
+2,Ds | Ds | Ds | Ds,uniform,double,64,0.401,0.535
+2,Ds | Ds | Ds | Ds,uniform,double,128,1.618,2.3
+2,Ds | Ds | Ds | Ds,uniform,double,192,3.253,5.043
+2,Ds | Ds | Ds | Ds,uniform,double,256,5.573,11.478
+2,Ds | Ds | Ds | Ds,uniform,double,320,7.131,17.848
+2,Ds | Ds | Ds | Ds,uniform,double,384,8.216,21.816
+2,Ds | Ds | Ds | Ds,uniform,double,448,10.057,26.762
+2,Ds | Ds | Ds | Ds,uniform,double,512,10.719,32.627
+2,Ds | Ds | Ds | Ds,uniform,float,64,0.529,0.797
+2,Ds | Ds | Ds | Ds,uniform,float,128,2.29,3.651
+2,Ds | Ds | Ds | Ds,uniform,float,192,5.3,9.125
+2,Ds | Ds | Ds | Ds,uniform,float,256,8.489,17.924
+2,Ds | Ds | Ds | Ds,uniform,float,320,11.645,29.92
+2,Ds | Ds | Ds | Ds,uniform,float,384,13.829,43.693
+2,Ds | Ds | Ds | Ds,uniform,float,448,17.09,66.696
+2,Ds | Ds | Ds | Ds,uniform,float,512,17.989,75.604
+2,N | N | N | N,uniform,double,64,0.847,1.107
+2,N | N | N | N,uniform,double,128,8.434,9.63
+2,N | N | N | N,uniform,double,192,24.866,34.559
+2,N | N | N | N,uniform,double,256,10.039,15.013
+2,N | N | N | N,uniform,double,320,18.32,33.722
+2,N | N | N | N,uniform,double,384,28.686,36.812
+2,N | N | N | N,uniform,double,448,41.891,53.755
+2,N | N | N | N,uniform,double,512,43.162,76.838
+2,N | N | N | N,uniform,float,64,1.205,1.815
+2,N | N | N | N,uniform,float,128,34.31,51.304
+2,N | N | N | N,uniform,float,192,55.91,91.681
+2,N | N | N | N,uniform,float,256,26.267,52.713
+2,N | N | N | N,uniform,float,320,48.015,108.881
+2,N | N | N | N,uniform,float,384,133.725,332.411
+2,N | N | N | N,uniform,float,448,220.401,649.342
+2,N | N | N | N,uniform,float,512,138.112,460.209
+2,Ns | Ns | Ns | Ns,uniform,double,64,0.429,0.569
+2,Ns | Ns | Ns | Ns,uniform,double,128,1.635,2.334
+2,Ns | Ns | Ns | Ns,uniform,double,192,3.305,5.111
+2,Ns | Ns | Ns | Ns,uniform,double,256,5.626,11.663
+2,Ns | Ns | Ns | Ns,uniform,double,320,7.315,18.716
+2,Ns | Ns | Ns | Ns,uniform,double,384,8.184,22.745
+2,Ns | Ns | Ns | Ns,uniform,double,448,10.051,27.452
+2,Ns | Ns | Ns | Ns,uniform,double,512,10.45,33.07
+2,Ns | Ns | Ns | Ns,uniform,float,64,0.526,0.808
+2,Ns | Ns | Ns | Ns,uniform,float,128,2.346,3.818
+2,Ns | Ns | Ns | Ns,uniform,float,192,5.091,9.058
+2,Ns | Ns | Ns | Ns,uniform,float,256,8.839,18.559
+2,Ns | Ns | Ns | Ns,uniform,float,320,11.695,30.578
+2,Ns | Ns | Ns | Ns,uniform,float,384,14.601,45.229
+2,Ns | Ns | Ns | Ns,uniform,float,448,17.788,69.644
+2,Ns | Ns | Ns | Ns,uniform,float,512,18.178,75.142
+2,P | P | P | P,uniform,double,64,0.344,0.462
+2,P | P | P | P,uniform,double,128,1.431,2.086
+2,P | P | P | P,uniform,double,192,2.54,3.961
+2,P | P | P | P,uniform,double,256,4.381,9.189
+2,P | P | P | P,uniform,double,320,5.413,13.218
+2,P | P | P | P,uniform,double,384,6.418,16.756
+2,P | P | P | P,uniform,double,448,7.573,19.721
+2,P | P | P | P,uniform,double,512,8.211,25.523
+2,P | P | P | P,uniform,float,64,0.258,0.379
+2,P | P | P | P,uniform,float,128,1.122,1.77
+2,P | P | P | P,uniform,float,192,2.475,4.272
+2,P | P | P | P,uniform,float,256,3.973,8.269
+2,P | P | P | P,uniform,float,320,5.749,14.241
+2,P | P | P | P,uniform,float,384,7.653,22.759
+2,P | P | P | P,uniform,float,448,9.687,35.794
+2,P | P | P | P,uniform,float,512,9.895,39.163
+3,D | D | D | D | D | D,uniform,double,64,1.219,2.476
+3,D | D | D | D | D | D,uniform,double,128,1.428,2.453
+3,D | D | D | D | D | D,uniform,double,192,2.243,3.936
+3,D | D | D | D | D | D,uniform,double,256,2.24,3.969
+3,D | D | D | D | D | D,uniform,double,320,1.466,1.879
+3,D | D | D | D | D | D,uniform,double,384,1.065,2.096
+3,D | D | D | D | D | D,uniform,double,448,2.249,3.535
+3,D | D | D | D | D | D,uniform,double,512,1.219,2.101
+3,D | D | D | D | D | D,uniform,float,64,2.309,8.856
+3,D | D | D | D | D | D,uniform,float,128,5.901,33.456
+3,D | D | D | D | D | D,uniform,float,192,7.902,49.296
+3,D | D | D | D | D | D,uniform,float,256,7.774,54.75
+3,D | D | D | D | D | D,uniform,float,320,9.2,33.709
+3,D | D | D | D | D | D,uniform,float,384,2.914,20.471
+3,D | D | D | D | D | D,uniform,float,448,8.358,40.867
+3,D | D | D | D | D | D,uniform,float,512,4.322,21.657
+3,D | D | D | D | N | D,uniform,double,64,0.795,1.753
+3,D | D | D | D | N | D,uniform,double,128,1.479,2.963
+3,D | D | D | D | N | D,uniform,double,192,1.948,4.031
+3,D | D | D | D | N | D,uniform,double,256,1.927,4
+3,D | D | D | D | N | D,uniform,double,320,1.876,2.703
+3,D | D | D | D | N | D,uniform,double,384,0.889,2.004
+3,D | D | D | D | N | D,uniform,double,448,1.905,3.421
+3,D | D | D | D | N | D,uniform,double,512,1.091,2.155
+3,D | D | D | D | N | D,uniform,float,64,1.276,4.134
+3,D | D | D | D | N | D,uniform,float,128,4.135,24.914
+3,D | D | D | D | N | D,uniform,float,192,5.651,42.377
+3,D | D | D | D | N | D,uniform,float,256,5.741,48.892
+3,D | D | D | D | N | D,uniform,float,320,7.173,34.83
+3,D | D | D | D | N | D,uniform,float,384,2.079,15.244
+3,D | D | D | D | N | D,uniform,float,448,6.495,35.542
+3,D | D | D | D | N | D,uniform,float,512,3.792,20.85
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,double,64,1.119,3.374
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,double,128,0.809,3.002
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,double,192,0.668,2.505
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,double,256,0.759,2.757
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,double,320,0.764,2.463
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,double,384,0.832,2.777
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,double,448,0.848,2.507
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,double,512,0.853,2.642
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,float,64,1.709,6.797
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,float,128,1.913,16.758
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,float,192,1.532,18.483
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,float,256,1.54,20.266
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,float,320,1.5,15.427
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,float,384,1.463,10.916
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,float,448,1.655,11.066
+3,Ds | Ds | Ds | Ds | Ds | Ds,uniform,float,512,1.619,10.503
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,double,64,0.581,1.667
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,double,128,0.604,2.294
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,double,192,0.617,2.539
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,double,256,0.7,2.847
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,double,320,0.849,3.051
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,double,384,0.708,2.623
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,double,448,0.744,2.45
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,double,512,0.722,2.501
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,float,64,0.837,2.698
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,float,128,1.187,8.871
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,float,192,1.43,17.432
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,float,256,1.27,17.247
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,float,320,1.434,16.787
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,float,384,1.298,10.126
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,float,448,1.505,10.279
+3,Ds | Ds | Ds | Ds | Ns | Ds,uniform,float,512,1.94,13.428
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,double,64,0.597,1.675
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,double,128,0.589,2.126
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,double,192,0.671,2.501
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,double,256,0.597,2.155
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,double,320,0.662,2.167
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,double,384,0.67,2.237
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,double,448,0.695,2.061
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,double,512,0.701,2.204
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,float,64,0.838,2.733
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,float,128,1.277,9.784
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,float,192,1.476,17.235
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,float,256,1.34,18.429
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,float,320,1.359,14.415
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,float,384,1.294,9.661
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,float,448,1.618,10.956
+3,Ds | Ds | Ds | Ds | Ns | Ns,uniform,float,512,1.543,9.984
+3,Ds | Ds | Ds | Ds | P | P,uniform,double,64,0.505,1.404
+3,Ds | Ds | Ds | Ds | P | P,uniform,double,128,0.664,2.378
+3,Ds | Ds | Ds | Ds | P | P,uniform,double,192,0.525,1.921
+3,Ds | Ds | Ds | Ds | P | P,uniform,double,256,0.621,2.143
+3,Ds | Ds | Ds | Ds | P | P,uniform,double,320,0.689,2.183
+3,Ds | Ds | Ds | Ds | P | P,uniform,double,384,0.678,2.19
+3,Ds | Ds | Ds | Ds | P | P,uniform,double,448,0.826,2.396
+3,Ds | Ds | Ds | Ds | P | P,uniform,double,512,0.744,2.248
+3,Ds | Ds | Ds | Ds | P | P,uniform,float,64,0.706,2.335
+3,Ds | Ds | Ds | Ds | P | P,uniform,float,128,1.114,7.976
+3,Ds | Ds | Ds | Ds | P | P,uniform,float,192,1.099,10.822
+3,Ds | Ds | Ds | Ds | P | P,uniform,float,256,1.241,10.487
+3,Ds | Ds | Ds | Ds | P | P,uniform,float,320,0.964,5.434
+3,Ds | Ds | Ds | Ds | P | P,uniform,float,384,1.193,6.412
+3,Ds | Ds | Ds | Ds | P | P,uniform,float,448,1.309,6.629
+3,Ds | Ds | Ds | Ds | P | P,uniform,float,512,1.314,6.655
+3,N | D | N | N | N | N,uniform,double,64,1.744,4.175
+3,N | D | N | N | N | N,uniform,double,128,3.031,5.255
+3,N | D | N | N | N | N,uniform,double,192,1.707,2.437
+3,N | D | N | N | N | N,uniform,double,256,1.784,3.675
+3,N | D | N | N | N | N,uniform,double,320,2.041,3.695
+3,N | D | N | N | N | N,uniform,double,384,1.789,2.319
+3,N | D | N | N | N | N,uniform,double,448,2.085,2.671
+3,N | D | N | N | N | N,uniform,double,512,3.029,5.14
+3,N | D | N | N | N | N,uniform,float,64,8.66,27.636
+3,N | D | N | N | N | N,uniform,float,128,12.198,72.367
+3,N | D | N | N | N | N,uniform,float,192,9.139,39.651
+3,N | D | N | N | N | N,uniform,float,256,5.069,47.078
+3,N | D | N | N | N | N,uniform,float,320,6.127,42.123
+3,N | D | N | N | N | N,uniform,float,384,9.553,36.075
+3,N | D | N | N | N | N,uniform,float,448,13.126,42.195
+3,N | D | N | N | N | N,uniform,float,512,11.327,53.729
+3,N | N | N | N | N | N,uniform,double,64,1.273,3.03
+3,N | N | N | N | N | N,uniform,double,128,3.2,5.205
+3,N | N | N | N | N | N,uniform,double,192,1.717,2.317
+3,N | N | N | N | N | N,uniform,double,256,1.237,2.38
+3,N | N | N | N | N | N,uniform,double,320,1.289,2.213
+3,N | N | N | N | N | N,uniform,double,384,1.495,1.853
+3,N | N | N | N | N | N,uniform,double,448,1.799,2.222
+3,N | N | N | N | N | N,uniform,double,512,2.011,3.195
+3,N | N | N | N | N | N,uniform,float,64,2.276,9.248
+3,N | N | N | N | N | N,uniform,float,128,19.43,113.265
+3,N | N | N | N | N | N,uniform,float,192,9.817,38.568
+3,N | N | N | N | N | N,uniform,float,256,4.057,34.111
+3,N | N | N | N | N | N,uniform,float,320,4.92,30.556
+3,N | N | N | N | N | N,uniform,float,384,9.472,33.731
+3,N | N | N | N | N | N,uniform,float,448,13.485,42.564
+3,N | N | N | N | N | N,uniform,float,512,8.709,41.38
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,double,64,1.727,4.783
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,double,128,1.597,5.763
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,double,192,1.59,5.975
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,double,256,1.946,7.009
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,double,320,2.472,8.551
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,double,384,3.241,10.875
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,double,448,3.431,10.174
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,double,512,3.404,10.783
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,float,64,7.441,24.838
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,float,128,4.022,31.681
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,float,192,3.869,45.986
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,float,256,3.662,49.179
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,float,320,4.715,49.824
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,float,384,6.11,45.19
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,float,448,6.489,44.005
+3,Ns | Ds | Ns | Ns | Ns | Ns,uniform,float,512,7.108,46.168
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,double,64,0.5,1.139
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,double,128,0.633,2.372
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,double,192,0.668,3.105
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,double,256,0.695,3.062
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,double,320,0.678,2.58
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,double,384,0.731,3.005
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,double,448,0.825,3.004
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,double,512,0.746,2.955
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,float,64,0.786,2.098
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,float,128,1.275,7.45
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,float,192,1.326,13.228
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,float,256,1.441,18.01
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,float,320,1.368,11.617
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,float,384,1.289,9.244
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,float,448,1.478,10.377
+3,Ns | Ns | Ns | Ns | Ns | Ns,nonuniform_z,float,512,1.479,10.126
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,double,64,1.326,3.996
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,double,128,0.803,3.056
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,double,192,0.656,2.527
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,double,256,0.756,2.76
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,double,320,0.792,2.642
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,double,384,0.859,2.924
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,double,448,0.858,2.568
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,double,512,0.849,2.732
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,float,64,1.728,7.342
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,float,128,1.918,17.172
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,float,192,1.503,18.989
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,float,256,1.613,21.559
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,float,320,1.54,16.122
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,float,384,1.423,10.613
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,float,448,1.657,11.213
+3,Ns | Ns | Ns | Ns | Ns | Ns,uniform,float,512,1.604,10.354
+3,Ns | Ns | P | P | P | P,uniform,double,64,1.081,3.169
+3,Ns | Ns | P | P | P | P,uniform,double,128,1.165,4.461
+3,Ns | Ns | P | P | P | P,uniform,double,192,1.116,4.306
+3,Ns | Ns | P | P | P | P,uniform,double,256,1.026,3.713
+3,Ns | Ns | P | P | P | P,uniform,double,320,1.378,4.56
+3,Ns | Ns | P | P | P | P,uniform,double,384,1.894,6.407
+3,Ns | Ns | P | P | P | P,uniform,double,448,2.222,6.654
+3,Ns | Ns | P | P | P | P,uniform,double,512,2.223,7.026
+3,Ns | Ns | P | P | P | P,uniform,float,64,2.143,6.724
+3,Ns | Ns | P | P | P | P,uniform,float,128,2.459,18.171
+3,Ns | Ns | P | P | P | P,uniform,float,192,2.519,25.514
+3,Ns | Ns | P | P | P | P,uniform,float,256,2.156,17.361
+3,Ns | Ns | P | P | P | P,uniform,float,320,2.396,11.913
+3,Ns | Ns | P | P | P | P,uniform,float,384,3.248,15.634
+3,Ns | Ns | P | P | P | P,uniform,float,448,3.583,16.83
+3,Ns | Ns | P | P | P | P,uniform,float,512,4.229,19.403
+3,P | P | Ns | Ns | Ns | Ns,uniform,double,64,1.7,4.373
+3,P | P | Ns | Ns | Ns | Ns,uniform,double,128,1.569,5.256
+3,P | P | Ns | Ns | Ns | Ns,uniform,double,192,1.534,5.173
+3,P | P | Ns | Ns | Ns | Ns,uniform,double,256,1.828,5.861
+3,P | P | Ns | Ns | Ns | Ns,uniform,double,320,2.404,6.995
+3,P | P | Ns | Ns | Ns | Ns,uniform,double,384,2.934,8.703
+3,P | P | Ns | Ns | Ns | Ns,uniform,double,448,3.218,8.614
+3,P | P | Ns | Ns | Ns | Ns,uniform,double,512,3.21,9.089
+3,P | P | Ns | Ns | Ns | Ns,uniform,float,64,6.432,21.247
+3,P | P | Ns | Ns | Ns | Ns,uniform,float,128,3.841,27.541
+3,P | P | Ns | Ns | Ns | Ns,uniform,float,192,3.678,35.442
+3,P | P | Ns | Ns | Ns | Ns,uniform,float,256,3.516,31.266
+3,P | P | Ns | Ns | Ns | Ns,uniform,float,320,4.299,25.452
+3,P | P | Ns | Ns | Ns | Ns,uniform,float,384,5.529,29.521
+3,P | P | Ns | Ns | Ns | Ns,uniform,float,448,5.757,29.747
+3,P | P | Ns | Ns | Ns | Ns,uniform,float,512,6.716,32.825
+3,P | P | Ns | Ns | P | P,uniform,double,64,0.652,1.807
+3,P | P | Ns | Ns | P | P,uniform,double,128,0.622,2.142
+3,P | P | Ns | Ns | P | P,uniform,double,192,0.533,1.859
+3,P | P | Ns | Ns | P | P,uniform,double,256,0.637,2.091
+3,P | P | Ns | Ns | P | P,uniform,double,320,0.607,1.788
+3,P | P | Ns | Ns | P | P,uniform,double,384,0.682,2.065
+3,P | P | Ns | Ns | P | P,uniform,double,448,0.757,2.044
+3,P | P | Ns | Ns | P | P,uniform,double,512,0.744,2.166
+3,P | P | Ns | Ns | P | P,uniform,float,64,0.823,2.683
+3,P | P | Ns | Ns | P | P,uniform,float,128,1.081,7.583
+3,P | P | Ns | Ns | P | P,uniform,float,192,1.298,12.591
+3,P | P | Ns | Ns | P | P,uniform,float,256,1.22,9.696
+3,P | P | Ns | Ns | P | P,uniform,float,320,1.2,6.053
+3,P | P | Ns | Ns | P | P,uniform,float,384,1.225,5.871
+3,P | P | Ns | Ns | P | P,uniform,float,448,1.306,6.053
+3,P | P | Ns | Ns | P | P,uniform,float,512,1.526,6.986
+3,P | P | P | P | D | N,uniform,double,64,0.476,1.304
+3,P | P | P | P | D | N,uniform,double,128,0.51,1.78
+3,P | P | P | P | D | N,uniform,double,192,0.584,2.033
+3,P | P | P | P | D | N,uniform,double,256,0.595,1.939
+3,P | P | P | P | D | N,uniform,double,320,0.676,1.994
+3,P | P | P | P | D | N,uniform,double,384,0.604,1.834
+3,P | P | P | P | D | N,uniform,double,448,0.623,1.677
+3,P | P | P | P | D | N,uniform,double,512,0.716,2.056
+3,P | P | P | P | D | N,uniform,float,64,0.659,2.103
+3,P | P | P | P | D | N,uniform,float,128,0.931,6.612
+3,P | P | P | P | D | N,uniform,float,192,0.845,8.175
+3,P | P | P | P | D | N,uniform,float,256,0.911,7.313
+3,P | P | P | P | D | N,uniform,float,320,1.019,5.15
+3,P | P | P | P | D | N,uniform,float,384,1.278,6.233
+3,P | P | P | P | D | N,uniform,float,448,1.307,6.309
+3,P | P | P | P | D | N,uniform,float,512,1.405,6.377
+3,P | P | P | P | Ds | Ds,uniform,double,64,0.466,1.216
+3,P | P | P | P | Ds | Ds,uniform,double,128,0.497,1.715
+3,P | P | P | P | Ds | Ds,uniform,double,192,0.455,1.588
+3,P | P | P | P | Ds | Ds,uniform,double,256,0.56,1.826
+3,P | P | P | P | Ds | Ds,uniform,double,320,0.588,1.72
+3,P | P | P | P | Ds | Ds,uniform,double,384,0.675,2.053
+3,P | P | P | P | Ds | Ds,uniform,double,448,0.772,2.085
+3,P | P | P | P | Ds | Ds,uniform,double,512,0.716,2.073
+3,P | P | P | P | Ds | Ds,uniform,float,64,0.641,2.004
+3,P | P | P | P | Ds | Ds,uniform,float,128,1.01,7.061
+3,P | P | P | P | Ds | Ds,uniform,float,192,1.083,10.111
+3,P | P | P | P | Ds | Ds,uniform,float,256,0.919,7.385
+3,P | P | P | P | Ds | Ds,uniform,float,320,0.946,4.758
+3,P | P | P | P | Ds | Ds,uniform,float,384,0.934,4.57
+3,P | P | P | P | Ds | Ds,uniform,float,448,1.246,5.88
+3,P | P | P | P | Ds | Ds,uniform,float,512,1.344,6.081
+3,P | P | P | P | Ds | Ns,uniform,double,64,0.5,1.447
+3,P | P | P | P | Ds | Ns,uniform,double,128,0.49,1.723
+3,P | P | P | P | Ds | Ns,uniform,double,192,0.62,2.339
+3,P | P | P | P | Ds | Ns,uniform,double,256,0.605,2.177
+3,P | P | P | P | Ds | Ns,uniform,double,320,0.679,2.166
+3,P | P | P | P | Ds | Ns,uniform,double,384,0.612,2.038
+3,P | P | P | P | Ds | Ns,uniform,double,448,0.676,1.979
+3,P | P | P | P | Ds | Ns,uniform,double,512,0.812,2.495
+3,P | P | P | P | Ds | Ns,uniform,float,64,0.625,2.044
+3,P | P | P | P | Ds | Ns,uniform,float,128,0.904,6.659
+3,P | P | P | P | Ds | Ns,uniform,float,192,0.982,9.514
+3,P | P | P | P | Ds | Ns,uniform,float,256,0.932,7.362
+3,P | P | P | P | Ds | Ns,uniform,float,320,1.066,5.434
+3,P | P | P | P | Ds | Ns,uniform,float,384,1.163,5.761
+3,P | P | P | P | Ds | Ns,uniform,float,448,1.131,5.312
+3,P | P | P | P | Ds | Ns,uniform,float,512,1.369,6.447
+3,P | P | P | P | N | D,uniform,double,64,0.495,1.337
+3,P | P | P | P | N | D,uniform,double,128,0.481,1.667
+3,P | P | P | P | N | D,uniform,double,192,0.531,1.841
+3,P | P | P | P | N | D,uniform,double,256,0.691,2.26
+3,P | P | P | P | N | D,uniform,double,320,0.661,1.951
+3,P | P | P | P | N | D,uniform,double,384,0.645,1.964
+3,P | P | P | P | N | D,uniform,double,448,0.716,1.952
+3,P | P | P | P | N | D,uniform,double,512,0.654,1.875
+3,P | P | P | P | N | D,uniform,float,64,0.637,2.035
+3,P | P | P | P | N | D,uniform,float,128,0.918,6.55
+3,P | P | P | P | N | D,uniform,float,192,1.088,10.283
+3,P | P | P | P | N | D,uniform,float,256,1.016,8.158
+3,P | P | P | P | N | D,uniform,float,320,0.944,4.754
+3,P | P | P | P | N | D,uniform,float,384,1.086,5.34
+3,P | P | P | P | N | D,uniform,float,448,1.215,5.725
+3,P | P | P | P | N | D,uniform,float,512,1.243,5.611
+3,P | P | P | P | Ns | Ds,uniform,double,64,0.516,1.456
+3,P | P | P | P | Ns | Ds,uniform,double,128,0.522,1.875
+3,P | P | P | P | Ns | Ds,uniform,double,192,0.522,1.977
+3,P | P | P | P | Ns | Ds,uniform,double,256,0.622,2.244
+3,P | P | P | P | Ns | Ds,uniform,double,320,0.578,1.851
+3,P | P | P | P | Ns | Ds,uniform,double,384,0.62,2.065
+3,P | P | P | P | Ns | Ds,uniform,double,448,0.738,2.174
+3,P | P | P | P | Ns | Ds,uniform,double,512,0.659,2.057
+3,P | P | P | P | Ns | Ds,uniform,float,64,0.839,2.695
+3,P | P | P | P | Ns | Ds,uniform,float,128,0.901,6.673
+3,P | P | P | P | Ns | Ds,uniform,float,192,0.903,8.677
+3,P | P | P | P | Ns | Ds,uniform,float,256,0.948,7.541
+3,P | P | P | P | Ns | Ds,uniform,float,320,1.009,5.118
+3,P | P | P | P | Ns | Ds,uniform,float,384,1.064,5.286
+3,P | P | P | P | Ns | Ds,uniform,float,448,1.171,5.451
+3,P | P | P | P | Ns | Ds,uniform,float,512,1.137,5.382
+3,P | P | P | P | Ns | Ns,nonuniform_z,double,64,0.966,1.803
+3,P | P | P | P | Ns | Ns,nonuniform_z,double,128,0.967,3.065
+3,P | P | P | P | Ns | Ns,nonuniform_z,double,192,0.885,3.354
+3,P | P | P | P | Ns | Ns,nonuniform_z,double,256,1.01,3.753
+3,P | P | P | P | Ns | Ns,nonuniform_z,double,320,0.997,3.171
+3,P | P | P | P | Ns | Ns,nonuniform_z,double,384,1.051,3.603
+3,P | P | P | P | Ns | Ns,nonuniform_z,double,448,1.106,3.366
+3,P | P | P | P | Ns | Ns,nonuniform_z,double,512,1.122,3.693
+3,P | P | P | P | Ns | Ns,nonuniform_z,float,64,1.338,2.972
+3,P | P | P | P | Ns | Ns,nonuniform_z,float,128,2.331,10.66
+3,P | P | P | P | Ns | Ns,nonuniform_z,float,192,1.67,12.283
+3,P | P | P | P | Ns | Ns,nonuniform_z,float,256,1.829,10.459
+3,P | P | P | P | Ns | Ns,nonuniform_z,float,320,1.566,7.775
+3,P | P | P | P | Ns | Ns,nonuniform_z,float,384,1.631,7.864
+3,P | P | P | P | Ns | Ns,nonuniform_z,float,448,1.813,8.457
+3,P | P | P | P | Ns | Ns,nonuniform_z,float,512,1.859,8.425
+3,P | P | P | P | Ns | Ns,uniform,double,64,0.512,1.388
+3,P | P | P | P | Ns | Ns,uniform,double,128,0.49,1.721
+3,P | P | P | P | Ns | Ns,uniform,double,192,0.478,1.672
+3,P | P | P | P | Ns | Ns,uniform,double,256,0.662,2.187
+3,P | P | P | P | Ns | Ns,uniform,double,320,0.799,2.37
+3,P | P | P | P | Ns | Ns,uniform,double,384,0.801,2.458
+3,P | P | P | P | Ns | Ns,uniform,double,448,0.628,1.7
+3,P | P | P | P | Ns | Ns,uniform,double,512,0.747,2.153
+3,P | P | P | P | Ns | Ns,uniform,float,64,0.644,2.072
+3,P | P | P | P | Ns | Ns,uniform,float,128,0.904,6.536
+3,P | P | P | P | Ns | Ns,uniform,float,192,1.108,10.519
+3,P | P | P | P | Ns | Ns,uniform,float,256,1.123,9.033
+3,P | P | P | P | Ns | Ns,uniform,float,320,0.931,4.667
+3,P | P | P | P | Ns | Ns,uniform,float,384,1.099,5.356
+3,P | P | P | P | Ns | Ns,uniform,float,448,1.114,5.226
+3,P | P | P | P | Ns | Ns,uniform,float,512,1.347,6.09
+3,P | P | P | P | P | P,uniform,double,64,1.396,4.101
+3,P | P | P | P | P | P,uniform,double,128,1.016,3.715
+3,P | P | P | P | P | P,uniform,double,192,0.716,2.572
+3,P | P | P | P | P | P,uniform,double,256,0.965,3.227
+3,P | P | P | P | P | P,uniform,double,320,0.88,2.66
+3,P | P | P | P | P | P,uniform,double,384,0.894,2.828
+3,P | P | P | P | P | P,uniform,double,448,0.932,2.572
+3,P | P | P | P | P | P,uniform,double,512,0.94,2.787
+3,P | P | P | P | P | P,uniform,float,64,1.801,6.877
+3,P | P | P | P | P | P,uniform,float,128,1.412,11.609
+3,P | P | P | P | P | P,uniform,float,192,1.292,13.394
+3,P | P | P | P | P | P,uniform,float,256,1.062,8.555
+3,P | P | P | P | P | P,uniform,float,320,1.102,5.181
+3,P | P | P | P | P | P,uniform,float,384,1.096,4.905
+3,P | P | P | P | P | P,uniform,float,448,1.266,5.471
+3,P | P | P | P | P | P,uniform,float,512,1.188,5.106
