@@ -7,13 +7,20 @@ It allows for a selection from a wide range of domain configurations and can be 
 It is based on the [PoisFFT](https://github.com/LadaF/PoisFFT) library and provides the same functionalities.
 
 ## Requirements
-`poisson-solver` requires the following compilers and libraries (those that are **completely optional**, **fetched automatically** or **required only in certain build configurations** are marked approprietly):
+`poisson-solver` requires the following compilers, libraries and hardware (those that are **completely optional**, **fetched automatically** or **required only in certain build configurations** are marked accordingly):
+- CMake >= 4.0,
 - C++ compiler supporting C++20,
 - Fortran compiler (**optional** - see [examples](./examples/README.md) for information about disabling Fortran binding compilation),
 - `VkFFT` for computation of local FFTs (**fetched automatically**),
-- `heFFTe` for computation of distributed FFTs (**only for distributed use but fetched automatically**),
-- `MPI` with C++ API (**only for distributed use**),
-- `MPI` with Fortran API (**optional for distributed use** - again see [examples](./examples/README.md) for information about disabling Fortran binding compilation)
+- `heFFTe` for computation of distributed FFTs (**only for distributed use but fetched automatically in that configuration**),
+- GPU-aware `MPI` with C++ API (**only for distributed use**),
+- Fortran API of that same `MPI` library (**optional for distributed use, not required for local use** - see [examples](./examples/README.md) to disable the Fortran binding),
+- NVIDIA GPU,
+- CUDA Toolkit (`nvcc` for the build) with these runtime libraries:
+  - CUDA runtime,
+  - CUDA driver API,
+  - NVRTC, `VkFFT` uses it to compile those kernels at run time,
+  - cuFFT (**only for distributed use** - `heFFTe` uses it for the distributed FFTs).
 
 ## Detailed Documentation
 For motivation behind this solver see [this](./docs/motivation.md).
