@@ -22,7 +22,7 @@ my-newly-created-container-directory
 
 Now, inside your newly created directory, we will build the image, convert it into a read-only directory named `imgdir` and inject the NVIDIA driver.
 **Do not forget that the commands need to be run on a worker node where your code will execute.**
-On a `SLURM` managed cluster we can e.g. execute the following command `salloc -p gpu-ffa-gpulab --gpus 1 -w <node-name>` to allocate a worker node with a GPU and then, prefix all commands from the following block with `srun`.
+On a `SLURM` managed cluster we can e.g. execute the following command `salloc -p <partition-name> --gpus 1 -w <node-name>` to allocate a worker node with a GPU and then, prefix all commands from the following block with `srun`.
 Also beware that the build can take ~20m, the conversion ~40m and the injection of NVIDIA drivers up to 10m (allocate your jobs with enough time limit).
 ```bash
 ch-image build -t atmos -f Dockerfile.atmos .
@@ -43,7 +43,7 @@ cd ..
 
 Now, we build `poisson-solver` and `gpu-elmm`.
 Again, **ensure the following commands are executed on a worker node where you plan to run your code**.
-On a `SLURM` managed cluster we can again do that via `salloc -p gpu-ffa-gpulab --gpus 1 -w <node-name>` and then prefixing the commands from the following block with `srun`.
+On a `SLURM` managed cluster we can again do that via `salloc -p <partition-name> --gpus 1 -w <node-name>` and then prefixing the commands from the following block with `srun`.
 ```bash
 ch-run -b mapped:/opt/build imgdir -- /bin/bash -c "cd /opt/build/poisson-solver && unset CXX && unset CC && cmake --preset release && cmake --build build/"
 ch-run -b mapped:/opt/build imgdir -- /bin/bash -c "cd /opt/build/gpu-elmm/src && unset CC && ./make_release"

@@ -101,10 +101,19 @@ A local example needs one GPU. Run the binary with no arguments:
 ```
 
 ### Running the distributed examples
-TODO - Revisit after finishing `container-environment` and give more specific instructions on how to run the distributed exaples
-
+If you don't have the required software, you can use our [container environment](../container-environment/).
 A distributed example needs exactly four processes, at least one GPU, and stops with an error message on any other process count.
-See [container-environment](../container-environment/) for more information.
+Allocate that many processes using your cluster manager.
+Then, run the example.
+For `SLURM` this could look like (using our container):
+```
+# Start in the container directory (has `mapped/` and `imgdir/`)
+salloc -p <partition-name> -N 2 -n 4 --gpus 4 -w <node-names>
+
+# Set the env. var per guidance in container-environment
+UCX_POSIX_USE_PROC_LINK=n srun --mpi=pmix ch-run -b mapped:/opt/build -- /bin/bash -c "cd /opt/build/poisson-solver/build/examples && distributed_uniform-cpp"
+exit
+```
 
 ### What success looks like
 An example solves the equation, then prints `Successfully finished example <name>` and returns 0.

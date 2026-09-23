@@ -24,9 +24,6 @@
  * @brief Reshapers provide a simple interface for exchanging parts of
  * a distributed grid.
  */
-// TODO - Docs (for the whole file as well as for individual classes/fctions)
-// Mention the guarantee that reshape to pencils and slabs will be there
-// exactly once.
 
 namespace poisson_solver::detail {
 // === Enums ===
@@ -298,21 +295,14 @@ public:
     }
 
     auto ToPencils(std::size_t dimension) -> ReshapePipeline & override {
-        // TODO - Currently unused because we preserve
-        // the original order. This maybe runs slower in case
-        // the FFT is in non-contiguous dimension but idk.
-        // Later get rid of this or make it work with reversing the order.
-        // auto pencil_order = GetOrder(sl.isolated_dim_idx);
-        // auto slab_order = GetOrder(pencil_order[1]);
-
-        // Resulting decomp by reshaping last decomp into pencils
-        // in the direction of `dimension`
         if (contains_reshape_to_pencils_) {
             throw std::runtime_error(
                 "Cannot reshape to pencils more than once.");
         }
         contains_reshape_to_pencils_ = true;
 
+        // Resulting decomp by reshaping last decomp into pencils
+        // in the direction of `dimension`
         decompositions_.emplace_back(heffte::make_pencils(
             world_, nps_yz_, dimension, decompositions_.back(), {0, 1, 2}));
 
@@ -395,7 +385,7 @@ public:
         : rp_{std::move(rp)} {
         AssignReshapes(rp_.decompositions_);
 
-        // TODO - std::complex<double> is the largest possible type
+        // std::complex<double> is the largest possible type
         // we can receive, so this is definitely enough but in some
         // cases this much is not needed (std::complex<float>, double, float).
         workspace_ = MakeCudaUnique<std::byte>(MaxWorkspaceSize(reshapes_) *
