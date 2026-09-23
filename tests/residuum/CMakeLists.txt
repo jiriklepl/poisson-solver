@@ -142,7 +142,12 @@ foreach(f_test_src IN LISTS FORTRAN_TEST_SRCS)
             ${DISTRIBUTED_TEST_LAUNCH}
             $<TARGET_FILE:${test_target}>
         )
-        set_tests_properties(${test_target} PROPERTIES PROCESSORS 4)
+        set_tests_properties(${test_target} PROPERTIES
+            PROCESSORS 4
+            # Make UCX not use ptrace
+            # Otherwise many errors get printed before falling back to a different method
+            ENVIRONMENT "UCX_POSIX_USE_PROC_LINK=n"
+        )
     else()
         add_test(
             NAME ${test_target}
