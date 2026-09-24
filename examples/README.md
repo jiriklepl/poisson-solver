@@ -19,20 +19,21 @@ The options are:
 1. `POISSON_SOLVER_BUILD_FORTRAN` - whether to build a Fortran binding
 2. `POISSON_SOLVER_USE_MPI` - determines the type of build - local/distributed
 3. `POISSON_SOLVER_ENABLE_BENCHMARKS` - whether to include benchmarking code (timers, benchmarks, etc.)
+
 Beware that the option `BUILD_SHARED_LIBS` is `ON` by default.
 
 Some examples of CMake invocation are (from the project root directory):
 ```bash
-# Local release build
+# Local release config
 cmake --preset release
 
-# Distributed release build
+# Distributed release config
 cmake --preset release-mpi
 
-# Local release build with no Fortran binding
+# Local release config with no Fortran binding
 cmake --preset release -DPOISSON_SOLVER_BUILD_FORTRAN=OFF
 
-# Manually build a static, distributed library with no Fortran binding
+# Manual config of a static, distributed library with no Fortran binding
 cmake -S . -B build/ -DBUILD_SHARED_LIBS=OFF -DPOISSON_SOLVER_USE_MPI=ON -DPOISSON_SOLVER_BUILD_FORTRAN=OFF -DCMAKE_BUILD_TYPE=Release
 ```
 
@@ -90,7 +91,7 @@ The build is either local or distributed, never both:
 | `release`, `debug`, `release-benchmarks`             | `local_uniform`, `local_nonuniform`, `local_uniform_nocopy` |
 | `release-mpi`, `debug-mpi`, `release-mpi-benchmarks` | `distributed_uniform`, `distributed_nonuniform`             |
 
-### Target names
+### Fortran targets
 Each example gives one target per language: `-cpp`, `-c` and `-f90`.
 The `-f90` targets exist only when `POISSON_SOLVER_BUILD_FORTRAN` is `ON` (the default).
 

@@ -12,12 +12,12 @@ Usually, the equation solving can be summarized as the following pipeline:
 1. Apply a forward FFT on the whole RHS,
 2. divide each RHS element by a sum of pre-computed eigenvalues,
 3. apply a backward FFT on the whole RHS and
-4. normalize the result to get $`\Phi`$.
+4. normalize the result to get $`\phi`$.
 
 `PoisFFT` also enables the use of solvers that do not have uniform lengths of individual grid cells on the Z axis.
 These are called `nonuniform-z` solvers and for them the previously mentioned pipeline differs in the following:
 1. Forward FFT is applied only in the X and Y directions,
-2. for each row in the Z direction a tridiagonal system is solved via a simplified form of Gaussian elimination ($`O(n)`$ per row),
+2. for each row in the Z direction a tridiagonal system is solved via a simplified form of Gaussian elimination,
 3. backward FFT is applied only in the X and Y directions and
 4. normalization factor depends only on dimensions transformed via the FFT.
 

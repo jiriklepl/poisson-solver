@@ -63,6 +63,7 @@ ch-run -b mapped:/opt/build imgdir -- /bin/bash -c "cd /opt/build/gpu-elmm/examp
 ```
 
 Distributed build of `gpu-elmm` stores the executable in `../../bin/gcc/mpi-release/ELMM`!
+To run the example distributed follow similar approach to that shown in [examples](../examples/) (`UCX_POSIX_...` env. var set and `srun --mpi=pmix`).
 
 ## UCX permission denied
 It is possible that you encounter this error when running distributed code inside this container.

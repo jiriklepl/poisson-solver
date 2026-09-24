@@ -66,30 +66,29 @@ This section covers the API in `include/poisson-solver/solver.hpp`.
 
 - **`ISolver<T, Dim>`** — the abstract base class for both concrete solvers.
   Its interface has three methods: `Execute` (host buffers), `ExecuteGPU` (device buffers), and `GetTotalGridSize`.
-  `ExecuteGPU` saves a host-to-device copy, but a device-to-device copy can still occur because of ghost-cell slicing.
+  `ExecuteGPU` saves a host-device copy, but a device-device copy can still occur because of ghost-cell slicing.
   The C++ API has no `Finalize` method, by design.
   The object lifetime follows RAII rules instead.
-  (`Finalize` exists only in the C binding, where it frees the heap-allocated solver.)
 
 - **`Solver<T, Dim>`** — the solver for a uniform grid, where `Dim` is 1, 2, or 3.
 - **`NonuniformZSolver<T>`** — a 3D-only solver whose Z axis has non-uniform cell spacing.
 
 Each concrete solver has exactly one constructor, chosen at compile time by `POISSON_SOLVER_USE_MPI`.
-Without it, the **local** constructor takes grid sizes, lengths, and BCs.
-With it, only the **distributed** constructor exists: it additionally takes the global grid size, this rank's offset into it, and an `MPI_Comm` from `mpi_utils::InitMPIGrid` (see [Distributed decomposition and heFFTe communication](#6-distributed-decomposition-and-heffte-communication)).
+`POISSON_SOLVER_USE_MPI=OFF` exposes the **local** constructor, it takes grid sizes, lengths, and BCs.
+`POISSON_SOLVER_USE_MPI=ON` exposes the **distributed** constructor, it additionally takes the global grid size, this rank's offset into it, and an `MPI_Comm` from `mpi_utils::InitMPIGrid` (see [Distributed decomposition and heFFTe communication](#6-distributed-decomposition-and-heffte-communication)).
 
-**Ghost cells.** `Execute` and `ExecuteGPU` take two parameters, `ngs_phi` and `ngs_rhs`.
+`Execute` and `ExecuteGPU` take two parameters, `ngs_phi` and `ngs_rhs`.
 Each gives the number of ghost cells on one side, per dimension, around the active grid in the caller's `phi` or `rhs` buffer.
 Before it solves, the solver strips the ghost shell into a contiguous device workspace with `UnpackPaddedGrid`.
 After it solves, `PackPaddedGrid` writes the result back into the padded shape.
 
-**Timing.** Every `Execute` or `ExecuteGPU` call returns an `ExecutionTimes` struct with four fields: `copy_time_ms`, `reshape_time_ms`, `fft_time_ms`, and `kernel_time_ms`.
+Every `Execute` or `ExecuteGPU` call returns an `ExecutionTimes` struct with four fields: `copy_time_ms`, `reshape_time_ms`, `fft_time_ms`, and `kernel_time_ms`.
 Two RAII scoped timers collect these values:
 
-- `CUDAScopedTimer` — CUDA events, used around kernels and device copies that run on a single stream.
+- `CUDAScopedTimer` — CUDA events, used around kernels and device copies.
 - `HybridScopedTimer` — a device sync, then `std::chrono::steady_clock`.
-  Use it around FFT and reshape calls, which are not single-stream operations.
-  These calls can span multiple streams or use MPI.
+  Use it around FFT and reshape calls.
+  These calls can span multiple streams or execute nontrivial CPU code.
 
 Both timers measure something only when you build the library with `POISSON_SOLVER_ENABLE_BENCHMARKS` (see [Build system](#8-build-system)).
 Otherwise, `ExecutionTimes` is always all-zero.
@@ -104,43 +103,33 @@ It does not change which BCs the solver supports.
 
 ## 3. Plan / Core / Policies split
 
-This split ensures the solving itself is done with little overhead and its code remains maintainable and readable.
+The codebase is split mainly into these three components - plan, core and policies.
+It ensures the code is readable and maintainable while the solving is done with little overhead.
 
-`poisson-solver` solves the equation described in [`motivation.md`](./motivation.md).
-See that page for the FFT-based solving pipeline itself.
-[Data-flow traces](#5-data-flow-traces) below walk through concrete, step-by-step examples of that pipeline for specific boundary conditions.
-
-1. **Plan** - what has to happen, given the requested BCs?
+1. **Plan** - what has to happen, _given the requested BCs_?
 2. **Core** - what buffers, handles, and precomputed data does that imply?
 3. **Policies** - what methods should be called based on the compile-time configuration?
 
 Each `Solver` or `NonuniformZSolver` instance owns a plan and a core, as private members.
-The class declares the plan first.
-Its constructor runs before the core's constructor.
-By the time the core's constructor runs, the plan's result is ready to read.
 
 ### The plan — `detail/solver_plan.hpp`
 
 `ISolverPlan<T, FFTDim>` is the common base class.
 `Solver` uses `SolverPlan<T, FFTDim>`.
 `NonuniformZSolver` uses `NonuniformZSolverPlan<T>`.
-Its constructor validates **all** BCs.
-An unsupported BC combination fails there, at solver construction time, before the code allocates any buffer.
+A plan validates **all** BCs and chooses values for the following:
 
-The plan has four public fields.
-Together, they form the *entire* contract that the core reads:
-
-| Field | Type | Meaning |
-|---|---|---|
-| `axis_strategies` | array of `IAxisStrategy` per FFT-transformed axis | per-axis grid spacing / eigenvalue argument / normalization ([Axis strategies](#axis-strategies--detailaxis_strategieshpp)) |
-| `fft_layout` | `VariantLayout` (`FullLayout` or `SplitLayout`) | whether one transform covers the whole grid, or the grid is split into a 1D + 2D stage |
-| `requires_cmplx_wspace` | `bool` | whether the core must allocate a complex device workspace |
-| `reshape_types` | sequence of `ReshapeType` | which redistributions (`ToPencils`, `ToSlabs`) the reshaper pipeline runs, and in what order |
+| Field                   | Type                                              | Meaning                                                                                                                     |
+|-------------------------|---------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| `axis_strategies`       | array of `IAxisStrategy` per FFT-transformed axis | per-axis grid spacing / eigenvalue argument / normalization ([Axis strategies](#axis-strategies--detailaxis_strategieshpp)) |
+| `fft_layout`            | `VariantLayout` (`FullLayout` or `SplitLayout`)   | whether one transform covers the whole grid, or the grid is split into a 1D + 2D stage                                      |
+| `requires_cmplx_wspace` | `bool`                                            | whether the core must allocate a complex device workspace                                                                   |
+| `reshape_types`         | sequence of `ReshapeType`                         | which redistributions (`ToPencils`, `ToSlabs`) the reshaper pipeline runs, and in what order                                |
 
 `SolverPlan` also stores a `solve_method`.
 This is a pointer to a member function, and it selects which `Solve*` method on `Solver` runs the solve.
 The plan chooses it once, at construction, based on the BCs.
-See [Boundary-condition dispatch table](#4-boundary-condition-dispatch-table) for the full dispatch table.
+See [Boundary-condition dispatch table](#4-boundary-condition-dispatch-table) for the exact mapping from BCs to FFTs and solve methods.
 
 ### Axis strategies — `detail/axis_strategies.hpp`
 
@@ -173,13 +162,6 @@ This includes the grid spacing (`GetGridDx`), the eigenvalue argument for the ch
 - **Lazily sized padded host-transfer buffers** — the staging buffers `Execute` uses for the ghost-cell-padded `phi` and `rhs`.
   The solver reallocates these only when the requested ghost-cell count changes.
 
-Two grid-size helpers matter when you read a kernel launch.
-`ComputeCUDAGridSize` produces an **FFTDim**-shaped launch grid, for the solve kernels.
-The solve kernels need this shape because the axes the FFT does not transform carry a serial dependency.
-For example, the code cannot run the Z axis of `NonuniformZSolver` in parallel.
-`ComputeFullCUDAGridSize` produces a **Dim**-shaped grid instead, only for the pack and unpack kernels.
-These kernels must cover the whole physical grid, no matter what the FFT touches.
-
 ### FFT policies — `detail/fft_policies.hpp`
 
 `POISSON_SOLVER_USE_MPI` selects `FFTPolicy<T, Dim>`, a compile-time alias: `VkFFTPolicy` for the local build, `MpiFftPolicy` for the distributed build.
@@ -208,7 +190,6 @@ Two mechanisms make the kernel code reusable, across real and complex data, and 
   This matches the grid-layout convention from [Overview and repository map](#1-overview-and-repository-map).
 - A small set of operators (`operator/=`, `operator*`, `operator-`, and others) work on `cuComplex` and `cuDoubleComplex`.
   Because of these operators, generic kernels like `DivideByDenoms` and `TridiagZ` need only one template.
-  This template works over a `ValidWorkspace` type, either the real type `T` or its complex counterpart.
   The same kernel code then compiles for both real and complex data.
 
 Each `.cu` file ends with `INSTANTIATE_*` macro blocks that instantiate every runner for `float`/`double`, and for every dimensionality it needs.
@@ -216,13 +197,13 @@ Each `.cu` file ends with `INSTANTIATE_*` macro blocks that instantiate every ru
 ---
 
 ## 4. Boundary-condition dispatch table
+This section describes the mapping between BCs and components of the codebase.
 
 ### Per-axis: BC pair → FFT transform type
-The tables below use `axis(A)` for A = X, Y, or Z.
-This means the FFT transform type `GetAxisFFTType` returns for the boundary-condition pair on that axis (see the table below).
-
+The tables below use the notation `axis(A)` where A = X, Y, or Z.
+`axis(A)` denotes the FFT transform type for the boundary-condition pair on that axis (see the table below).
 `ISolverPlan::GetAxisFFTType` creates this mapping.
-An unsupported pair throws an error:
+An unsupported pair throws an error.
 
 | BC pair                       | Transform     |
 |-------------------------------|---------------|
@@ -240,8 +221,15 @@ An unsupported pair throws an error:
 
 The constructor tries, in order:
 
-1. **MPI-only 3D full-real detour** (`TryConstructFromFullRealBCsSplit`) — see [The full-real detour](#the-full-real-detour-mpi-only).
+1. **MPI-only 3D full-real detour** (`TryConstructFromFullRealBCsSplit`)
    The code reaches this branch only in an MPI build, and only when `FFTDim == 3`.
+   Before trying anything else, an MPI 3D solver plan checks whether **all** BCs are the same real, non-periodic type: all-Dirichlet, all-DirichletStag, all-Neumann, or all-NeumannStag.
+   If so, it deliberately avoids heFFTe's own whole-grid FFT plan.
+   Instead, it builds a `SplitLayout` that does the transform itself, one axis-group at a time, with the reshaper handling redistribution between the stages.
+   heFFTe was measured to be significantly slower than manual reshapes plus VkFFT for these transforms, so the solver takes this path instead.
+   Fully periodic 3D solves, and all 1D or 2D solves, are unaffected.
+   They stay on heFFTe's own whole-grid transform.
+
 2. **All BCs identical** (`TryConstructFromFullBCs`) — one `FullLayout` transform over the whole grid, empty `reshape_types`:
 
    | BCs (all axes) | `solve_method`       | Transform |
@@ -260,21 +248,18 @@ The constructor tries, in order:
    - **3D**: see the branch table below (`ConstructFromNonFullBCs3D`).
      Every branch there produces a `SplitLayout`.
 
-   | BCs (X, Y, Z) | `solve_method` | 1D transform | 2D transform | `isolated_dim_idx` | `reshape_types` | complex workspace? |
-   |---|---|---|---|---|---|---|
-   | Periodic, Periodic, Neumann(Stag) | `SolvePPNs` | axis(Z) | Complex | 2 | ToPencils, ToSlabs | yes |
-   | Periodic, Periodic, Dirichlet(Stag) | `SolvePPD` | axis(Z) | Complex | 2 | ToPencils, ToSlabs | yes |
-   | Neumann(Stag), Periodic, Periodic | `SolveNsPP` | axis(X) | Complex | 0 | ToPencils, ToSlabs | yes |
-   | Periodic, Neumann(Stag), Neumann(Stag) | `SolvePNsNs` | Complex | axis(Y) | 0 | ToSlabs, ToPencils | yes |
-   | Periodic, Neumann(Stag), Periodic | `SolvePNsP` | axis(Y) | Complex | 1 | ToPencils, ToSlabs | yes |
-   | Dirichlet(Stag), Dirichlet(Stag), Periodic | `SolveDDP` | Complex | axis(X) | 2 | ToSlabs, ToPencils | yes |
-   | no Periodic, X BC == Y BC ≠ Z BC, some Dirichlet(Stag) | `Solve2Real1Real` | axis(Z) | axis(X) | 2 | ToSlabs, ToPencils | no |
-   | no Periodic, Y BC == Z BC ≠ X BC, some Dirichlet(Stag) | `Solve1Real2Real` | axis(X) | axis(Y) | 0 | ToSlabs, ToPencils | no |
+   | BCs (X, Y, Z)                                          | `solve_method`    | 1D transform | 2D transform | `isolated_dim_idx` | `reshape_types`    | complex workspace? |
+   |--------------------------------------------------------|-------------------|--------------|--------------|--------------------|--------------------|--------------------|
+   | Periodic, Periodic, Neumann(Stag)                      | `SolvePPNs`       | axis(Z)      | Complex      | 2                  | ToPencils, ToSlabs | yes                |
+   | Periodic, Periodic, Dirichlet(Stag)                    | `SolvePPD`        | axis(Z)      | Complex      | 2                  | ToPencils, ToSlabs | yes                |
+   | Neumann(Stag), Periodic, Periodic                      | `SolveNsPP`       | axis(X)      | Complex      | 0                  | ToPencils, ToSlabs | yes                |
+   | Periodic, Neumann(Stag), Neumann(Stag)                 | `SolvePNsNs`      | Complex      | axis(Y)      | 0                  | ToSlabs, ToPencils | yes                |
+   | Periodic, Neumann(Stag), Periodic                      | `SolvePNsP`       | axis(Y)      | Complex      | 1                  | ToPencils, ToSlabs | yes                |
+   | Dirichlet(Stag), Dirichlet(Stag), Periodic             | `SolveDDP`        | Complex      | axis(X)      | 2                  | ToSlabs, ToPencils | yes                |
+   | no Periodic, X BC == Y BC ≠ Z BC, some Dirichlet(Stag) | `Solve2Real1Real` | axis(Z)      | axis(X)      | 2                  | ToSlabs, ToPencils | no                 |
+   | no Periodic, Y BC == Z BC ≠ X BC, some Dirichlet(Stag) | `Solve1Real2Real` | axis(X)      | axis(Y)      | 0                  | ToSlabs, ToPencils | no                 |
 
    Anything else throws an error.
-   `SolveNsPP`, `SolvePNsP`, and `Solve1Real2Real` share their bodies with `SolvePPNs`, `SolvePPNs`, and `Solve2Real1Real`.
-   Only the plan-level configuration differs between them: transform types, isolated axis, and reshaper direction.
-   The *code* itself is identical, so it lives in one place.
 
 `isolated_dim_idx` always names the axis the **1D** stage owns.
 The 2D stage always owns the other two axes.
@@ -282,14 +267,14 @@ The 2D stage always owns the other two axes.
 ### `NonuniformZSolverPlan`
 
 `NonuniformZSolverPlan` builds from only the X and Y BCs (`ISolverPlan<T, 2>`).
-A direct tridiagonal solve handles Z instead of an FFT, so Z never enters `axis_strategies`.
+A tridiagonal solve handles Z axis instead of an FFT, so Z never enters `axis_strategies`.
 `isolated_dim_idx` is always 2, and `reshape_types` is always `{ToSlabs, ToPencils}`.
 The plan accepts exactly two BC combinations:
 
-| BCs (X, Y, Z) | `solve_method` | 2D transform | complex workspace? |
-|---|---|---|---|
-| Neumann(Stag), Neumann(Stag), (any accepted Z) | `SolveFullNeumann` | axis(X) | no |
-| Periodic, Periodic, Neumann(Stag) | `SolvePPNs` | Complex | yes |
+| BCs (X, Y, Z)                                  | `solve_method`     | 2D transform | complex workspace? |
+|------------------------------------------------|--------------------|--------------|--------------------|
+| Neumann(Stag), Neumann(Stag), (any accepted Z) | `SolveFullNeumann` | axis(X)      | no                 |
+| Periodic, Periodic, Neumann(Stag)              | `SolvePPNs`        | Complex      | yes                |
 
 ---
 
@@ -301,9 +286,9 @@ Below are a few data-flow traces to help you visualize the steps performed durin
 
 Two traces below show what happens once, at construction, before any `Execute` call.
 
-**(a) Local, fully periodic 3D** — mirrors the execution trace below, so you can follow one BC case end to end.
+**(a) Local, fully periodic 3D**
 
-1. `SolverPlan` constructs first, since the class declares it before the core.
+1. `SolverPlan` constructs first.
    It builds one `PeriodicStrategy` per axis, matches the all-Periodic branch, and sets `solve_method = SolveFullPeriodic`, `fft_layout = FullLayout{Complex}`, and an empty `reshape_types`.
 2. `SolverCore` delegates to `BuildLocalBackend`, which builds a `DummyReshaper` and one in-place 3D C2C VkFFT plan.
 3. `AllocDeviceWorkspaces` allocates `cu_real_workspace1` and `cu_cmplx_workspace1` (workspace 2 aliases workspace 1, since there is no MPI).
@@ -314,7 +299,7 @@ Two traces below show what happens once, at construction, before any `Execute` c
    The padded host-transfer buffers for `phi` and `rhs` do not exist yet.
    `Execute` allocates them lazily, on first use.
 
-**(b) Distributed split layout** — mirrors the `SolvePPD` execution trace below, and shows one genuinely surprising ordering dependency in setup.
+**(b) Distributed split layout**
 
 1. `SolverPlan` constructs first, as above, picking a `SplitLayout` and a `reshape_types` sequence.
 2. `SolverCore` delegates to `BuildDistributedBackend`, which builds the reshaper pipeline first.
@@ -324,7 +309,8 @@ Two traces below show what happens once, at construction, before any `Execute` c
 4. `AllocDeviceWorkspaces` now allocates workspace 2 as a genuinely separate buffer, since redistribution under MPI is out-of-place, not an alias.
 5. Eigenvalue setup proceeds as in the local case.
 
-### (a) Local, fully periodic 3D
+### Execution phase
+**(a) Local, fully periodic 3D**
 
 `Solver<double, 3>::Execute(phi, rhs, ngs_phi, ngs_rhs)`, all BCs Periodic:
 
@@ -342,57 +328,21 @@ Two traces below show what happens once, at construction, before any `Execute` c
 No reshape calls happen at all: `FullLayout` solves never touch the reshaper.
 `ExecuteGPU` is identical, except for step 1 and the D2H half of step 8, because the caller already supplies device buffers.
 
-### (b) Distributed split layout — `SolvePPD` (BCs Periodic, Periodic, DirichletStag)
+**(b) Distributed split layout — `SolvePPD` (BCs Periodic, Periodic, DirichletStag)**
 
-This trace shows two things: a transform-type change, and a real-to-complex promotion in the middle of the pipeline.
-
-| # | Operation | Effect |
-|---|---|---|
-| 1 | ReshapeReal: original → pencils | redistributes so Z is fully local per rank |
-| 2 | `Forward1D` | real DST-II transform along Z only |
-| 3 | ReshapeReal: pencils → slabs | redistributes so X,Y are fully local per rank |
-| 4 | `common_cmplx::Init` | real → complex |
-| 5 | `Forward2D` | complex C2C transform over X, Y |
-| 6 | `DivideByDenoms` | uses the *reshaped* layout's local sizes and offsets, not the core's original ones — after redistribution both the local block shape and its global offset change, and the per-axis eigenvalue arrays are always indexed by the global position |
-| 7 | `Backward2D` | inverse C2C over X, Y |
-| 8 | `common_cmplx::Normalize` | complex → real |
-| 9 | ReshapeReal: slabs → pencils | back to a Z-local layout |
-| 10 | `Backward1D` | inverse DST-II along Z |
-| 11 | ReshapeReal: pencils → original | back to the solver's original decomposition |
-
-`SplitLayout` exists for three independent reasons, all visible in this trace:
-
-1. **One transform per configuration.** A single local FFT configuration, VkFFT or heFFTe, can express only one transform type over the whole domain.
-   A grid that mixes Periodic with DirichletStag needs two configurations.
-2. **The buffer's element type changes mid-pipeline.** The Z transform runs on real data.
-   Only afterward does the code promote the workspace to complex, for the periodic X/Y pair.
-   A single full-domain transform keeps one workspace type throughout.
-   The split layout is what lets that promotion happen, between the two stages.
-
-3. **Distributed data locality.** An FFT along an axis needs that entire axis local to one rank.
-   The split layout drives the reshaper to produce pencils, with the whole axis local, for the 1D stage.
-   It also produces slabs, with two whole axes local, for the 2D stage.
-   See [Distributed decomposition and heFFTe communication](#6-distributed-decomposition-and-heffte-communication) for more.
-
-### (c) Nonuniform-Z — `NonuniformZSolver::SolvePPNs` (BCs Periodic, Periodic, NeumannStag)
-
-The tridiagonal Z solve replaces the Z-direction FFT entirely.
-
-At construction, the following setup runs once.
-The constructor builds the three diagonals of the Z operator (`BuildMatrixDiagonalA/B/C`) on the host, from the non-uniform cell-center (`z`) and cell-face (`z_u`) coordinates.
-It then copies the diagonals to the device.
-
-| # | Operation                     | Effect                                       |
-|---|-------------------------------|----------------------------------------------|
-| 1 | ReshapeReal: original → slabs | X, Y fully local                             |
-| 2 | `common_cmplx::Init`          | real → complex                               |
-| 3 | `Forward2D`                   | complex C2C over X, Y                        |
-| 4 | ReshapeCmplx: slabs → pencils | Z fully local, still complex                 |
-| 5 | `TridiagZ`                    | one Thomas algorithm sweep per (X,Y) column. |
-| 6 | ReshapeCmplx: pencils → slabs | back to X,Y-local                            |
-| 7 | `Backward2D`                  | inverse C2C over X, Y                        |
-| 8 | `common_cmplx::Normalize`     | complex → real, divided by `norm_factor`     |
-| 9 | ReshapeReal: slabs → original | back to the original decomposition           |
+| #  | Operation                       | Effect                                                                                                                                                            |
+|----|---------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1  | ReshapeReal: original → pencils | redistributes so Z is fully local per rank                                                                                                                        |
+| 2  | `Forward1D`                     | real DST-II transform along Z only                                                                                                                                |
+| 3  | ReshapeReal: pencils → slabs    | redistributes so X,Y are fully local per rank                                                                                                                     |
+| 4  | `common_cmplx::Init`            | real → complex                                                                                                                                                    |
+| 5  | `Forward2D`                     | complex C2C transform over X, Y                                                                                                                                   |
+| 6  | `DivideByDenoms`                | uses the *reshaped* layout's local sizes and offsets — after redistribution both the local block shape and its global offset change                               |
+| 7  | `Backward2D`                    | inverse C2C over X, Y                                                                                                                                             |
+| 8  | `common_cmplx::Normalize`       | complex → real                                                                                                                                                    |
+| 9  | ReshapeReal: slabs → pencils    | back to a Z-local layout                                                                                                                                          |
+| 10 | `Backward1D`                    | inverse DST-II along Z                                                                                                                                            |
+| 11 | ReshapeReal: pencils → original | back to the solver's original decomposition                                                                                                                       |
 
 ---
 
@@ -411,7 +361,8 @@ It returns this rank's local sizes and offset.
 
 `mpi_utils::SelectLocalDevice(comm)` assigns each process a device.
 
-### Three decompositions
+### Decompositions
+In a distributed solve the data moves through three decompositions:
 
 - **Original brick** — the layout the caller gives to the solver's constructor.
   X is entirely local.
@@ -426,20 +377,20 @@ It returns this rank's local sizes and offset.
 The plan sets which axis is isolated, and which two axes form the slab.
 
 ### Moving between decompositions
-A reshaper is what performs changes between decompositions.
+A **reshaper** is what performs changes between decompositions.
 To build a reshaper, specify exactly one `ToPencils` step and one `ToSlabs` step, in either order.
 If you specify either step twice, or omit one, the build fails.
-This produces a sequence of three decompositions: `[original, step1, step2]`.
-From the three decompositions, it derives four heFFTe redistribution objects: `original→step1`, `step1→step2`, and their two inverses, `step2→step1` and `step1→original`.
+This produces a sequence of three decompositions: `[original, decomp1, decomp2]`.
+From the three decompositions, it derives four heFFTe redistribution objects: `original→decomp1`, `decomp1→decomp2`, and their two inverses, `decomp2→decomp1` and `decomp1→original`.
 It tracks internally which of the four runs next.
 Each `ReshapeReal` or `ReshapeCmplx` call runs exactly the next one in sequence, and returns the resulting local grid layout:
 
 | Call # | Redistribution applied |
 |--------|------------------------|
-| 1      | original → step1       |
-| 2      | step1 → step2          |
-| 3      | step2 → step1          |
-| 4      | step1 → original       |
+| 1      | original → decomp1     |
+| 2      | decomp1 → decomp2      |
+| 3      | decomp2 → decomp1      |
+| 4      | decomp1 → original     |
 
 The counter is **never reset** between solves.
 **Every split-layout `Solve*` method must issue exactly four `ReshapeReal`/`ReshapeCmplx` calls per `Execute`.**
@@ -451,39 +402,27 @@ heFFTe serves two separate purposes here:
 - **Redistribution.** For `SplitLayout`, the reshaper builds heFFTe's low-level redistribution objects directly and the FFT is handled via VkFFT.
 
 - **Whole-grid transforms.** On the `FullLayout` path, heFFTe's own 3D FFT plan does the entire transform, including whatever internal redistribution it needs.
-  This path applies when every axis has identical BCs, **in MPI builds, except for the full-real detour below**.
+  This path applies when every axis has identical BCs, **in MPI builds, except for the** [full-real detour](#whole-solver-dispatch-solverplans-constructor).
   This library's reshaper never gets involved.
 
 ### Why local and distributed builds share one `Solve*` body
 
 In the local build, replaying `reshape_types` produces a reshaper whose "redistribution" is always a no-op (`DummyReshaper`): it returns the grid unchanged.
-The code simply aliases workspace 2 onto workspace 1 ([Plan / Core / Policies Split](#3-plan--core--policies-split)).
-The reshape method then detects `source == destination` and skips the copy entirely.
 As a result, every `Solve*` method in `solver.hpp` that touches the reshaper exists **once**, in source code.
 It costs nothing extra in a build without MPI.
 The distributed and local builds are not separate code paths for these methods, only separate runtime behaviors of the same code.
 
-### The full-real detour (MPI only)
-
-Before trying anything else, an MPI 3D solver plan checks whether **all** BCs are the same real, non-periodic type: all-Dirichlet, all-DirichletStag, all-Neumann, or all-NeumannStag.
-If so, it deliberately avoids heFFTe's own whole-grid FFT plan.
-Instead, it builds a `SplitLayout` that does the transform itself, one axis-group at a time, with the reshaper handling redistribution between the stages.
-heFFTe was measured to be significantly slower than manual reshapes plus VkFFT for these transforms, so the solver takes this path instead.
-Fully periodic 3D solves, and all 1D or 2D solves, are unaffected.
-They stay on heFFTe's own whole-grid transform.
-
-### Scaling
+### FFT scaling
 
 The code never asks heFFTe or VkFFT to scale its own output.
 The solver uses both unscaled, and applies normalization exactly once, at the end of each `Solve*` method, by dividing by `norm_factor`.
-For situations where heFFTe's unscaled convention differs from VkFFT's, a correction is applied.
+For situations where heFFTe's unscaled convention differs from VkFFT's, a correction is applied (see `axis_strategies.hpp`).
 
 ### Distributed 1D
 
-A fully 1D distributed solver has no axis left to redistribute onto: one process group, one axis.
 Rather than leave 1D unsupported, the distributed 1D handle gathers the entire line onto rank 0.
 It runs an ordinary local, VkFFT, 1D transform there, then scatters the result back out.
-This mirrors an equivalent facility in PoisFFT, and it exists purely for completeness.
+This mirrors an equivalent functionality in PoisFFT, and it exists purely for completeness.
 
 ---
 
@@ -522,19 +461,11 @@ Four layers wrap the C++ core.
 
 ## 8. Build system
 
-You configure `poisson-solver` with CMake presets: `debug`, `debug-mpi`, `release`, `release-mpi`, plus `-benchmarks` variants of the release presets.
-Three project-specific options control the build:
+Build system is mostly described in [examples](../examples/) but internal details of it are discussed only here.
 
-| Option | Default | Effect |
-|---|---|---|
-| `POISSON_SOLVER_BUILD_FORTRAN` | on | builds the Fortran binding and its module files |
-| `POISSON_SOLVER_USE_MPI` | off | switches the distributed build on: fetches the heFFTe fork, selects `MpiFftPolicy`, and replaces `Solver`'s and `NonuniformZSolver`'s local constructors with their distributed ones |
-| `POISSON_SOLVER_ENABLE_BENCHMARKS` | off | enables the timer instrumentation described in [The public API](#2-the-public-api) and the `benchmarks` build target |
+**Fetched dependencies.** The build fetches all of these at configure time, with `FetchContent`:
 
-**Fetched dependencies.** The build fetches all of these at configure time, with `FetchContent`.
-The repository vendors none of them:
-
-- **VkFFT** (`v1.3.4`) — the local FFT library.
+- **VkFFT** — the local FFT library.
   The build selects the CUDA backend explicitly.
   Every build needs VkFFT, including MPI builds, because split-layout distributed solves still run local VkFFT transforms on pencils and slabs.
 
@@ -544,12 +475,6 @@ The repository vendors none of them:
 - **doxygen-awesome-css** — styling for the generated Doxygen output.
   The build fetches this only when CMake finds Doxygen on the system.
 
-The Doxygen `doc` target generates output that differs between MPI and non-MPI configurations, because its preprocessor definitions mirror the actual build.
-Read regenerated docs together with the preset that built them.
-
-This section stays brief on purpose.
-See [`../examples/README.md`](../examples/README.md) for the full build and usage walkthrough.
-
 ---
 
 ## 9. Tests
@@ -557,19 +482,14 @@ See [`../examples/README.md`](../examples/README.md) for the full build and usag
 **This section assumes that you understand how poisson-solver is used in the** [container environment](../container-environment/).
 If you do not, please, explore the [container environment directory](../container-environment/) first and then return to this section.
 
-Tests run on the `chimera` cluster via `ctest`, inside the [container environment](../container-environment/), using Charliecloud (`ch-run`).
-**You can execute the built binaries directly to bypass the SLURM allocation.**
-Every `add_test` command in `tests/residuum/CMakeLists.txt` hard-codes `srun -p gpu-short-teach -w volta[02-05] ... ch-run -b ../../../../:/opt/build ../../../../../imgdir`.
-
-**Directory layout.** `mapped/` and `imgdir` (the unpacked container image) must be siblings.
-`mapped/` holds the `poisson-solver/` checkout, bound into the container as `/opt/build`.
-The relative paths above resolve against this layout.
+Tests run on the `chimera` cluster via `ctest`, inside the [container environment](../container-environment/), using Charliecloud.
+The relative paths of the Charliecloud invocation resolve against the described container environment layout.
 
 **Build target.** `cmake --build build/ --target tests` builds every test executable.
 
 **Running them.** On the cluster head node, navigate into `poisson-solver/build` and run `ctest -V`.
 Each test's `srun` command handles its own allocation, so do not run `ctest` itself from inside an already-allocated GPU node.
-If you already hold a GPU allocation for another reason, you can instead bypass `srun` and invoke a binary directly.
+**If you already hold a GPU allocation for another reason, you can instead bypass `srun` and invoke a binary directly.**
 
 **Scoring.** doctest prints nothing until a test fails, so several minutes of silence is normal.
 Fortran tests are scored by matching `FAIL` in their output (`FAIL_REGULAR_EXPRESSION`), not by exit code.
@@ -592,8 +512,8 @@ preprint: http://arxiv.org/abs/1409.8116
 The root `CMakeLists.txt` fetches a **fork** of heFFTe, `mntjams/heffte`, not the upstream `icl-utk-edu/heffte`.
 `FetchContent` pins this fork to a fixed commit.
 
-**Why:** upstream heFFTe's cuFFT backend supports only complex-to-complex, real-to-complex, DCT-II, and DST-II transforms.
-This solver's BC matrix needs real-to-real transforms that upstream does not supply.
+Upstream heFFTe's cuFFT backend supports only complex-to-complex, real-to-complex, DCT-II, and DST-II transforms.
+This solver needs real-to-real transforms that upstream does not supply.
 So the fork adds cuFFT-backed executors for:
 
 - **DST-I**

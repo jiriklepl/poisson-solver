@@ -31,6 +31,9 @@ A value above 1 means `poisson-solver` is faster.
 The table gives the median speedup over all tested boundary conditions, uniformities and precisions.
 The local row uses only the 3D results. The distributed results are also 3D.
 All three rows use a $`512^3`$ grid.
+The difference between GPU and CPU API is that GPU API performs no host-device copies, while the other API does.
+CPU API accepts host buffers, GPU API accepts device buffers.
+**Both solve on the GPU.**
 
 | Scenario                        | GPU API | CPU API |
 |---------------------------------|---------|---------|
@@ -49,13 +52,13 @@ Refer to the [Decoding the data](#decoding-the-data) section if you need help re
 See [Platform and processing method](#platform-and-processing-method) for the exact processing
 steps.
 
-| Path                                 | Contents                                                                         |
-|--------------------------------------|----------------------------------------------------------------------------------|
-| `measured-data/local/`               | `poisson-solver` CSVs + `PoisFFT` CSVs, grid sides 64 to 512                     |
-| `measured-data/distributed/`         | `strong_scaling/` and `weak_scaling/`                                            |
-| `measured-data/elmm/`                | `elmm-local.txt`, `elmm-distributed.txt` — whole-model wall clock                |
-| `plots/local/`, `plots/distributed/` | 3 + 3 selected bar plots, discussed in [Plots](#plots)                           |
-| `tables/`                            | `local_speedup_table.csv` + `distributed_speedup_table.csv`                      |
+| Path                                 | Contents                                                          |
+|--------------------------------------|-------------------------------------------------------------------|
+| `measured-data/local/`               | `poisson-solver` CSVs + `PoisFFT` CSVs, grid sides 64 to 512      |
+| `measured-data/distributed/`         | `strong_scaling/` and `weak_scaling/`                             |
+| `measured-data/elmm/`                | `elmm-local.txt`, `elmm-distributed.txt` — whole-model wall clock |
+| `plots/local/`, `plots/distributed/` | 3 + 3 selected bar plots, discussed in [Plots](#plots)            |
+| `tables/`                            | `local_speedup_table.csv` + `distributed_speedup_table.csv`       |
 
 ## Decoding the data
 
@@ -121,16 +124,16 @@ Weak scaling grows the global grid — sides 161, 203, 256, 323 and 369 — to k
 dim,precision,solver_type,api,bc_name,grid_size,iteration,copy_time_ms,reshape_time_ms,fft_time_ms,kernel_time_ms,outside_time_ms,sum_time_ms
 ```
 
-The `outside_time_ms` contains the timing overhead and was thus left unused.
+The `outside_time_ms` contains the timing overhead and was thus left unused during the processing.
 `sum_time_ms` is the times sum of individual phases and is used as the total.
-
-`poisson-solver` distributed adds `num_procs` after `bc_name`.
-Each distributed row reports the worst (slowest) process of that iteration.
 
 `PoisFFT` carries only a total:
 ```
-dim,precision,solver_type,api,bc_name,[num_procs,]grid_size,iteration,total_execution_ms
+dim,precision,solver_type,api,bc_name,grid_size,iteration,total_execution_ms
 ```
+
+Both solvers in distributed configuration add `num_procs` after `bc_name`.
+Each distributed row reports the worst (slowest) process of that iteration.
 
 The phase columns match `ExecutionTimes` in `include/poisson-solver/solver.hpp`:
 
@@ -148,12 +151,13 @@ Three rules for reading these columns:
    heFFTe (the FFT library for distributed builds) performs the redistribution
    inside the same call as the transform for this BC
    combination, so the two phases merge into one number. For example,
-   `..._uniform_PPPPPP_N3_T8.csv` reports a 0.0 ms reshape and a 1954.5 ms FFT. Do not read the
+   `..._uniform_PPPPPP_N3_T8.csv` reports a 0.0 ms reshape and an average 1954.5 ms FFT. Do not read the
    0 ms as free communication — it is hidden inside the FFT time.
 
 ## Platform and processing method
 
 The benchmarks were executed on a MFF UK `chimera` cluster.
+`bw01` was used for the local benchmarks and `volta`s for the distributed benchmarks.
 
 | Role        | Node(s)              | GPU                                                             | CPU                               | RAM    |
 |-------------|----------------------|-----------------------------------------------------------------|-----------------------------------|--------|
@@ -169,8 +173,8 @@ Every row is one iteration of one run, exactly as the benchmark executable wrote
 Nothing there is averaged or filtered.
 Two facts the tables do not carry on their own:
 
-- Local `PoisFFT` ran with a fixed 48 cores. Distributed `PoisFFT` used the process counts in the
-  node-utilization table above (see [Distributed file names](#distributed-file-names)).
+- **Local** `PoisFFT` ran with a fixed 48 cores.
+- **Distributed** `PoisFFT` used the process counts in the node-utilization table above (see [Distributed file names](#distributed-file-names)).
 
 `tables/` and `plots/` hold output processed from that raw data, through these steps:
 
@@ -199,8 +203,7 @@ Speedups across every boundary condition, precision and grid size, by dimension 
 - **1D:** `PoisFFT` wins almost everywhere. Only 1 of 144 configurations reaches a GPU API
    speedup above 1 (float, `N | N`, side 448, 1.15x). GPUs bring no benefit for grids of this size.
 - **2D:** At side 64 the GPU API speedup ranges 0.38–1.88.
-   From side 128 upward the minimum is 1.77, and the range grows with the grid — at side 448 it
-   spans 19.7–649.
+   From side 128 upward the minimum is 1.77 and the speedups mostly grow with the grid size.
 - **3D:** The GPU API always wins. Its minimum is 1.14, across all configurations. The CPU
    API loses in 40% of 3D configurations, because the host-device copy costs more than the GPU
    saves.
@@ -218,20 +221,15 @@ Fixed $`512^3`$ grid, by node utilization (median, with the 25th–75th percenti
 | 3                | 1.39 (1.31–2.36) | 1.49 (1.39–2.60) |
 
 - `poisson-solver` is faster in all 140 distributed configurations. The minimum speedup is 1.11.
-- **The second node is a cliff, not the process count.** For double precision, full Dirichlet,
-   GPU API, strong scaling: 88 → 56 → 35 ms inside one node, then 452 ms at two nodes and 508 ms
-   at three. Weak scaling shows the same shape: 2 → 4 → 5 ms inside one node, then 130 ms and
-   199 ms. `PoisFFT` jumps at the same place (1274 → 1774 ms), so this is the network, not
-   either library.
 - **Reshapes dominate once the job crosses nodes.** At 3-node utilization, reshaping is most
    of the total time.
 
 ### ELMM
 
 These runs measure the whole model, `ELMM` (or `gpu-elmm`), not the solver alone.
-Two columns matter, and they tell different stories: **Solver** is the wall clock spent inside
-the Poisson solver, and **Total** is the wall clock of all time steps.
-Before each table is a summary of the `ELMM` configuration used for given measurements.
+**Solver** is the wall clock spent inside the Poisson solver, and **Total** is the wall clock of all time steps.
+We altered the `channel` example from `ELMM` and measured that.
+The changes of `channel` are noted above each table along with cluster configuration.
 
 Local — $`512^3`$ grid, end time 0.1, node `bw01`, 48 cores for `ELMM` + `PoisFFT`:
 
@@ -250,8 +248,7 @@ Distributed — $`256^3`$ grid, end time 0.5, nodes `volta[02,03,05]`, 64 proces
 | PPNs                | 93.47 s           | 71.98 s                  | 1.30x          | 246.40 s         | 862.70 s                | 0.29x         |
 | Full NeumannStag    | 96.48 s           | 42.51 s                  | 2.27x          | 252.50 s         | 810.58 s                | 0.31x         |
 
-Read the two columns separately:
-
+We can observe the following:
 - **The solver gets faster in all six cases**, by 1.10x to 2.27x.
 - **Locally, the total barely moves** — 1.02x to 1.05x. The solver is only about 8% of a local
   time step, so even a 1.8x solver speedup barely shows up in the total.
@@ -291,16 +288,13 @@ All plots use the same layout:
 
 ![Full DirichletStag, double precision, local](plots/local/double_prec_3D_uniform_DsDsDsDsDsDs_512side.png)
 `poisson-solver` does not always win when host-device copies take place.
-`PoisFFT` takes 116 ms. The CPU API takes 136 ms, 95 ms of it (70%) buffer
-copies. The GPU API takes 44 ms. Dropping the copies turns a loss into a 2.6x win.
 
 ![Periodic X/Y, staggered Neumann Z, double precision, local](plots/local/double_prec_3D_nonuniform_z_PPPPNsNs_512side.png)
-The nonuniform-Z solver. Copies are 72% of the CPU API total. The tridiagonal Z kernel takes
-13 ms here, far more than that of a uniform solve, so kernel time is visible in this plot.
+The nonuniform-Z solver.
+The tridiagonal Z kernel takes far more than that of a uniform solve, so kernel time is visible in this plot.
 
 ![Staggered Neumann/Dirichlet mix, float precision, local](plots/local/float_prec_3D_uniform_NsDsNsNsNsNs_512side.png)
-The best local 3D case. `PoisFFT` takes 403 ms against 8.7 ms for the GPU API. Even the CPU API
-wins 7.1x here, despite copies being 87% of its own time.
+The best local 3D case of these three.
 
 `plots/distributed/` shows 3-node-utilization results: 8 GPU processes against 64 `PoisFFT`
 processes.
@@ -309,12 +303,13 @@ processes.
 Reshapes are 99% of the GPU API total (503 of 509 ms). FFT takes 4 ms. Overall speedup: 2.8x.
 
 ![Full Neumann, float precision, distributed, 3-node utilization](plots/distributed/float_prec_uniform_NNNNNN_nodes_utilized_3.png)
-The best distributed case, 5.1x. Still reshape-bound: 269 of 274 ms.
+The best distributed case in 3-node utilization, 5.1x. Still reshape-bound: 269 of 274 ms.
 
 ![Full staggered Neumann, double precision, nonuniform-Z, distributed, 3-node utilization](plots/distributed/double_prec_nonuniform_z_NsNsNsNsNsNs_nodes_utilized_3.png)
 The narrowest margin of the three shown, 1.36x.
 
-Buffer copies are the local bottleneck. Reshapes are the distributed bottleneck.
+Buffer copies are the local bottleneck.
+The distributed bottleneck is hard to determine.
 The reshape cost measured here is the 10Gb Ethernet.
 Running these benchmarks on an InfiniBand setup would show the distributed bottleneck far more clearly.
 
