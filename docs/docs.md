@@ -382,17 +382,17 @@ At construction, the following setup runs once.
 The constructor builds the three diagonals of the Z operator (`BuildMatrixDiagonalA/B/C`) on the host, from the non-uniform cell-center (`z`) and cell-face (`z_u`) coordinates.
 It then copies the diagonals to the device.
 
-| # | Operation                     | Effect                                                                                                                                                                                                 |
-|---|-------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 1 | ReshapeReal: original → slabs | X, Y fully local                                                                                                                                                                                       |
-| 2 | `common_cmplx::Init`          | real → complex                                                                                                                                                                                         |
-| 3 | `Forward2D`                   | complex C2C over X, Y                                                                                                                                                                                  |
-| 4 | ReshapeCmplx: slabs → pencils | Z fully local, still complex                                                                                                                                                                           |
-| 5 | `TridiagZ`                    | one Thomas algorithm sweep per (X,Y) column.                                                                                                                                                           |
-| 6 | ReshapeCmplx: pencils → slabs | back to X,Y-local                                                                                                                                                                                      |
-| 7 | `Backward2D`                  | inverse C2C over X, Y                                                                                                                                                                                  |
-| 8 | `common_cmplx::Normalize`     | complex → real, divided by `norm_factor` — which here is the product over **X and Y only**, since the Z solve is an exact linear solve, not a transform, and does not need to normalize its own result |
-| 9 | ReshapeReal: slabs → original | back to the original decomposition                                                                                                                                                                     |
+| # | Operation                     | Effect                                       |
+|---|-------------------------------|----------------------------------------------|
+| 1 | ReshapeReal: original → slabs | X, Y fully local                             |
+| 2 | `common_cmplx::Init`          | real → complex                               |
+| 3 | `Forward2D`                   | complex C2C over X, Y                        |
+| 4 | ReshapeCmplx: slabs → pencils | Z fully local, still complex                 |
+| 5 | `TridiagZ`                    | one Thomas algorithm sweep per (X,Y) column. |
+| 6 | ReshapeCmplx: pencils → slabs | back to X,Y-local                            |
+| 7 | `Backward2D`                  | inverse C2C over X, Y                        |
+| 8 | `common_cmplx::Normalize`     | complex → real, divided by `norm_factor`     |
+| 9 | ReshapeReal: slabs → original | back to the original decomposition           |
 
 ---
 

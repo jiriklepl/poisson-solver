@@ -33,7 +33,7 @@ cmake --preset release-mpi
 cmake --preset release -DPOISSON_SOLVER_BUILD_FORTRAN=OFF
 
 # Manually build a static, distributed library with no Fortran binding
-cmake -DBUILD_SHARED_LIBS=OFF -DPOISSON_SOLVER_USE_MPI=ON -DPOISSON_SOLVER_BUILD_FORTRAN=OFF -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build/ -DBUILD_SHARED_LIBS=OFF -DPOISSON_SOLVER_USE_MPI=ON -DPOISSON_SOLVER_BUILD_FORTRAN=OFF -DCMAKE_BUILD_TYPE=Release
 ```
 
 ### Building the library
@@ -111,7 +111,10 @@ For `SLURM` this could look like (using our container):
 salloc -p <partition-name> -N 2 -n 4 --gpus 4 -w <node-names>
 
 # Set the env. var per guidance in container-environment
-UCX_POSIX_USE_PROC_LINK=n srun --mpi=pmix ch-run -b mapped:/opt/build -- /bin/bash -c "cd /opt/build/poisson-solver/build/examples && distributed_uniform-cpp"
+UCX_POSIX_USE_PROC_LINK=n srun --mpi=pmix ch-run -b mapped:/opt/build imgdir -- /bin/bash -c "cd /opt/build/poisson-solver/build/examples && ./distributed_uniform-cpp"
+
+# Invocation of another example
+UCX_POSIX_USE_PROC_LINK=n srun --mpi=pmix ch-run -b mapped:/opt/build imgdir -- /bin/bash -c "cd /opt/build/poisson-solver/build/examples && ./distributed_nonuniform-c"
 exit
 ```
 

@@ -23,7 +23,8 @@ my-newly-created-container-directory
 Now, inside your newly created directory, we will build the image, convert it into a read-only directory named `imgdir` and inject the NVIDIA driver.
 **Do not forget that the commands need to be run on a worker node where your code will execute.**
 On a `SLURM` managed cluster we can e.g. execute the following command `salloc -p <partition-name> --gpus 1 -w <node-name>` to allocate a worker node with a GPU and then, prefix all commands from the following block with `srun`.
-Also beware that the build can take ~20m, the conversion ~40m and the injection of NVIDIA drivers up to 10m (allocate your jobs with enough time limit).
+Beware that individual steps can take tens of minutes (allocate your jobs with high enough time limit).
+You can _significantly_ speed this process up by using more CPUs (add `-c <num-of-cpus>` to your `salloc`).
 ```bash
 ch-image build -t atmos -f Dockerfile.atmos .
 ch-convert -i ch-image -o dir atmos imgdir
@@ -31,8 +32,8 @@ ch-fromhost --nvidia imgdir
 ```
 If you followed the `SLURM` specific steps (running `salloc`), you can now relinquish the allocation by running `exit`.
 
-## How to run the container
-To demonstrate how to run the container, we will compile `poisson-solver` and `gpu-elmm` and then run an example.
+## How to run code inside the container
+To demonstrate how to run code inside the container, we will compile `poisson-solver` and `gpu-elmm` and then run an example.
 
 Clone `gpu-elmm`:
 ```bash
@@ -48,8 +49,10 @@ On a `SLURM` managed cluster we can again do that via `salloc -p <partition-name
 ch-run -b mapped:/opt/build imgdir -- /bin/bash -c "cd /opt/build/poisson-solver && unset CXX && unset CC && cmake --preset release && cmake --build build/"
 ch-run -b mapped:/opt/build imgdir -- /bin/bash -c "cd /opt/build/gpu-elmm/src && unset CC && ./make_release"
 ```
+**Running `unset CXX` (and `unset CC`) may be required whenever you start the container and intend to build the code.**
+Charliecloud inherits host environment variables and those can point to invalid paths inside the container.
 
-This will build the local version of `poisson-solver` and `gpu-elmm` (if interested,  show more `poisson-solver` build types).
+These commands will build the local version of `poisson-solver` and `gpu-elmm`.
 To build the distributed version of `poisson-solver`, follow the guidance in the [examples README](../examples/README.md).
 Distributed `gpu-elmm` must be built using `./make_mpi_release` instead of `./make_release`.
 

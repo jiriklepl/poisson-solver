@@ -363,7 +363,7 @@ On an already-allocated GPU node (or a local machine supporting the [requirement
 Assuming you built the benchmarking code correctly:
 ```
 build/tests/benchmarks/benchmarks <float|double> <dim> <use_gpu_api> <use_nonuniform_z> \
-    <iterations> <grid_side_size_begin> <grid_side_size_end> <grid_side_size_step>
+    <iterations> <grid_side_size_begin> <grid_side_size_end> <grid_side_size_step> \
     <out_file> [nps_y nps_z] BC_1 BC_2 ...
 ```
 
@@ -371,11 +371,18 @@ build/tests/benchmarks/benchmarks <float|double> <dim> <use_gpu_api> <use_nonuni
 `use_gpu_api` and `use_nonuniform_z` accept `yes/no`.
 Exactly `2*dim` BC tokens must follow, in upper case (see [Boundary-condition tokens](#boundary-condition-tokens)).
 
-Example — 3D, double precision, GPU API, uniform grid, 75 iterations, sides 64 to 512 in steps
+Example — local, 3D, double precision, GPU API, uniform grid, 75 iterations, sides 64 to 512 in steps
 of 64, fully periodic:
 
 ```bash
 build/tests/benchmarks/benchmarks double 3 yes no 75 64 512 64 out.csv P P P P P P
+```
+
+Example of distributed invocation:
+```bash
+# Assuming you allocated four processes beforehand
+# (e.g., run `salloc` and then prefix the following command with `srun --mpi=pmix`)
+build/tests/benchmarks/benchmarks double 3 yes no 75 64 512 64 out.csv 2 2 P P P P P P
 ```
 
 This overwrites `out.csv` if it already exists, unlike the launcher/worker scripts, which skip
