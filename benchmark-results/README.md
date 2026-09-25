@@ -52,13 +52,13 @@ Refer to the [Decoding the data](#decoding-the-data) section if you need help re
 See [Platform and processing method](#platform-and-processing-method) for the exact processing
 steps.
 
-| Path                                 | Contents                                                          |
-|--------------------------------------|-------------------------------------------------------------------|
-| `measured-data/local/`               | `poisson-solver` CSVs + `PoisFFT` CSVs, grid sides 64 to 512      |
-| `measured-data/distributed/`         | `strong_scaling/` and `weak_scaling/`                             |
-| `measured-data/elmm/`                | `elmm-local.txt`, `elmm-distributed.txt` — whole-model wall clock |
-| `plots/local/`, `plots/distributed/` | 3 + 3 selected bar plots, discussed in [Plots](#plots)            |
-| `tables/`                            | `local_speedup_table.csv` + `distributed_speedup_table.csv`       |
+| Path                                 | Contents                                                                                                  |
+|--------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| `measured-data/local/`               | `poisson-solver` CSVs + `PoisFFT` CSVs, grid sides 64 to 512                                              |
+| `measured-data/distributed/`         | `strong_scaling/` and `weak_scaling/`                                                                     |
+| `measured-data/elmm/`                | `elmm-local.txt`, `elmm-distributed-only-mpi.txt`, `elmm-distributed-hybrid.txt` — whole-model wall clock |
+| `plots/local/`, `plots/distributed/` | 3 + 3 selected bar plots, discussed in [Plots](#plots)                                                    |
+| `tables/`                            | `local_speedup_table.csv` + `distributed_speedup_table.csv`                                               |
 
 ## Decoding the data
 
@@ -228,7 +228,7 @@ Fixed $`512^3`$ grid, by node utilization (median, with the 25th–75th percenti
 
 These runs measure the whole model, `ELMM` (or `gpu-elmm`), not the solver alone.
 **Solver** is the wall clock spent inside the Poisson solver, and **Total** is the wall clock of all time steps.
-We altered the `channel` example from `ELMM` and measured that.
+We altered the `channel` example from the `ELMM` repository and measured it.
 The changes of `channel` are noted above each table along with cluster configuration.
 
 Local — $`512^3`$ grid, end time 0.1, node `bw01`, 48 cores for `ELMM` + `PoisFFT`:
@@ -239,7 +239,7 @@ Local — $`512^3`$ grid, end time 0.1, node `bw01`, 48 cores for `ELMM` + `Pois
 | PPNs                | 35.61 s           | 27.80 s                  | 1.28x          | 472.75 s         | 460.62 s                | 1.03x         |
 | Full NeumannStag    | 46.96 s           | 26.03 s                  | 1.80x          | 514.01 s         | 489.41 s                | 1.05x         |
 
-Distributed — $`256^3`$ grid, end time 0.5, nodes `volta[02,03,05]`, 64 processes for `ELMM` +
+Distributed, pure MPI paralelization of `ELMM` (and `gpu-elmm`) — $`256^3`$ grid, end time 0.5, nodes `volta[02,03,05]`, 64 processes for `ELMM` +
 `PoisFFT` against 8 processes (one GPU each) for `gpu-elmm` + `poisson-solver`:
 
 | Boundary conditions | Solver: `PoisFFT` | Solver: `poisson-solver` | Solver speedup | Total: `PoisFFT` | Total: `poisson-solver` | Total speedup |
@@ -248,21 +248,44 @@ Distributed — $`256^3`$ grid, end time 0.5, nodes `volta[02,03,05]`, 64 proces
 | PPNs                | 93.47 s           | 71.98 s                  | 1.30x          | 246.40 s         | 862.70 s                | 0.29x         |
 | Full NeumannStag    | 96.48 s           | 42.51 s                  | 2.27x          | 252.50 s         | 810.58 s                | 0.31x         |
 
-We can observe the following:
-- **The solver gets faster in all six cases**, by 1.10x to 2.27x.
-- **Locally, the total barely moves** — 1.02x to 1.05x. The solver is only about 8% of a local
-  time step, so even a 1.8x solver speedup barely shows up in the total.
-- **Distributed, the total gets about 3x worse**, even though the solver wins every time. The
-  rest of `ELMM` is CPU code, and `gpu-elmm` runs it on 8 processes instead of 64.
+Distributed, hybrid MPI + OpenMP paralelization of `ELMM` (and `gpu-elmm`) — same $`256^3`$ grid, same nodes, both now run 8 processes, 8 CPUs each,
+one GPU each for `gpu-elmm` + `poisson-solver`:
 
-More processes make the CPU part of `gpu-elmm` faster, so the total should improve.
-But the processes on one node then share the same GPUs, and this contention slows the solver
-down, more so as the process count grows.
-We did not find a process count where `gpu-elmm` ran fast enough, and GPU contention stayed low
-enough, to beat `ELMM` + `PoisFFT` on total time.
+| Boundary conditions | Solver: `PoisFFT` | Solver: `poisson-solver` | Solver speedup | Total: `PoisFFT` | Total: `poisson-solver` | Total speedup |
+|---------------------|-------------------|--------------------------|----------------|------------------|-------------------------|---------------|
+| Full periodic       | 380.44 s          | 165.60 s                 | 2.30x          | 568.24 s         | 355.67 s                | 1.60x         |
+| PPNs                | 177.25 s          | 75.44 s                  | 2.35x          | 363.61 s         | 255.58 s                | 1.42x         |
+| Full NeumannStag    | 244.53 s          | 47.64 s                  | 5.13x          | 415.76 s         | 226.83 s                | 1.83x         |
+
+The table below compares the best `ELMM` + `PoisFFT` setup against best `gpu-elmm` + `poisson-solver` setup:
+
+| Boundary conditions | Best `ELMM` + `PoisFFT` | Best `gpu-elmm` + `poisson-solver` | Speedup   |
+|---------------------|-------------------------|------------------------------------|-----------|
+| Full periodic       | 328.82 s                | 355.67 s                           | 0.92x     |
+| PPNs                | 246.40 s                | 255.58 s                           | 0.96x     |
+| Full NeumannStag    | 252.50 s                | 226.83 s                           | **1.11x** |
+
+Pairing `poisson-solver` with pure MPI `gpu-elmm` forces a choice: match processes to GPUs and leave most CPU
+cores idle, or add more processes per GPU and make them fight over it. More processes make the CPU
+part of `gpu-elmm` faster, but GPU contention then slows the solver down. We did not find a process
+count that gave both a fast `gpu-elmm` and low GPU contention at the same time.
+
+Hybrid MPI + OpenMP parallelism looked like the way out, since it trades processes for CPU threads.
+It recovers nearly all of the 3x loss, and wins for one of three
+boundary conditions. But `ELMM`'s own hybrid code runs slower than its pure-MPI code at the same
+64-core budget, so `gpu-elmm` + `poisson-solver` in hybrid mode still looses to `ELMM` + `PoisFFT`'s
+best configuration overall.
 Porting more of `ELMM` to the GPU would remove this trade-off.
-Hybrid MPI + OpenMP parallelism of `ELMM` would also help, since fewer processes could then still use
-every CPU core.
+
+We can thus conclude the following:
+- **The solver gets faster in all cases**,
+- **Locally, the total is better by a few percent** — 1.02x to 1.05x. The solver is only about 8% of a local
+  time step, so even a 1.8x solver speedup barely shows up in the total.
+- **Distributed, pure MPI paralelization, matching processes to GPUs, the total gets about 3x worse** — even though the
+  solver wins every time. The rest of `gpu-elmm` is CPU code, and `gpu-elmm` runs it on 8 processes
+  instead of 64. There is no middle ground where `gpu-elmm` + `poisson-solver` win.
+- **Distributed, hybrid paralelization, the total nearly recovers, and once passes the baseline** — 0.92x, 0.96x,
+  and 1.11x against `ELMM` + `PoisFFT`'s own best configuration.
 
 ## Plots
 
