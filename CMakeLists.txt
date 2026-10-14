@@ -1,8 +1,24 @@
 cmake_minimum_required(VERSION 4.0)
 project(PoissonSolver
     VERSION 0.1
-    LANGUAGES CXX CUDA
+    LANGUAGES CXX
 )
+
+find_package(CUDAToolkit REQUIRED)
+
+if (NOT DEFINED CMAKE_CUDA_COMPILER AND NOT DEFINED ENV{CUDACXX}
+        AND CUDAToolkit_NVCC_EXECUTABLE)
+    set(CMAKE_CUDA_COMPILER "${CUDAToolkit_NVCC_EXECUTABLE}")
+endif()
+
+# Build for Voltas as well if possible
+if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL "13.0")
+    set(CMAKE_CUDA_ARCHITECTURES 80 90 100)
+else()
+    set(CMAKE_CUDA_ARCHITECTURES 70 80 90 100)
+endif()
+
+enable_language(CUDA)
 
 option(POISSON_SOLVER_BUILD_FORTRAN "Build Fortran binding" ON)
 
@@ -19,15 +35,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 include(FetchContent)
-
-# Build for Voltas as well if possible
-if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL "13.0")
-    set(CMAKE_CUDA_ARCHITECTURES 80 90 100)
-else()
-    set(CMAKE_CUDA_ARCHITECTURES 70 80 90 100)
-endif()
-
-find_package(CUDAToolkit REQUIRED)
 
 option(POISSON_SOLVER_USE_MPI "Build distributed version" OFF)
 if (POISSON_SOLVER_USE_MPI)
