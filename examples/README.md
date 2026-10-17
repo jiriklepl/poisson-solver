@@ -72,12 +72,13 @@ You can read about the benchmarks (performance of this library, how to run them,
 
 `poisson-solver` supports C++, C and Fortran.
 This directory contains example source code for all these languages along with explanatory comments.
-The five examples are:
+The six examples are:
 1. **local uniform solver** - `local_uniform.{cpp,c,f90}`
 2. **local nonuniform solver** - `local_nonuniform.{cpp,c,f90}`
 3. **distributed uniform solver** - `distributed_uniform.{cpp,c,f90}`
 4. **distributed nonuniform solver** - `distributed_nonuniform.{cpp,c,f90}`
 5. **local uniform solver with device buffers** - `local_uniform_nocopy.{cpp,c,f90}`
+6. **local 2D solver printing its result** - `local_with_pretty_print.cpp` (C++ only)
 
 **These are meant to be read!**
 It is recommended to explore them in the given order.
@@ -86,14 +87,19 @@ But feel free to explore only those relevant to your language or usecase.
 ### Which preset builds which example
 The build is either local or distributed, never both:
 
-| Preset                                               | Examples built                                              |
-|------------------------------------------------------|-------------------------------------------------------------|
-| `release`, `debug`, `release-benchmarks`             | `local_uniform`, `local_nonuniform`, `local_uniform_nocopy` |
-| `release-mpi`, `debug-mpi`, `release-mpi-benchmarks` | `distributed_uniform`, `distributed_nonuniform`             |
+| Preset                                               | Examples built                                                                         |
+|------------------------------------------------------|----------------------------------------------------------------------------------------|
+| `release`, `debug`, `release-benchmarks`             | `local_uniform`, `local_nonuniform`, `local_uniform_nocopy`, `local_with_pretty_print` |
+| `release-mpi`, `debug-mpi`, `release-mpi-benchmarks` | `distributed_uniform`, `distributed_nonuniform`                                        |
 
 ### Fortran targets
 Each example gives one target per language: `-cpp`, `-c` and `-f90`.
 The `-f90` targets exist only when `POISSON_SOLVER_BUILD_FORTRAN` is `ON` (the default).
+`local_with_pretty_print` is the only exception.
+It is written in C++ only, so it gives just the `local_with_pretty_print-cpp` target.
+Our [PoisFFT fork](https://github.com/mntjams/PoisFFT) contains the same example, with the same configuration so you can compile it and compare the results.
+Assuming you use our [container environment](../container-environment/) and you have our PoisFFT fork cloned inside `mapped/`, allocate a node and run `srun ch-run -b mapped:/opt/build imgdir -- /bin/bash -c "cd /opt/build/PoisFFT/src && unset CXX && unset CC && scons test"`.
+The example can then be run with `srun ch-run -b mapped:/opt/build imgdir -- /bin/bash -c "/opt/build/PoisFFT/bin/gcc/local_with_pretty_print"`.
 
 ### Running the local examples
 A local example needs one GPU. Run the binary with no arguments:

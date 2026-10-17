@@ -39,6 +39,16 @@ foreach(name IN LISTS CXX_C_EXAMPLES)
     list(APPEND ALL_EXAMPLE_TARGETS ${name}-c)
 endforeach()
 
+if (NOT POISSON_SOLVER_USE_MPI)
+    # local_with_pretty_print exists in C++ only, so it is not part of the
+    # per-language lists above.
+    add_executable(local_with_pretty_print-cpp EXCLUDE_FROM_ALL
+        local_with_pretty_print.cpp)
+    target_link_libraries(local_with_pretty_print-cpp PRIVATE
+        common_flags poisson-solver)
+    list(APPEND ALL_EXAMPLE_TARGETS local_with_pretty_print-cpp)
+endif()
+
 if (POISSON_SOLVER_BUILD_FORTRAN)
     foreach(name IN LISTS FORTRAN_EXAMPLES)
         set(target_name ${name}-f90)
