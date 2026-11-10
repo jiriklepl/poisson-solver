@@ -5,17 +5,17 @@ project(PoissonSolver
 )
 
 find_package(CUDAToolkit REQUIRED)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 
 if (NOT DEFINED CMAKE_CUDA_COMPILER AND NOT DEFINED ENV{CUDACXX}
         AND CUDAToolkit_NVCC_EXECUTABLE)
     set(CMAKE_CUDA_COMPILER "${CUDAToolkit_NVCC_EXECUTABLE}")
 endif()
 
-# Build for Voltas as well if possible
-if (CUDAToolkit_VERSION VERSION_GREATER_EQUAL "13.0")
-    set(CMAKE_CUDA_ARCHITECTURES 80 90 100)
-else()
-    set(CMAKE_CUDA_ARCHITECTURES 70 80 90 100)
+# Respect caller/toolchain architecture selection; the reproducible local
+# preset selects the deployed Ampere device explicitly.
+if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA architectures")
 endif()
 
 enable_language(CUDA)
@@ -29,6 +29,13 @@ if (POISSON_SOLVER_BUILD_FORTRAN)
     set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 endif()
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+option(POISSON_SOLVER_BUILD_TESTS "Build legacy residuum tests" OFF)
+option(POISSON_SOLVER_BUILD_EXAMPLES "Build examples" OFF)
+option(POISSON_SOLVER_BUILD_DOCS "Configure documentation dependencies" OFF)
+option(POISSON_SOLVER_BUILD_API_TESTS "Build status ABI and optional pinned-PoisFFT differential checks" OFF)
 enable_testing()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -64,13 +71,13 @@ option(POISSON_SOLVER_ENABLE_BENCHMARKS
     "Enable measurements and the benchmarks target" OFF)
 
 # VkFFT is required even for MPI builds
-FetchContent_Populate(
+FetchContent_Declare(
     vkfft
     GIT_REPOSITORY https://github.com/DTolm/VkFFT
-    GIT_TAG v1.3.4
-    SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/vkfft-src
-    BINARY_DIR ${CMAKE_BINARY_DIR}/_deps/vkfft-build
+    GIT_TAG 066a17c17068c0f11c9298d848c2976c71fad1c1
+    SOURCE_SUBDIR poisson-header-only
 )
+FetchContent_MakeAvailable(vkfft)
 
 add_library(VkFFT INTERFACE)
 
@@ -81,7 +88,9 @@ target_compile_definitions(VkFFT INTERFACE VKFFT_BACKEND=1)
 target_compile_definitions(VkFFT INTERFACE CUDA_TOOLKIT_ROOT_DIR="${CUDAToolkit_TARGET_DIR}")
 
 # Have to use `SYSTEM` to prevent `VkFFT` warnings cluttering compilation output
-target_include_directories(VkFFT SYSTEM INTERFACE ${CMAKE_BINARY_DIR}/_deps/vkfft-src/vkFFT)
+target_include_directories(VkFFT SYSTEM INTERFACE
+    $<BUILD_INTERFACE:${vkfft_SOURCE_DIR}/vkFFT>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/VkFFT>)
 target_link_libraries(VkFFT INTERFACE CUDA::cuda_driver CUDA::nvrtc)
 
 # Define compiler flags.
@@ -94,12 +103,21 @@ target_compile_options(common_flags INTERFACE
     $<$<COMPILE_LANGUAGE:Fortran>:-cpp>
 )
 
+include(cmake/KernelCacheIdentity.cmake)
+
 add_subdirectory(src)
-add_subdirectory(tests/residuum)
+if (POISSON_SOLVER_BUILD_API_TESTS)
+    add_subdirectory(tests/differential)
+endif()
+if (POISSON_SOLVER_BUILD_TESTS)
+    add_subdirectory(tests/residuum)
+endif()
 if (POISSON_SOLVER_ENABLE_BENCHMARKS)
     add_subdirectory(tests/benchmarks)
 endif()
-add_subdirectory(examples)
+if (POISSON_SOLVER_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
 
 # === Auto-generate .clangd ===
 set(CLANGD_CONFIG
@@ -124,10 +142,11 @@ string(APPEND CLANGD_CONFIG "
     - \"-forward-unknown-to-host-compiler\"
 ")
 
-file(WRITE "${CMAKE_SOURCE_DIR}/.clangd" "${CLANGD_CONFIG}")
+file(WRITE "${CMAKE_BINARY_DIR}/clangd.yaml" "${CLANGD_CONFIG}")
 
 # === Doxygen Documentation ===
-find_package(Doxygen)
+if (POISSON_SOLVER_BUILD_DOCS)
+find_package(Doxygen REQUIRED)
 if (DOXYGEN_FOUND)
     set(DOXYGEN_PROJECT_NAME "poisson-solver")
     set(DOXYGEN_EXTRACT_ALL YES)
@@ -146,7 +165,7 @@ if (DOXYGEN_FOUND)
     FetchContent_Declare(
         doxygen_awesome_css
         GIT_REPOSITORY https://github.com/jothepro/doxygen-awesome-css.git
-        GIT_TAG v2.3.4
+        GIT_TAG 568f56cde6ac78b6dfcc14acd380b2e745c301ea
     )
     FetchContent_MakeAvailable(doxygen_awesome_css)
 
@@ -161,3 +180,33 @@ if (DOXYGEN_FOUND)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
 endif()
+endif()
+
+install(TARGETS poisson-solver VkFFT EXPORT PoissonSolverTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY ${vkfft_SOURCE_DIR}/vkFFT/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/VkFFT)
+install(FILES ${vkfft_SOURCE_DIR}/LICENSE
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/PoissonSolver/licenses RENAME VkFFT-LICENSE)
+install(FILES dependencies.lock.json docs/device-api.md
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/PoissonSolver)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/kernel-cache-identity.json"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/kernel-cache-build-recipe.txt"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/PoissonSolver)
+if (POISSON_SOLVER_BUILD_FORTRAN)
+    install(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/poisson-solver/fortran OPTIONAL
+        FILES_MATCHING PATTERN "*.mod")
+endif()
+install(EXPORT PoissonSolverTargets NAMESPACE PoissonSolver::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/PoissonSolver)
+configure_package_config_file(cmake/PoissonSolverConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/PoissonSolverConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/PoissonSolver)
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/PoissonSolverConfigVersion.cmake
+    VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/PoissonSolverConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/PoissonSolverConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/PoissonSolver)

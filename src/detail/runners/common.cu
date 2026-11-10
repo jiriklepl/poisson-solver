@@ -16,20 +16,20 @@ void DivideByDenoms(Workspace *workspace,
                     dim3 cu_grid_size,
                     dim3 cu_block_size,
                     bool zero_origin) {
-    ker::DivideByDenoms<<<cu_grid_size, cu_block_size>>>(
+    ker::DivideByDenoms<<<cu_grid_size, cu_block_size, 0, detail::execution_stream>>>(
         workspace, ns, offs, denoms, zero_origin);
     CUCH(cudaGetLastError());
 }
 
 template <std::floating_point T, std::size_t Dim>
 void UnpackPaddedGrid(T *active, const T * padded, GridSizes<Dim> ns, GridSizes<Dim> ngs, dim3 cu_grid_size, dim3 cu_block_size) {
-    ker::UnpackPaddedGrid<<<cu_grid_size, cu_block_size>>>(active, padded, ns, ngs);
+    ker::UnpackPaddedGrid<<<cu_grid_size, cu_block_size, 0, detail::execution_stream>>>(active, padded, ns, ngs);
     CUCH(cudaGetLastError());
 }
 
 template <std::floating_point T, std::size_t Dim>
 void PackPaddedGrid(T * padded, const T * active, GridSizes<Dim> ns, GridSizes<Dim> ngs, dim3 cu_grid_size, dim3 cu_block_size) {
-    ker::PackPaddedGrid<<<cu_grid_size, cu_block_size>>>(padded, active, ns, ngs);
+    ker::PackPaddedGrid<<<cu_grid_size, cu_block_size, 0, detail::execution_stream>>>(padded, active, ns, ngs);
     CUCH(cudaGetLastError());
 }
 

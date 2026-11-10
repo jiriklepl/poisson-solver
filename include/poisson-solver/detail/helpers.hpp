@@ -3,6 +3,7 @@
 
 #include "poisson-solver/aliases.hpp"
 #include "poisson-solver/detail/cuch.hpp"
+#include "poisson-solver/detail/execution.hpp"
 
 #include <array>
 #include <concepts>
@@ -26,7 +27,7 @@ struct Overloaded : Ts... {
 
 struct CudaFreeDeleter {
     void operator()(void *ptr) {
-        cudaFree(ptr);
+        DeviceFree(ptr);
     }
 };
 
@@ -92,7 +93,8 @@ constexpr auto FlatIndex(MultidimIdx<Dim> midx,
 template <typename T>
 auto MakeCudaUnique(std::size_t size) -> CudaUniquePtr<T> {
     T *ptr;
-    CUCH(cudaMalloc(&ptr, size * sizeof(T)));
+    if (size > std::numeric_limits<std::size_t>::max() / sizeof(T)) throw std::overflow_error("device allocation overflow");
+    CUCH(DeviceAllocate(reinterpret_cast<void **>(&ptr), size * sizeof(T)));
     return CudaUniquePtr<T>(ptr);
 }
 
@@ -103,7 +105,8 @@ auto MakeCudaUnique(std::size_t size) -> CudaUniquePtr<T> {
 template <typename T>
 auto MakeCudaShared(std::size_t size) -> CudaSharedPtr<T> {
     T *ptr;
-    CUCH(cudaMalloc(&ptr, size * sizeof(T)));
+    if (size > std::numeric_limits<std::size_t>::max() / sizeof(T)) throw std::overflow_error("device allocation overflow");
+    CUCH(DeviceAllocate(reinterpret_cast<void **>(&ptr), size * sizeof(T)));
     return CudaSharedPtr<T>(ptr, CudaFreeDeleter{});
 }
 

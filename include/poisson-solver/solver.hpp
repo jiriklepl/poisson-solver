@@ -73,7 +73,8 @@ public:
     virtual ExecutionTimes ExecuteGPU(std::span<T> d_phi,
                                       std::span<const T> d_rhs,
                                       GridSizes<Dim> ngs_phi,
-                                      GridSizes<Dim> ngs_rhs) = 0;
+                                      GridSizes<Dim> ngs_rhs,
+                                      cudaStream_t stream = nullptr) = 0;
     virtual auto GetTotalGridSize() const -> std::size_t = 0;
 
 protected:
@@ -87,11 +88,11 @@ protected:
             : accum(acc) {
             cudaEventCreate(&start);
             cudaEventCreate(&stop);
-            cudaEventRecord(start);
+            cudaEventRecord(start, detail::execution_stream);
         }
 
         ~CUDAScopedTimer() {
-            cudaEventRecord(stop);
+            cudaEventRecord(stop, detail::execution_stream);
             cudaEventSynchronize(stop);
 
             float ms = 0;
@@ -111,12 +112,12 @@ protected:
 #ifdef POISSON_SOLVER_ENABLE_BENCHMARKS
         explicit HybridScopedTimer(float &acc)
             : accum(acc) {
-            cudaDeviceSynchronize();
+            cudaStreamSynchronize(detail::execution_stream);
             start = std::chrono::steady_clock::now();
         }
 
         ~HybridScopedTimer() {
-            cudaDeviceSynchronize();
+            cudaStreamSynchronize(detail::execution_stream);
             auto stop = std::chrono::steady_clock::now();
             std::chrono::duration<float, std::milli> ms = stop - start;
             accum += ms.count();
@@ -212,6 +213,10 @@ public:
                  std::span<const T> rhs,
                  GridSizes<Dim> ngs_phi,
                  GridSizes<Dim> ngs_rhs) -> ExecutionTimes override {
+        detail::StreamScope stream_scope(nullptr);
+#ifndef POISSON_SOLVER_USE_MPI
+        detail::FFTPolicy<T, Dim>::SetStream(core_.fft_plan, nullptr);
+#endif
         using detail::runners::PackPaddedGrid;
         using detail::runners::UnpackPaddedGrid;
 
@@ -257,7 +262,14 @@ public:
     auto ExecuteGPU(std::span<T> d_phi,
                     std::span<const T> d_rhs,
                     GridSizes<Dim> ngs_phi,
-                    GridSizes<Dim> ngs_rhs) -> ExecutionTimes override {
+                    GridSizes<Dim> ngs_rhs,
+                    cudaStream_t stream = nullptr) -> ExecutionTimes override {
+        detail::StreamScope stream_scope(stream);
+#ifndef POISSON_SOLVER_USE_MPI
+        detail::FFTPolicy<T, Dim>::SetStream(core_.fft_plan, stream);
+#else
+        if (stream) throw std::invalid_argument("nondefault streams require local solver build");
+#endif
         using detail::runners::PackPaddedGrid;
         using detail::runners::UnpackPaddedGrid;
 
@@ -1023,6 +1035,10 @@ public:
                            std::span<const T> rhs,
                            GridSizes<3> ngs_phi,
                            GridSizes<3> ngs_rhs) override {
+        detail::StreamScope stream_scope(nullptr);
+#ifndef POISSON_SOLVER_USE_MPI
+        detail::FFTPolicy<T, 3>::SetStream(core_.fft_plan, nullptr);
+#endif
         using detail::runners::PackPaddedGrid;
         using detail::runners::UnpackPaddedGrid;
 
@@ -1068,7 +1084,14 @@ public:
     ExecutionTimes ExecuteGPU(std::span<T> d_phi,
                               std::span<const T> d_rhs,
                               GridSizes<3> ngs_phi,
-                              GridSizes<3> ngs_rhs) override {
+                              GridSizes<3> ngs_rhs,
+                              cudaStream_t stream = nullptr) override {
+        detail::StreamScope stream_scope(stream);
+#ifndef POISSON_SOLVER_USE_MPI
+        detail::FFTPolicy<T, 3>::SetStream(core_.fft_plan, stream);
+#else
+        if (stream) throw std::invalid_argument("nondefault streams require local solver build");
+#endif
         using detail::runners::PackPaddedGrid;
         using detail::runners::UnpackPaddedGrid;
 

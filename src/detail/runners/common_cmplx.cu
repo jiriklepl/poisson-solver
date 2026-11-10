@@ -15,7 +15,7 @@ void Init(CuComplexTrait<T> *cmplx_workspace,
           GridSizes<Dim> ns,
           dim3 cu_grid_size,
           dim3 cu_block_size) {
-    ker::Init<<<cu_grid_size, cu_block_size>>>(
+    ker::Init<<<cu_grid_size, cu_block_size, 0, detail::execution_stream>>>(
         cmplx_workspace, real_workspace, ns);
     CUCH(cudaGetLastError());
 }
@@ -27,7 +27,7 @@ void Normalize(T *res,
                T norm_factor,
                dim3 cu_grid_size,
                dim3 cu_block_size) {
-    ker::Normalize<<<cu_grid_size, cu_block_size>>>(
+    ker::Normalize<<<cu_grid_size, cu_block_size, 0, detail::execution_stream>>>(
         res, cmplx_workspace, ns, norm_factor);
     CUCH(cudaGetLastError());
 }

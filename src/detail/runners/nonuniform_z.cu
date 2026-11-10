@@ -21,7 +21,7 @@ void TridiagZ(Workspace *real_workspace,
               const T *mat_c,
               dim3 cu_grid_size,
               dim3 cu_block_size) {
-    nzk::TridiagZ<<<cu_grid_size, cu_block_size>>>(
+    nzk::TridiagZ<<<cu_grid_size, cu_block_size, 0, detail::execution_stream>>>(
         real_workspace, cp_workspace, ns, offs, denoms, mat_a, mat_b, mat_c);
     CUCH(cudaGetLastError());
 }

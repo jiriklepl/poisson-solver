@@ -72,6 +72,21 @@
       "cacheVariables": {
         "POISSON_SOLVER_ENABLE_BENCHMARKS": "ON"
       }
+    },
+    {
+      "name": "release-sm86",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build-sm86",
+      "cacheVariables": {
+        "CMAKE_CUDA_ARCHITECTURES": "86",
+        "CMAKE_CXX_COMPILER": "/usr/bin/g++-14",
+        "CMAKE_CUDA_HOST_COMPILER": "/usr/bin/g++-14",
+        "CMAKE_Fortran_COMPILER": "/usr/bin/gfortran-15",
+        "POISSON_SOLVER_BUILD_TESTS": "OFF",
+        "POISSON_SOLVER_BUILD_EXAMPLES": "OFF",
+        "POISSON_SOLVER_BUILD_DOCS": "OFF",
+        "CMAKE_C_COMPILER": "/usr/bin/gcc-14"
+      }
     }
   ]
 }

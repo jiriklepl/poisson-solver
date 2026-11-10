@@ -15,7 +15,24 @@
 #include <stdexcept>
 #include <type_traits>
 #include <variant>
+#include "poisson-solver/detail/nvrtc_cache.hpp"
+// Account every device buffer allocated by the pinned VkFFT headers, including
+// LUT/Bluestein scratch. Driver context/module/code allocations are excluded.
+#define cudaMalloc ::poisson_solver::detail::DeviceAllocate
+#define cudaFree ::poisson_solver::detail::DeviceFree
+#define nvrtcCreateProgram ::poisson_solver::detail::nvrtc_cache::create
+#define nvrtcCompileProgram ::poisson_solver::detail::nvrtc_cache::compile
+#define nvrtcGetCUBINSize ::poisson_solver::detail::nvrtc_cache::cubin_size
+#define nvrtcGetCUBIN ::poisson_solver::detail::nvrtc_cache::cubin
+#define nvrtcDestroyProgram ::poisson_solver::detail::nvrtc_cache::destroy
 #include <vkFFT.h>
+#undef nvrtcDestroyProgram
+#undef nvrtcGetCUBIN
+#undef nvrtcGetCUBINSize
+#undef nvrtcCompileProgram
+#undef nvrtcCreateProgram
+#undef cudaFree
+#undef cudaMalloc
 
 #ifdef POISSON_SOLVER_USE_MPI
 #include "poisson-solver/detail/mpi_check.hpp"
@@ -107,6 +124,7 @@ struct VkFFTSplitHandle {
 
 struct VkFFTPlan {
     std::unique_ptr<CUdevice> cu_device{};
+    std::unique_ptr<cudaStream_t> stream{};
     VkFFTVariantHandle handle{};
 };
 
@@ -163,18 +181,20 @@ public:
     using Plan = VkFFTPlan;
 
     static auto Init(GridSizes<Dim> ns, VariantLayout layout) -> Plan {
+        nvrtc_cache::CreationScope compile_scope;
         Plan plan{};
 
         // Shared among all layouts.
         plan.cu_device = GetCudaDevice();
+        plan.stream = std::make_unique<cudaStream_t>(nullptr);
 
         std::visit(Overloaded{[&plan, ns](FullLayout l) {
                                   plan.handle = GetFullHandle(
-                                      l, ns, plan.cu_device.get());
+                                      l, ns, plan.cu_device.get(), plan.stream.get());
                               },
                               [&plan, ns](SplitLayout l) {
                                   plan.handle = GetSplitHandle(
-                                      l, ns, plan.cu_device.get());
+                                      l, ns, plan.cu_device.get(), plan.stream.get());
                               },
                               [](std::monostate) {
                                   assert(false && "Visited a monostate.");
@@ -183,6 +203,8 @@ public:
 
         return plan;
     }
+
+    static void SetStream(Plan &plan, cudaStream_t stream) { *plan.stream = stream; }
 
     template <ValidWorkspace<T> Workspace>
     static void Forward(Workspace *dev_buffer, Plan &plan) {
@@ -283,11 +305,13 @@ private:
     // Returns initialized full handle.
     static auto GetFullHandle(FullLayout layout,
                               GridSizes<Dim> ns,
-                              CUdevice *device_ptr) -> VkFFTFullHandle {
+                              CUdevice *device_ptr, cudaStream_t *stream) -> VkFFTFullHandle {
         VkFFTFullHandle h{};
         auto &config = h.handle.config;
 
         config.device = device_ptr;
+        config.stream = stream;
+        config.num_streams = 1;
 
         // 0 for float, 1 for doubles.
         config.doublePrecision = !std::is_same_v<T, float>;
@@ -314,13 +338,15 @@ private:
     // Returns initialized split handle.
     static auto GetSplitHandle(SplitLayout layout,
                                GridSizes<Dim> ns,
-                               CUdevice *device_ptr) -> VkFFTSplitHandle {
+                               CUdevice *device_ptr, cudaStream_t *stream) -> VkFFTSplitHandle {
         VkFFTSplitHandle h{};
         auto &config_1d = h.handle_1d.config;
         auto &config_2d = h.handle_2d.config;
 
         config_1d.device = device_ptr;
         config_2d.device = device_ptr;
+        config_1d.stream = config_2d.stream = stream;
+        config_1d.num_streams = config_2d.num_streams = 1;
 
         // 0 for float, 1 for doubles.
         bool double_prec_used = !std::is_same_v<T, float>;

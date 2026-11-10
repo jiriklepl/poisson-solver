@@ -10,6 +10,7 @@ It is based on the [PoisFFT](https://github.com/LadaF/PoisFFT) library and provi
 `poisson-solver` requires the following compilers, libraries and hardware (those that are **completely optional**, **fetched automatically** or **required only in certain build configurations** are marked accordingly):
 - CMake >= 4.0,
 - C++ compiler supporting C++20,
+- OpenSSL Crypto development library (compiled-kernel cache checksums),
 - Fortran compiler (**optional** - see [examples](./examples/README.md) for information about disabling Fortran binding compilation),
 - `VkFFT` for computation of local FFTs (**fetched automatically**),
 - `heFFTe` for computation of distributed FFTs (**only for distributed use but fetched automatically in that configuration**),
@@ -29,6 +30,26 @@ We have included a dockerfile (inside [container-environment](./container-enviro
 See the [container-environment](./container-environment/) directory to learn more about the deployment of the solver inside our container.
 [benchmark-results](./benchmark-results/) contains the performance comparison of `poisson-solver` against the original `PoisFFT` library.
 At last, see [docs](./docs/) for the inner code structure of `poisson-solver`.
+
+## Installed device API
+
+The [status-returning device API](./docs/device-api.md) accepts device pointers
+and a caller-supplied CUDA stream, with matching Fortran `c_ptr` bindings. Its
+initial scope is local uniform double-precision FD2/FD4. The `release-sm86`
+preset pins the local compiler/architecture configuration; dependency commits
+are recorded in [dependencies.lock.json](./dependencies.lock.json). CMake install
+exports headers, the library, Fortran modules and `PoissonSolver::poisson-solver`.
+
+To reuse compiled VkFFT kernels across processes, create an owner-only directory
+(`mkdir -m 700 /absolute/cache/path`) and set
+`POISSON_SOLVER_KERNEL_CACHE_DIR=/absolute/cache/path`. This optional cache stores
+up to 64 MiB of cubins, with a 16 MiB bound per image. Keys bind the generated
+source, options, build recipe, NVRTC and driver libraries, and device identity.
+Missing, invalid or incompatible entries compile normally. No field data or
+solver plans are serialized. Without the environment variable, caching is off.
+The installed `share/PoissonSolver/kernel-cache-identity.json` and build recipe
+record the cache contract. Performance reports must distinguish empty-cache
+startup from runs after an excluded warmup; lookup and loading remain timed.
 
 ## AI usage
 Claude and Google Gemini were used to:

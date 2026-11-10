@@ -170,10 +170,10 @@ public:
                      [[maybe_unused]] const T *src) -> mpi_utils::LocalGridInfo<Dim> override {
         // nop if aliased
         if (src != dest) {
-            CUCH(cudaMemcpy(dest,
+            CUCH(cudaMemcpyAsync(dest,
                             src,
                             MaxLocalElements() * sizeof(T),
-                            cudaMemcpyDeviceToDevice));
+                            cudaMemcpyDeviceToDevice, detail::execution_stream));
         }
         return {ns_, offs_};
     }
@@ -183,10 +183,10 @@ public:
         -> mpi_utils::LocalGridInfo<Dim> override {
         // nop if aliased
         if (src != dest) {
-            CUCH(cudaMemcpy(dest,
+            CUCH(cudaMemcpyAsync(dest,
                             src,
                             MaxLocalElements() * sizeof(CuComplexTrait<T>),
-                            cudaMemcpyDeviceToDevice));
+                            cudaMemcpyDeviceToDevice, detail::execution_stream));
         }
         return {ns_, offs_};
     }
@@ -512,10 +512,10 @@ private:
             auto my_new_box =
                 rp_.decompositions_[next_reshape_box_idx_][rp_.rank_];
             auto elems_to_copy = static_cast<std::size_t>(my_new_box.count());
-            CUCH(cudaMemcpy(dest,
+            CUCH(cudaMemcpyAsync(dest,
                             src,
                             elems_to_copy * sizeof(Workspace),
-                            cudaMemcpyDeviceToDevice));
+                            cudaMemcpyDeviceToDevice, detail::execution_stream));
         }
     }
 
