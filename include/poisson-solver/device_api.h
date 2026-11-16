@@ -17,9 +17,10 @@ typedef struct poisson_solver_config_v1 {
     double lengths[3];
     int32_t boundary_conditions[6]; /* same 0..4 enum as c_binding.h */
     int32_t approximation; /* FD2=2 or FD4=4 */
-    uint32_t flags; /* must be zero */
+    uint32_t flags; /* 0 = double precision, POISSON_SOLVER_REAL32 = single precision */
     uint64_t device_budget_bytes; /* hard cap for all owned device buffers */
 } poisson_solver_config_v1;
+enum { POISSON_SOLVER_REAL32 = 1 };
 typedef struct poisson_solver_workspace_v1 {
     uint32_t version, flags;
     uint64_t persistent_device_bytes, peak_device_bytes, execution_extra_bytes;
