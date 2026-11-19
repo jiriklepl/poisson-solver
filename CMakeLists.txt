@@ -69,6 +69,8 @@ endif()
 
 option(POISSON_SOLVER_ENABLE_BENCHMARKS
     "Enable measurements and the benchmarks target" OFF)
+option(POISSON_SOLVER_ENABLE_R2C
+    "Use R2C/C2R transforms for local periodic axes" ON)
 
 # VkFFT is required even for MPI builds
 FetchContent_Declare(

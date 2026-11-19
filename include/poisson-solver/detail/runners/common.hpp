@@ -16,7 +16,8 @@ void DivideByDenoms(Workspace *workspace,
                     DenomConstPtrs<T, Dim> denoms,
                     dim3 cu_grid_size,
                     dim3 cu_block_size,
-                    bool zero_origin = false);
+                    bool zero_origin = false,
+                    T inv_norm_factor = static_cast<T>(1.0));
 
 template <std::floating_point T, std::size_t Dim>
 void UnpackPaddedGrid(T *active, const T * padded, GridSizes<Dim> ns, GridSizes<Dim> ngs, dim3 cu_grid_size, dim3 cu_block_size);

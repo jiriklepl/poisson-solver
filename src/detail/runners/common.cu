@@ -15,9 +15,10 @@ void DivideByDenoms(Workspace *workspace,
                     DenomConstPtrs<T, Dim> denoms,
                     dim3 cu_grid_size,
                     dim3 cu_block_size,
-                    bool zero_origin) {
+                    bool zero_origin,
+                    T inv_norm_factor) {
     ker::DivideByDenoms<<<cu_grid_size, cu_block_size, 0, detail::execution_stream>>>(
-        workspace, ns, offs, denoms, zero_origin);
+        workspace, ns, offs, denoms, zero_origin, inv_norm_factor);
     CUCH(cudaGetLastError());
 }
 
@@ -42,7 +43,8 @@ void PackPaddedGrid(T * padded, const T * active, GridSizes<Dim> ns, GridSizes<D
         DenomConstPtrs<TYPE, DIM> denoms,                          \
         dim3 cu_grid_size,                                         \
         dim3 cu_block_size,                                        \
-        bool zero_origin);
+        bool zero_origin,                                          \
+        TYPE inv_norm_factor);
 
 #define INSTANTIATE_DIVISION_COMPLEX(TYPE, DIM)                                \
     template void                                                              \
@@ -56,7 +58,8 @@ void PackPaddedGrid(T * padded, const T * active, GridSizes<Dim> ns, GridSizes<D
                                          DenomConstPtrs<TYPE, DIM> denoms,     \
                                          dim3 cu_grid_size,                    \
                                          dim3 cu_block_size,                   \
-                                         bool zero_origin);
+                                         bool zero_origin,                     \
+                                         TYPE inv_norm_factor);
 #define INSTANTIATE_PACKING(TYPE, DIM) \
     template void UnpackPaddedGrid<TYPE, DIM>(TYPE *active, \
             const TYPE *padded, \

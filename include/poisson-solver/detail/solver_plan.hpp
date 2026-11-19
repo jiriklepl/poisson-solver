@@ -25,6 +25,10 @@ template <std::floating_point T>
 class NonuniformZSolver;
 }  // namespace poisson_solver
 
+#ifndef POISSON_SOLVER_USE_R2C
+#define POISSON_SOLVER_USE_R2C 1
+#endif
+
 namespace poisson_solver::detail {
 
 // === Structs ===
@@ -49,6 +53,7 @@ public:
     AxisStrategies axis_strategies{};
     VariantLayout fft_layout{};
     bool requires_cmplx_wspace{true};
+    bool use_r2c{false};
 
     // The derived classes will append to this as part of their ctors.
     std::vector<ReshapeType> reshape_types{};
@@ -210,6 +215,10 @@ private:
         if (all_of(bcs, IsPeriodic)) {
             solve_method = &Solver<T, FFTDim>::SolveFullPeriodic;
             layout.forward_type = Complex;
+#if !defined(POISSON_SOLVER_USE_MPI) && POISSON_SOLVER_USE_R2C
+            layout.use_r2c = true;
+            this->use_r2c = true;
+#endif
         } else if (all_of(bcs, IsDirichlet)) {
             solve_method = &Solver<T, FFTDim>::SolveFullDirichlet;
             layout.forward_type = DST1;
@@ -265,6 +274,10 @@ private:
             layout.forward_type_1d = this->GetAxisFFTType(bcz);
             layout.forward_type_2d = Complex;
             layout.isolated_dim_idx = 2;
+#if !defined(POISSON_SOLVER_USE_MPI) && POISSON_SOLVER_USE_R2C
+            layout.use_r2c = true;
+            this->use_r2c = true;
+#endif
             this->reshape_types.emplace_back(ToPencils);
             this->reshape_types.emplace_back(ToSlabs);
 
@@ -274,6 +287,10 @@ private:
             layout.forward_type_1d = this->GetAxisFFTType(bcz);
             layout.forward_type_2d = Complex;
             layout.isolated_dim_idx = 2;
+#if !defined(POISSON_SOLVER_USE_MPI) && POISSON_SOLVER_USE_R2C
+            layout.use_r2c = true;
+            this->use_r2c = true;
+#endif
             this->reshape_types.emplace_back(ToPencils);
             this->reshape_types.emplace_back(ToSlabs);
 
@@ -292,6 +309,10 @@ private:
             layout.forward_type_1d = Complex;
             layout.forward_type_2d = this->GetAxisFFTType(bcy);
             layout.isolated_dim_idx = 0;
+#if !defined(POISSON_SOLVER_USE_MPI) && POISSON_SOLVER_USE_R2C
+            layout.use_r2c = true;
+            this->use_r2c = true;
+#endif
             this->reshape_types.emplace_back(ToSlabs);
             this->reshape_types.emplace_back(ToPencils);
 
@@ -300,6 +321,10 @@ private:
             layout.forward_type_1d = this->GetAxisFFTType(bcy);
             layout.forward_type_2d = Complex;
             layout.isolated_dim_idx = 1;
+#if !defined(POISSON_SOLVER_USE_MPI) && POISSON_SOLVER_USE_R2C
+            layout.use_r2c = true;
+            this->use_r2c = true;
+#endif
             this->reshape_types.emplace_back(ToPencils);
             this->reshape_types.emplace_back(ToSlabs);
 

@@ -142,6 +142,7 @@ struct VkFFTTypeToPerform {
 
 struct FullLayout {
     FFTTransformType forward_type{};
+    bool use_r2c{false};
 };
 
 struct SplitLayout {
@@ -150,6 +151,7 @@ struct SplitLayout {
 
     // 0 = X, 1 = Y, 2 = Z
     std::size_t isolated_dim_idx{};
+    bool use_r2c{false};
 };
 
 // === Functions and Macros ===
@@ -284,6 +286,102 @@ public:
             VkFFTAppend(handle.app.get(), backward_direction_, &launch_params));
     }
 
+    static void ForwardR2C(CuComplexTrait<T> *cmplx_buffer,
+                           T *real_buffer,
+                           Plan &plan) {
+        assert(std::holds_alternative<VkFFTFullHandle>(plan.handle));
+        auto &handle = std::get<VkFFTFullHandle>(plan.handle).handle;
+
+        VkFFTLaunchParams launch_params{};
+        void *void_real = real_buffer;
+        void *void_cmplx = cmplx_buffer;
+        launch_params.inputBuffer = &void_real;
+        launch_params.buffer = &void_cmplx;
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), forward_direction_, &launch_params));
+    }
+
+    static void BackwardC2R(T *real_buffer,
+                            CuComplexTrait<T> *cmplx_buffer,
+                            Plan &plan) {
+        assert(std::holds_alternative<VkFFTFullHandle>(plan.handle));
+        auto &handle = std::get<VkFFTFullHandle>(plan.handle).handle;
+
+        VkFFTLaunchParams launch_params{};
+        void *void_real = real_buffer;
+        void *void_cmplx = cmplx_buffer;
+        launch_params.inputBuffer = &void_real;
+        launch_params.buffer = &void_cmplx;
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), backward_direction_, &launch_params));
+    }
+
+    static void Forward1DR2C(CuComplexTrait<T> *cmplx_buffer,
+                             T *real_buffer,
+                             Plan &plan) {
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_1d;
+
+        VkFFTLaunchParams launch_params{};
+        void *void_real = real_buffer;
+        void *void_cmplx = cmplx_buffer;
+        launch_params.inputBuffer = &void_real;
+        launch_params.buffer = &void_cmplx;
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), forward_direction_, &launch_params));
+    }
+
+    static void Backward1DC2R(T *real_buffer,
+                              CuComplexTrait<T> *cmplx_buffer,
+                              Plan &plan) {
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_1d;
+
+        VkFFTLaunchParams launch_params{};
+        void *void_real = real_buffer;
+        void *void_cmplx = cmplx_buffer;
+        launch_params.inputBuffer = &void_real;
+        launch_params.buffer = &void_cmplx;
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), backward_direction_, &launch_params));
+    }
+
+    static void Forward2DR2C(CuComplexTrait<T> *cmplx_buffer,
+                             T *real_buffer,
+                             Plan &plan) {
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_2d;
+
+        VkFFTLaunchParams launch_params{};
+        void *void_real = real_buffer;
+        void *void_cmplx = cmplx_buffer;
+        launch_params.inputBuffer = &void_real;
+        launch_params.buffer = &void_cmplx;
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), forward_direction_, &launch_params));
+    }
+
+    static void Backward2DC2R(T *real_buffer,
+                              CuComplexTrait<T> *cmplx_buffer,
+                              Plan &plan) {
+        assert(std::holds_alternative<VkFFTSplitHandle>(plan.handle));
+        auto &handle = std::get<VkFFTSplitHandle>(plan.handle).handle_2d;
+
+        VkFFTLaunchParams launch_params{};
+        void *void_real = real_buffer;
+        void *void_cmplx = cmplx_buffer;
+        launch_params.inputBuffer = &void_real;
+        launch_params.buffer = &void_cmplx;
+
+        VKFFT_CHECK(
+            VkFFTAppend(handle.app.get(), backward_direction_, &launch_params));
+    }
+
 private:
     static constexpr int forward_direction_ = -1;
     static constexpr int backward_direction_ = 1;
@@ -323,6 +421,11 @@ private:
         auto fft_type = GetVkFFTTransformType(layout.forward_type);
         config.performDCT = fft_type.dct;
         config.performDST = fft_type.dst;
+        if (layout.use_r2c) {
+            config.performR2C = 1;
+            config.isInputFormatted = 1;
+            config.inverseReturnToInputBuffer = 1;
+        }
 
         auto &app = h.handle.app;
 
@@ -395,6 +498,20 @@ private:
 
         config_2d.performDCT = fft_type_2d.dct;
         config_2d.performDST = fft_type_2d.dst;
+
+        if (layout.use_r2c) {
+            if (layout.forward_type_2d == FFTTransformType::Complex &&
+                layout.isolated_dim_idx != 0) {
+                config_2d.performR2C = 1;
+                config_2d.isInputFormatted = 1;
+                config_2d.inverseReturnToInputBuffer = 1;
+            } else if (layout.forward_type_1d == FFTTransformType::Complex &&
+                       layout.isolated_dim_idx == 0) {
+                config_1d.performR2C = 1;
+                config_1d.isInputFormatted = 1;
+                config_1d.inverseReturnToInputBuffer = 1;
+            }
+        }
 
         auto &app_1d = h.handle_1d.app;
         auto &app_2d = h.handle_2d.app;

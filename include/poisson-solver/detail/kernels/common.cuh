@@ -154,14 +154,16 @@ __global__ void DivideByDenoms(Workspace *workspace,
                                GridSizes<Dim> ns,
                                GridOffsets<Dim> offs,
                                DenomConstPtrs<T, Dim> denoms,
-                               bool zero_origin) {
+                               bool zero_origin,
+                               T inv_norm_factor) {
     ApplyStrideLoop(ns, [&](MultidimIdx<Dim> midx) {
         const std::size_t idx = FlatIndex(midx, ns);
         if (zero_origin && OperatesOnGridOrigin(midx, offs)) {
             workspace[idx] = Workspace{T{0.0}};
             return;
         }
-        workspace[idx] /= SumIndexedDenoms(denoms, midx, offs);
+        const T scale = inv_norm_factor / SumIndexedDenoms(denoms, midx, offs);
+        workspace[idx] = workspace[idx] * scale;
     });
 }
 

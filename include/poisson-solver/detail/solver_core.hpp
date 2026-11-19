@@ -61,6 +61,7 @@ public:
 
     // === Grid ===
     GridSizes<Dim> ns;
+    GridSizes<Dim> spectral_ns;
     GridOffsets<Dim> offs;
     std::size_t cnt;
     std::unique_ptr<IReshaper<T, Dim>> reshaper{};
@@ -72,6 +73,7 @@ public:
     DenomConstPtrs cu_denom_observers;
 
     T norm_factor;
+    T inv_norm_factor;
 
     // === Workspaces ===
     // We need two of each to account for out-of-place
@@ -234,14 +236,17 @@ private:
                const ISolverPlan<T, FFTDim> &sp)
         : fft_plan(std::move(backend.fft_plan)),
           ns(ns),
+          spectral_ns(ComputeSpectralGridSizes(ns, sp.use_r2c)),
           offs(offs),
           cnt(ComputeLocalGridSize(ns)),
           reshaper(std::move(backend.reshaper)),
           norm_factor(ComputeNormFactor(gns, sp)),
+          inv_norm_factor(static_cast<T>(1.0) / norm_factor),
           cu_block_size(cuda_block_size) {
         AllocDeviceBuffers(gns,
                            sp.requires_cmplx_wspace,
-                           std::holds_alternative<FullLayout>(sp.fft_layout));
+                           std::holds_alternative<FullLayout>(sp.fft_layout),
+                           sp.use_r2c);
 
         // Denoms are constant for the solver lifetime.
         // They can be copied just once, here.
@@ -298,6 +303,14 @@ private:
     }
 #endif  // POISSON_SOLVER_USE_MPI
 
+    static auto ComputeSpectralGridSizes(GridSizes<Dim> ns, bool use_r2c)
+        -> GridSizes<Dim> {
+        if (use_r2c) {
+            ns[0] = ns[0] / 2 + 1;
+        }
+        return ns;
+    }
+
     static auto ComputeLocalGridSize(GridSizes<Dim> ns) -> std::size_t {
         return std::accumulate(
             ns.begin(), ns.end(), std::size_t{1}, std::multiplies<>{});
@@ -352,7 +365,9 @@ private:
         return static_cast<T>(factor);
     }
 
-    void AllocDeviceWorkspaces(bool requires_cmplx_wspace, bool layout_full) {
+    void AllocDeviceWorkspaces(bool requires_cmplx_wspace,
+                               bool layout_full,
+                               bool use_r2c) {
         // Workspace Allocation Table
         // rcw : requires_cmplx_wspace
         // lf  : layout_full
@@ -388,8 +403,11 @@ private:
         cu_real_workspace1 = MakeCudaShared<T>(reshaper->MaxLocalElements());
 
         if (requires_cmplx_wspace) {
+            const std::size_t cmplx_elements =
+                (!use_mpi && use_r2c) ? ComputeLocalGridSize(spectral_ns)
+                                      : reshaper->MaxLocalElements();
             cu_cmplx_workspace1 =
-                MakeCudaShared<CuComplexTrait<T>>(reshaper->MaxLocalElements());
+                MakeCudaShared<CuComplexTrait<T>>(cmplx_elements);
         }
 
         if (!layout_full) {
@@ -416,8 +434,9 @@ private:
 
     void AllocDeviceBuffers(GridSizes<Dim> gns,
                             bool requires_cmplx_wspace,
-                            bool layout_full) {
-        AllocDeviceWorkspaces(requires_cmplx_wspace, layout_full);
+                            bool layout_full,
+                            bool use_r2c) {
+        AllocDeviceWorkspaces(requires_cmplx_wspace, layout_full, use_r2c);
         AllocDeviceDenoms(gns);
     }
 

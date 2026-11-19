@@ -131,10 +131,10 @@ protected:
         if constexpr (Dim == 1) {
             return {256};
         } else if constexpr (Dim == 2) {
-            return {16, 16};
+            return {32, 8};
         } else {
             // Dim == 3
-            return {8, 8, 4};
+            return {32, 4, 2};
         }
     }
 };
@@ -321,6 +321,40 @@ private:
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
 
+#ifndef POISSON_SOLVER_USE_MPI
+        if (solver_plan_.use_r2c) {
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::ForwardR2C(core_.cu_cmplx_workspace1.get(),
+                                      core_.cu_real_workspace1.get(),
+                                      core_.fft_plan);
+            }
+
+            {
+                CUDAScopedTimer t(this->current_times_.kernel_time_ms);
+
+                DivideByDenoms(core_.cu_cmplx_workspace1.get(),
+                               core_.spectral_ns,
+                               core_.offs,
+                               core_.cu_denom_observers,
+                               core_.ComputeCUDAGridSize(core_.spectral_ns),
+                               core_.cu_block_size,
+                               true,
+                               core_.inv_norm_factor);
+            }
+
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::BackwardC2R(core_.cu_real_workspace1.get(),
+                                       core_.cu_cmplx_workspace1.get(),
+                                       core_.fft_plan);
+            }
+            return;
+        }
+#endif
+
         {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
@@ -370,45 +404,6 @@ private:
 
     void SolveFullDirichlet() {
         using detail::runners::DivideByDenoms;
-        using detail::runners::common_real::Normalize;
-
-        {
-            HybridScopedTimer t(this->current_times_.fft_time_ms);
-
-            FFTPolicy::Forward(core_.cu_real_workspace1.get(), core_.fft_plan);
-        }
-
-        {
-            CUDAScopedTimer t(this->current_times_.kernel_time_ms);
-
-            DivideByDenoms(core_.cu_real_workspace1.get(),
-                           core_.ns,
-                           core_.offs,
-                           core_.cu_denom_observers,
-                           core_.ComputeCUDAGridSize(core_.ns),
-                           core_.cu_block_size);
-        }
-
-        {
-            HybridScopedTimer t(this->current_times_.fft_time_ms);
-
-            FFTPolicy::Backward(core_.cu_real_workspace1.get(), core_.fft_plan);
-        }
-
-        {
-            CUDAScopedTimer t(this->current_times_.kernel_time_ms);
-
-            Normalize(core_.cu_real_workspace1.get(),
-                      core_.ns,
-                      core_.norm_factor,
-                      core_.ComputeCUDAGridSize(core_.ns),
-                      core_.cu_block_size);
-        }
-    }
-
-    void SolveFullNeumann() {
-        using detail::runners::DivideByDenoms;
-        using detail::runners::common_real::Normalize;
 
         {
             HybridScopedTimer t(this->current_times_.fft_time_ms);
@@ -425,7 +420,8 @@ private:
                            core_.cu_denom_observers,
                            core_.ComputeCUDAGridSize(core_.ns),
                            core_.cu_block_size,
-                           true);
+                           false,
+                           core_.inv_norm_factor);
         }
 
         {
@@ -433,15 +429,34 @@ private:
 
             FFTPolicy::Backward(core_.cu_real_workspace1.get(), core_.fft_plan);
         }
+    }
+
+    void SolveFullNeumann() {
+        using detail::runners::DivideByDenoms;
+
+        {
+            HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+            FFTPolicy::Forward(core_.cu_real_workspace1.get(), core_.fft_plan);
+        }
 
         {
             CUDAScopedTimer t(this->current_times_.kernel_time_ms);
 
-            Normalize(core_.cu_real_workspace1.get(),
-                      core_.ns,
-                      core_.norm_factor,
-                      core_.ComputeCUDAGridSize(core_.ns),
-                      core_.cu_block_size);
+            DivideByDenoms(core_.cu_real_workspace1.get(),
+                           core_.ns,
+                           core_.offs,
+                           core_.cu_denom_observers,
+                           core_.ComputeCUDAGridSize(core_.ns),
+                           core_.cu_block_size,
+                           true,
+                           core_.inv_norm_factor);
+        }
+
+        {
+            HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+            FFTPolicy::Backward(core_.cu_real_workspace1.get(), core_.fft_plan);
         }
     }
 
@@ -449,6 +464,54 @@ private:
         using detail::runners::DivideByDenoms;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
+
+#ifndef POISSON_SOLVER_USE_MPI
+        if (solver_plan_.use_r2c) {
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Forward1D(core_.cu_real_workspace1.get(),
+                                     core_.fft_plan);
+            }
+
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Forward2DR2C(core_.cu_cmplx_workspace1.get(),
+                                        core_.cu_real_workspace1.get(),
+                                        core_.fft_plan);
+            }
+
+            {
+                CUDAScopedTimer t(this->current_times_.kernel_time_ms);
+
+                DivideByDenoms(core_.cu_cmplx_workspace1.get(),
+                               core_.spectral_ns,
+                               core_.offs,
+                               core_.cu_denom_observers,
+                               core_.ComputeCUDAGridSize(core_.spectral_ns),
+                               core_.cu_block_size,
+                               true,
+                               core_.inv_norm_factor);
+            }
+
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Backward2DC2R(core_.cu_real_workspace1.get(),
+                                         core_.cu_cmplx_workspace1.get(),
+                                         core_.fft_plan);
+            }
+
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Backward1D(core_.cu_real_workspace1.get(),
+                                      core_.fft_plan);
+            }
+            return;
+        }
+#endif
 
         mpi_utils::LocalGridInfo<Dim> new_layout;
 
@@ -546,6 +609,54 @@ private:
         using detail::runners::DivideByDenoms;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
+
+#ifndef POISSON_SOLVER_USE_MPI
+        if (solver_plan_.use_r2c) {
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Forward1D(core_.cu_real_workspace1.get(),
+                                     core_.fft_plan);
+            }
+
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Forward2DR2C(core_.cu_cmplx_workspace1.get(),
+                                        core_.cu_real_workspace1.get(),
+                                        core_.fft_plan);
+            }
+
+            {
+                CUDAScopedTimer t(this->current_times_.kernel_time_ms);
+
+                DivideByDenoms(core_.cu_cmplx_workspace1.get(),
+                               core_.spectral_ns,
+                               core_.offs,
+                               core_.cu_denom_observers,
+                               core_.ComputeCUDAGridSize(core_.spectral_ns),
+                               core_.cu_block_size,
+                               false,
+                               core_.inv_norm_factor);
+            }
+
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Backward2DC2R(core_.cu_real_workspace1.get(),
+                                         core_.cu_cmplx_workspace1.get(),
+                                         core_.fft_plan);
+            }
+
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Backward1D(core_.cu_real_workspace1.get(),
+                                      core_.fft_plan);
+            }
+            return;
+        }
+#endif
 
         mpi_utils::LocalGridInfo<Dim> new_layout;
 
@@ -650,6 +761,54 @@ private:
         using detail::runners::DivideByDenoms;
         using detail::runners::common_cmplx::Init;
         using detail::runners::common_cmplx::Normalize;
+
+#ifndef POISSON_SOLVER_USE_MPI
+        if (solver_plan_.use_r2c) {
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Forward2D(core_.cu_real_workspace1.get(),
+                                     core_.fft_plan);
+            }
+
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Forward1DR2C(core_.cu_cmplx_workspace1.get(),
+                                        core_.cu_real_workspace1.get(),
+                                        core_.fft_plan);
+            }
+
+            {
+                CUDAScopedTimer t(this->current_times_.kernel_time_ms);
+
+                DivideByDenoms(core_.cu_cmplx_workspace1.get(),
+                               core_.spectral_ns,
+                               core_.offs,
+                               core_.cu_denom_observers,
+                               core_.ComputeCUDAGridSize(core_.spectral_ns),
+                               core_.cu_block_size,
+                               true,
+                               core_.inv_norm_factor);
+            }
+
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Backward1DC2R(core_.cu_real_workspace1.get(),
+                                         core_.cu_cmplx_workspace1.get(),
+                                         core_.fft_plan);
+            }
+
+            {
+                HybridScopedTimer t(this->current_times_.fft_time_ms);
+
+                FFTPolicy::Backward2D(core_.cu_real_workspace1.get(),
+                                      core_.fft_plan);
+            }
+            return;
+        }
+#endif
 
         mpi_utils::LocalGridInfo<Dim> new_layout;
 
@@ -849,7 +1008,6 @@ private:
 
     void Solve2Real1Real() {
         using detail::runners::DivideByDenoms;
-        using detail::runners::common_real::Normalize;
 
         mpi_utils::LocalGridInfo<Dim> new_layout;
 
@@ -890,7 +1048,8 @@ private:
                            core_.cu_denom_observers,
                            core_.ComputeCUDAGridSize(new_layout.ns),
                            core_.cu_block_size,
-                           solver_plan_.zero_origin);
+                           solver_plan_.zero_origin,
+                           core_.inv_norm_factor);
         }
 
         {
@@ -905,16 +1064,6 @@ private:
 
             new_layout = core_.reshaper->ReshapeReal(
                 core_.cu_real_workspace2.get(), core_.cu_real_workspace1.get());
-        }
-
-        {
-            CUDAScopedTimer t(this->current_times_.kernel_time_ms);
-
-            Normalize(core_.cu_real_workspace2.get(),
-                      new_layout.ns,
-                      core_.norm_factor,
-                      core_.ComputeCUDAGridSize(new_layout.ns),
-                      core_.cu_block_size);
         }
 
         {
